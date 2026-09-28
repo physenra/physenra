@@ -9,6 +9,10 @@ import { PatientListPage } from './pages/patients/PatientListPage';
 import { CreatePatientPage } from './pages/patients/CreatePatientPage';
 import { PatientProfilePage } from './pages/patients/PatientProfilePage';
 import { EditPatientPage } from './pages/patients/EditPatientPage';
+import { EpisodeListPage } from './pages/episodes/EpisodeListPage';
+import { CreateEpisodePage } from './pages/episodes/CreateEpisodePage';
+import { EpisodeProfilePage } from './pages/episodes/EpisodeProfilePage';
+import { EditEpisodePage } from './pages/episodes/EditEpisodePage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -42,6 +46,12 @@ export const App: React.FC = () => {
         <Route path="patients/new" element={<CreatePatientPage />} />
         <Route path="patients/:patientId" element={<PatientProfilePage />} />
         <Route path="patients/:patientId/edit" element={<EditPatientPage />} />
+
+        {/* Episode of Care Foundation V1 */}
+        <Route path="episodes" element={<EpisodeListPage />} />
+        <Route path="patients/:patientId/episodes/new" element={<CreateEpisodePage />} />
+        <Route path="episodes/:episodeId" element={<EpisodeProfilePage />} />
+        <Route path="episodes/:episodeId/edit" element={<EditEpisodePage />} />
       </Route>
 
       {/* Unmatched 404 Route */}

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { patientService } from '../../services/patientService';
+import { episodeService } from '../../services/episodeService';
 import { useRole } from '../../hooks/useRole';
 import { usePractice } from '../../hooks/usePractice';
-import type { Patient } from '../../types/models';
+import type { Patient, EpisodeWithPatient } from '../../types/models';
 import {
   ArrowLeft,
   Edit,
@@ -16,6 +17,12 @@ import {
   FileText,
   Activity,
   Building2,
+  FolderKanban,
+  FolderPlus,
+  Calendar,
+  CheckCircle,
+  PauseCircle,
+  PlayCircle,
 } from 'lucide-react';
 
 export const PatientProfilePage: React.FC = () => {
@@ -24,6 +31,7 @@ export const PatientProfilePage: React.FC = () => {
   const { activePractice } = usePractice();
 
   const [patient, setPatient] = useState<Patient | null>(null);
+  const [episodes, setEpisodes] = useState<EpisodeWithPatient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -35,11 +43,16 @@ export const PatientProfilePage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await patientService.getPatientById(patientId);
-      if (!data) {
+      const [patientData, episodeResult] = await Promise.all([
+        patientService.getPatientById(patientId),
+        episodeService.getEpisodes({ patientId, status: 'all', limit: 100 }),
+      ]);
+
+      if (!patientData) {
         setError('Patient not found or you do not have permission to view this record.');
       } else {
-        setPatient(data);
+        setPatient(patientData);
+        setEpisodes(episodeResult.episodes);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load patient record.';
@@ -368,18 +381,115 @@ export const PatientProfilePage: React.FC = () => {
         </div>
       </div>
 
+      {/* Episodes of Care Section */}
+      <div className="patient-episodes-section mt-6">
+        <div className="section-header-bar">
+          <div className="section-header-title">
+            <FolderKanban size={20} className="text-teal-600" />
+            <h3>Episodes of Care</h3>
+            <span className="count-badge">{episodes.length}</span>
+          </div>
+          {canEdit && patient.status !== 'archived' && (
+            <Link
+              to={`/app/patients/${patient.id}/episodes/new`}
+              className="btn-primary"
+            >
+              <FolderPlus size={16} />
+              <span>Open New Episode</span>
+            </Link>
+          )}
+        </div>
+
+        {episodes.length === 0 ? (
+          <div className="empty-episodes-card">
+            <FolderKanban size={36} className="empty-state-icon" />
+            <h4>No Episodes of Care</h4>
+            <p>
+              This patient has no active or past clinical courses of care recorded in this practice.
+            </p>
+            {canEdit && patient.status !== 'archived' && (
+              <Link
+                to={`/app/patients/${patient.id}/episodes/new`}
+                className="btn-secondary mt-4"
+              >
+                <FolderPlus size={16} />
+                <span>Open First Episode of Care</span>
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="patient-table-container mt-4">
+            <table className="patient-table">
+              <thead>
+                <tr>
+                  <th>Episode ID</th>
+                  <th>Title / Condition</th>
+                  <th>Status</th>
+                  <th>Start Date</th>
+                  <th>End Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {episodes.map((ep) => (
+                  <tr key={ep.id} className="patient-row">
+                    <td>
+                      <Link to={`/app/episodes/${ep.id}`} className="identifier-link">
+                        {ep.episode_identifier}
+                      </Link>
+                    </td>
+                    <td>
+                      <Link to={`/app/episodes/${ep.id}`} className="patient-name-link">
+                        <span className="name-bold">{ep.title}</span>
+                      </Link>
+                      {ep.description && (
+                        <p className="table-subtext">{ep.description}</p>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`status-pill status-${ep.status}`}>
+                        {ep.status === 'completed' && <CheckCircle size={12} />}
+                        {ep.status === 'paused' && <PauseCircle size={12} />}
+                        {ep.status === 'active' && <PlayCircle size={12} />}
+                        {ep.status === 'archived' && <Archive size={12} />}
+                        <span className="capitalize">{ep.status}</span>
+                      </span>
+                    </td>
+                    <td>
+                      <div className="cell-date">
+                        <Calendar size={12} />
+                        <span>{ep.start_date}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="cell-date">
+                        <span>{ep.end_date || 'In Progress'}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <Link to={`/app/episodes/${ep.id}`} className="btn-table-action">
+                        View Course
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Scope Boundary Notification */}
       <div className="info-banner mt-6">
         <div className="info-banner-icon">
           <Activity size={24} />
         </div>
         <div className="info-banner-content">
-          <h4 className="info-banner-title">Clinical Care Modules (Upcoming Milestone)</h4>
+          <h4 className="info-banner-title">Clinical Care Hierarchy Established</h4>
           <p className="info-banner-text">
-            This patient is registered under Patient Registry Foundation V1. Future care episodes,
-            clinical assessments, SOAP progress notes, appointment booking, and treatment plans
-            will be anchored to this durable patient identifier (
-            <strong>{patient.patient_identifier}</strong>) in subsequent development phases.
+            Patient Identity (<strong>{patient.patient_identifier}</strong>) and Episodes of Care
+            are active. Subsequent modules (Appointments, Clinical Visits, and SOAP Progress Notes)
+            will attach to specific care episodes in future development phases.
           </p>
         </div>
       </div>

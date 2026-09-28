@@ -26,6 +26,7 @@ export type SubscriptionStatus =
   | 'expired';
 export type PatientStatus = 'active' | 'inactive' | 'archived';
 export type PatientSex = 'male' | 'female' | 'other' | 'unknown';
+export type EpisodeStatus = 'active' | 'paused' | 'completed' | 'archived';
 
 export interface Database {
   public: {
@@ -323,11 +324,98 @@ export interface Database {
         };
         Relationships: [];
       };
+      practice_episode_counters: {
+        Row: {
+          practice_id: string;
+          next_val: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      episodes_of_care: {
+        Row: {
+          id: string;
+          practice_id: string;
+          patient_id: string;
+          episode_identifier: string;
+          title: string;
+          description: string | null;
+          status: EpisodeStatus;
+          start_date: string;
+          end_date: string | null;
+          primary_physiotherapist_id: string | null;
+          closed_at: string | null;
+          closed_by: string | null;
+          archived_at: string | null;
+          archived_by: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          patient_id: string;
+          episode_identifier?: string;
+          title: string;
+          description?: string | null;
+          status?: EpisodeStatus;
+          start_date?: string;
+          end_date?: string | null;
+          primary_physiotherapist_id?: string | null;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          archived_at?: string | null;
+          archived_by?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          patient_id?: string;
+          episode_identifier?: string;
+          title?: string;
+          description?: string | null;
+          status?: EpisodeStatus;
+          start_date?: string;
+          end_date?: string | null;
+          primary_physiotherapist_id?: string | null;
+          closed_at?: string | null;
+          closed_by?: string | null;
+          archived_at?: string | null;
+          archived_by?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      generate_next_episode_identifier: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
       generate_next_patient_identifier: {
         Args: {
           p_practice_id: string;
@@ -368,6 +456,7 @@ export interface Database {
       subscription_status: SubscriptionStatus;
       patient_status: PatientStatus;
       patient_sex: PatientSex;
+      episode_status: EpisodeStatus;
     };
     CompositeTypes: {
       [_ in never]: never;

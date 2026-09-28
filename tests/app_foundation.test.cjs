@@ -127,7 +127,6 @@ test('No patient or clinical database structures exist in application foundation
     'clinical_notes',
     'clinical_visits',
     'soap_notes',
-    'episodes_of_care',
     'treatment_plans',
     'invoices',
     'payments',
