@@ -27,6 +27,28 @@ export type SubscriptionStatus =
 export type PatientStatus = 'active' | 'inactive' | 'archived';
 export type PatientSex = 'male' | 'female' | 'other' | 'unknown';
 export type EpisodeStatus = 'active' | 'paused' | 'completed' | 'archived';
+export type AppointmentStatus =
+  | 'scheduled'
+  | 'confirmed'
+  | 'arrived'
+  | 'in_progress'
+  | 'completed'
+  | 'documentation_completed'
+  | 'cancelled'
+  | 'no_show'
+  | 'rescheduled'
+  | 'incomplete';
+export type AppointmentType =
+  | 'initial_assessment'
+  | 'follow_up'
+  | 'consultation'
+  | 'review'
+  | 'other';
+export type AppointmentLocationMode =
+  | 'in_clinic'
+  | 'home_visit'
+  | 'online'
+  | 'other';
 
 export interface Database {
   public: {
@@ -405,11 +427,107 @@ export interface Database {
         };
         Relationships: [];
       };
+      practice_appointment_counters: {
+        Row: {
+          practice_id: string;
+          next_val: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      appointments: {
+        Row: {
+          id: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id: string | null;
+          physiotherapist_id: string;
+          appointment_identifier: string;
+          appointment_type: AppointmentType;
+          status: AppointmentStatus;
+          scheduled_start: string;
+          scheduled_end: string;
+          duration_minutes: number;
+          location_mode: AppointmentLocationMode;
+          notes: string | null;
+          cancellation_reason: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          rescheduled_from_id: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id?: string;
+          patient_id: string;
+          episode_id?: string | null;
+          physiotherapist_id: string;
+          appointment_identifier?: string;
+          appointment_type: AppointmentType;
+          status?: AppointmentStatus;
+          scheduled_start: string;
+          scheduled_end?: string;
+          duration_minutes: number;
+          location_mode?: AppointmentLocationMode;
+          notes?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          rescheduled_from_id?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          patient_id?: string;
+          episode_id?: string | null;
+          physiotherapist_id?: string;
+          appointment_identifier?: string;
+          appointment_type?: AppointmentType;
+          status?: AppointmentStatus;
+          scheduled_start?: string;
+          scheduled_end?: string;
+          duration_minutes?: number;
+          location_mode?: AppointmentLocationMode;
+          notes?: string | null;
+          cancellation_reason?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          rescheduled_from_id?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      generate_next_appointment_identifier: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
       generate_next_episode_identifier: {
         Args: {
           p_practice_id: string;
@@ -457,6 +575,9 @@ export interface Database {
       patient_status: PatientStatus;
       patient_sex: PatientSex;
       episode_status: EpisodeStatus;
+      appointment_status: AppointmentStatus;
+      appointment_type: AppointmentType;
+      appointment_location_mode: AppointmentLocationMode;
     };
     CompositeTypes: {
       [_ in never]: never;

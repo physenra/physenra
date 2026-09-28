@@ -13,6 +13,10 @@ import { EpisodeListPage } from './pages/episodes/EpisodeListPage';
 import { CreateEpisodePage } from './pages/episodes/CreateEpisodePage';
 import { EpisodeProfilePage } from './pages/episodes/EpisodeProfilePage';
 import { EditEpisodePage } from './pages/episodes/EditEpisodePage';
+import { AppointmentListPage } from './pages/appointments/AppointmentListPage';
+import { CreateAppointmentPage } from './pages/appointments/CreateAppointmentPage';
+import { AppointmentDetailPage } from './pages/appointments/AppointmentDetailPage';
+import { EditAppointmentPage } from './pages/appointments/EditAppointmentPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -52,6 +56,12 @@ export const App: React.FC = () => {
         <Route path="patients/:patientId/episodes/new" element={<CreateEpisodePage />} />
         <Route path="episodes/:episodeId" element={<EpisodeProfilePage />} />
         <Route path="episodes/:episodeId/edit" element={<EditEpisodePage />} />
+
+        {/* Appointment & Scheduling Foundation V1 */}
+        <Route path="appointments" element={<AppointmentListPage />} />
+        <Route path="appointments/new" element={<CreateAppointmentPage />} />
+        <Route path="appointments/:appointmentId" element={<AppointmentDetailPage />} />
+        <Route path="appointments/:appointmentId/edit" element={<EditAppointmentPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}

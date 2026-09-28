@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Building2, ShieldCheck, Users, FolderKanban } from 'lucide-react';
+import { LayoutDashboard, Building2, ShieldCheck, Users, FolderKanban, Calendar } from 'lucide-react';
 import { usePractice } from '../../hooks/usePractice';
 import { useRole } from '../../hooks/useRole';
 
@@ -41,6 +41,16 @@ export const Sidebar: React.FC = () => {
           >
             <FolderKanban size={18} />
             <span>Episodes</span>
+          </NavLink>
+
+          <NavLink
+            to="/app/appointments"
+            className={({ isActive }) =>
+              `nav-link ${isActive ? 'nav-link-active' : ''}`
+            }
+          >
+            <Calendar size={18} />
+            <span>Appointments</span>
           </NavLink>
 
           <NavLink

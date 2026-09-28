@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { episodeService, ClinicianOption } from '../../services/episodeService';
+import { appointmentService } from '../../services/appointmentService';
 import { useRole } from '../../hooks/useRole';
 import { usePractice } from '../../hooks/usePractice';
-import type { EpisodeWithPatient, EpisodeStatus } from '../../types/models';
+import type { EpisodeWithPatient, EpisodeStatus, AppointmentWithRelations } from '../../types/models';
 import {
   ArrowLeft,
   Edit,
@@ -13,6 +14,8 @@ import {
   PauseCircle,
   PlayCircle,
   Calendar,
+  Clock,
+  CalendarPlus,
   User,
   FileText,
   AlertCircle,
@@ -28,6 +31,7 @@ export const EpisodeProfilePage: React.FC = () => {
 
   const [episode, setEpisode] = useState<EpisodeWithPatient | null>(null);
   const [clinicians, setClinicians] = useState<ClinicianOption[]>([]);
+  const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -41,9 +45,10 @@ export const EpisodeProfilePage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [data, clinicianList] = await Promise.all([
+      const [data, clinicianList, apptResult] = await Promise.all([
         episodeService.getEpisodeById(episodeId),
         episodeService.getPracticeClinicians(),
+        appointmentService.getAppointments({ episodeId, limit: 100 }),
       ]);
 
       if (!data) {
@@ -51,6 +56,7 @@ export const EpisodeProfilePage: React.FC = () => {
       } else {
         setEpisode(data);
         setClinicians(clinicianList);
+        setAppointments(apptResult.appointments);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load episode of care.';
@@ -396,6 +402,110 @@ export const EpisodeProfilePage: React.FC = () => {
         </div>
       </div>
 
+      {/* Linked Scheduled Appointments Section */}
+      <div className="patient-episodes-section mt-6">
+        <div className="section-header-bar">
+          <div className="section-header-title">
+            <Clock size={20} className="text-blue-600" />
+            <h3>Scheduled Appointments</h3>
+            <span className="count-badge">{appointments.length}</span>
+          </div>
+          {canEdit && episode.status !== 'archived' && (
+            <Link
+              to={`/app/appointments/new?patientId=${episode.patient_id}&episodeId=${episode.id}`}
+              className="btn-primary"
+            >
+              <CalendarPlus size={16} />
+              <span>Schedule Appointment</span>
+            </Link>
+          )}
+        </div>
+
+        {appointments.length === 0 ? (
+          <div className="empty-episodes-card">
+            <Clock size={36} className="empty-state-icon" />
+            <h4>No Appointments Linked to this Episode</h4>
+            <p>
+              Schedule an assessment, follow-up, or clinical consultation linked to this care episode.
+            </p>
+            {canEdit && episode.status !== 'archived' && (
+              <Link
+                to={`/app/appointments/new?patientId=${episode.patient_id}&episodeId=${episode.id}`}
+                className="btn-secondary mt-4"
+              >
+                <CalendarPlus size={16} />
+                <span>Schedule First Appointment</span>
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="patient-table-container mt-4">
+            <table className="patient-table">
+              <thead>
+                <tr>
+                  <th>Appointment ID</th>
+                  <th>Date & Time</th>
+                  <th>Type</th>
+                  <th>Clinician</th>
+                  <th>Mode</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {appointments.map((appt) => (
+                  <tr key={appt.id} className="patient-row">
+                    <td>
+                      <Link to={`/app/appointments/${appt.id}`} className="identifier-link">
+                        {appt.appointment_identifier}
+                      </Link>
+                    </td>
+                    <td>
+                      <div className="cell-date">
+                        <Calendar size={12} />
+                        <span>
+                          {new Date(appt.scheduled_start).toLocaleDateString([], {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}{' '}
+                          ({new Date(appt.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="capitalize">{appt.appointment_type.replace('_', ' ')}</span>
+                    </td>
+                    <td>
+                      <span>
+                        {appt.physiotherapist?.display_name ||
+                          `${appt.physiotherapist?.first_name || ''} ${appt.physiotherapist?.last_name || ''}`.trim() ||
+                          'Physiotherapist'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="capitalize text-xs text-gray-500">
+                        {appt.location_mode.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`status-pill status-${appt.status}`}>
+                        <span className="capitalize">{appt.status.replace('_', ' ')}</span>
+                      </span>
+                    </td>
+                    <td>
+                      <Link to={`/app/appointments/${appt.id}`} className="btn-table-action">
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Staged Future Clinical Encounters Area */}
       <div className="staged-clinical-modules-container mt-6">
         <div className="staged-header">
@@ -403,15 +513,15 @@ export const EpisodeProfilePage: React.FC = () => {
           <h3>Subsequent Clinical Modules (Staged Anchor)</h3>
         </div>
         <p className="staged-desc">
-          This episode represents an anchor for future clinical workflows.
-          No clinical notes, encounter visits, or appointments are fabricated.
+          This episode anchors scheduled appointments and future clinical workflows.
+          Appointments are administrative scheduling slots; clinical encounters and documentation will follow.
         </p>
 
         <div className="staged-grid">
           <div className="staged-card">
-            <div className="staged-card-badge">Upcoming Milestone</div>
-            <h4>Appointments</h4>
-            <p>Calendar bookings, schedule management, and practitioner availability.</p>
+            <div className="staged-card-badge">Active Domain</div>
+            <h4>Appointments &amp; Scheduling</h4>
+            <p>Calendar bookings, schedule management, and practitioner conflict checks.</p>
           </div>
 
           <div className="staged-card">

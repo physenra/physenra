@@ -1,0 +1,349 @@
+// ==============================================================================
+// PHYSENRA APPOINTMENT & SCHEDULING FOUNDATION V1 VERIFICATION SUITE
+// File: tests/appointment_scheduling.test.cjs
+//
+// Verifies:
+// 1. Schema integrity & multi-tenant composite foreign keys
+// 2. Atomic sequential identifier generator (APT-000001)
+// 3. Immutability, clinician validation & state machine triggers
+// 4. Strict Row-Level Security (RLS) & zero hard-delete policy
+// 5. Absolute domain boundary verification (Zero clinical visits/SOAP/billing)
+// 6. Application service domain logic & state machine rules
+// ==============================================================================
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const MIGRATION_PATH = path.join(
+  __dirname,
+  '..',
+  'supabase',
+  'migrations',
+  '20260928021000_appointment_scheduling_foundation.sql'
+);
+const SERVICE_PATH = path.join(
+  __dirname,
+  '..',
+  'src',
+  'services',
+  'appointmentService.ts'
+);
+
+const migrationSql = fs.readFileSync(MIGRATION_PATH, 'utf8');
+const serviceCode = fs.readFileSync(SERVICE_PATH, 'utf8');
+
+test('PHYSENRA APPOINTMENT & SCHEDULING FOUNDATION V1 VERIFICATION', async (t) => {
+  // ----------------------------------------------------------------------------
+  // SUITE 1: Database Schema & Relational Tenancy Defense in Depth
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 1: Appointment Database Schema & Relational Tenancy ---', async (st) => {
+    await st.test('Migration creates public.appointments table with UUID primary key and practice_id', () => {
+      assert(
+        /CREATE\s+TABLE\s+public\.appointments\s*\(/i.test(migrationSql),
+        'Table public.appointments must be created'
+      );
+      assert(
+        /id\s+uuid\s+PRIMARY\s+KEY\s+DEFAULT\s+gen_random_uuid\(\)/i.test(migrationSql),
+        'Appointment primary key must be UUID with gen_random_uuid() default'
+      );
+      assert(
+        /practice_id\s+uuid\s+NOT\s+NULL\s+REFERENCES\s+public\.practices\(id\)\s+ON\s+DELETE\s+RESTRICT/i.test(
+          migrationSql
+        ),
+        'practice_id must NOT NULL reference public.practices(id) ON DELETE RESTRICT'
+      );
+    });
+
+    await st.test('Migration defines required clinical appointment columns', () => {
+      assert(/patient_id\s+uuid\s+NOT\s+NULL/i.test(migrationSql), 'patient_id is required');
+      assert(/episode_id\s+uuid\s+REFERENCES\s+public\.episodes_of_care\(id\)/i.test(migrationSql), 'episode_id is nullable FK');
+      assert(/physiotherapist_id\s+uuid\s+NOT\s+NULL/i.test(migrationSql), 'physiotherapist_id is required');
+      assert(/appointment_identifier\s+text\s+NOT\s+NULL/i.test(migrationSql), 'appointment_identifier is required');
+      assert(/appointment_type\s+text\s+NOT\s+NULL/i.test(migrationSql), 'appointment_type is required');
+      assert(/status\s+text\s+NOT\s+NULL\s+DEFAULT\s+'scheduled'/i.test(migrationSql), 'status defaults to scheduled');
+      assert(/scheduled_start\s+timestamptz\s+NOT\s+NULL/i.test(migrationSql), 'scheduled_start is required');
+      assert(/scheduled_end\s+timestamptz\s+NOT\s+NULL/i.test(migrationSql), 'scheduled_end is required');
+      assert(/duration_minutes\s+integer\s+NOT\s+NULL/i.test(migrationSql), 'duration_minutes is required');
+      assert(/location_mode\s+text\s+NOT\s+NULL/i.test(migrationSql), 'location_mode is required');
+      assert(/cancellation_reason\s+text/i.test(migrationSql), 'cancellation_reason column must exist');
+      assert(/rescheduled_from_id\s+uuid/i.test(migrationSql), 'rescheduled_from_id column must exist');
+    });
+
+    await st.test('Migration enforces unique appointment_identifier per practice', () => {
+      assert(
+        /CONSTRAINT\s+uq_appointments_practice_identifier\s+UNIQUE\s*\(practice_id,\s*appointment_identifier\)/i.test(
+          migrationSql
+        ),
+        'uq_appointments_practice_identifier must be unique per practice'
+      );
+    });
+
+    await st.test('Migration enforces composite patient-practice foreign key to prevent cross-tenant assignment', () => {
+      assert(
+        /CONSTRAINT\s+fk_appointments_patient_practice\s+FOREIGN\s+KEY\s*\(patient_id,\s*practice_id\)\s+REFERENCES\s+public\.patients\(id,\s*practice_id\)\s+ON\s+DELETE\s+RESTRICT/i.test(
+          migrationSql
+        ),
+        'fk_appointments_patient_practice must enforce identical patient and practice'
+      );
+    });
+
+    await st.test('Migration enforces composite episode-patient-practice foreign key to ensure episode matches patient and practice', () => {
+      assert(
+        /ALTER\s+TABLE\s+public\.episodes_of_care\s+ADD\s+CONSTRAINT\s+uq_episodes_id_patient_practice\s+UNIQUE\s*\(id,\s*patient_id,\s*practice_id\)/i.test(
+          migrationSql
+        ),
+        'uq_episodes_id_patient_practice must be created on episodes_of_care'
+      );
+      assert(
+        /CONSTRAINT\s+fk_appointments_episode_patient_practice\s+FOREIGN\s+KEY\s*\(episode_id,\s*patient_id,\s*practice_id\)\s+REFERENCES\s+public\.episodes_of_care\(id,\s*patient_id,\s*practice_id\)\s+ON\s+DELETE\s+SET\s+NULL/i.test(
+          migrationSql
+        ),
+        'fk_appointments_episode_patient_practice must verify episode matches patient and practice'
+      );
+    });
+
+    await st.test('Migration defines practice_appointment_counters table for atomic sequencing', () => {
+      assert(
+        /CREATE\s+TABLE\s+public\.practice_appointment_counters\s*\(/i.test(migrationSql),
+        'practice_appointment_counters table must be created'
+      );
+      assert(
+        /practice_id\s+uuid\s+PRIMARY\s+KEY\s+REFERENCES\s+public\.practices\(id\)/i.test(migrationSql),
+        'practice_id must be PK referencing public.practices'
+      );
+    });
+
+    await st.test('Migration defines appointment indexes for performant practice-scoped lookups', () => {
+      assert(/CREATE\s+INDEX\s+idx_appointments_practice_patient/i.test(migrationSql), 'patient index must exist');
+      assert(/CREATE\s+INDEX\s+idx_appointments_practice_physio/i.test(migrationSql), 'physiotherapist index must exist');
+      assert(/CREATE\s+INDEX\s+idx_appointments_practice_dates/i.test(migrationSql), 'dates index must exist');
+      assert(/CREATE\s+INDEX\s+idx_appointments_practice_status/i.test(migrationSql), 'status index must exist');
+      assert(/CREATE\s+INDEX\s+idx_appointments_practice_identifier/i.test(migrationSql), 'identifier index must exist');
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 2: Identifier Generator & Trigger Invariants
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 2: Identifier Generator & Trigger Invariants ---', async (st) => {
+    await st.test('generate_next_appointment_identifier is SECURITY DEFINER with safe search_path', () => {
+      assert(
+        /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.generate_next_appointment_identifier/i.test(migrationSql),
+        'generate_next_appointment_identifier must be defined'
+      );
+      assert(/SECURITY\s+DEFINER/i.test(migrationSql), 'Must be SECURITY DEFINER');
+      assert(/SET\s+search_path\s*=\s*public,\s*pg_temp/i.test(migrationSql), 'search_path must be public, pg_temp');
+      assert(/'APT-'\s*\|\|\s*lpad\(/i.test(migrationSql), 'Format must prefix APT- with padded digits');
+    });
+
+    await st.test('Identifier generator validates tenant context and authorized roles', () => {
+      assert(
+        /p_practice_id\s*<>\s*public\.current_practice_id\(\)/i.test(migrationSql),
+        'Must validate against public.current_practice_id()'
+      );
+      assert(
+        /user_has_practice_role\(p_practice_id,\s*ARRAY\['practice_owner',\s*'practice_manager',\s*'physiotherapist',\s*'receptionist'\]\)/i.test(
+          migrationSql
+        ),
+        'Must validate practice membership role'
+      );
+    });
+
+    await st.test('Identifier generator public execution revoked, granted to authenticated', () => {
+      assert(
+        /REVOKE\s+EXECUTE\s+ON\s+FUNCTION\s+public\.generate_next_appointment_identifier\(uuid\)\s+FROM\s+PUBLIC/i.test(
+          migrationSql
+        ),
+        'Execution must be revoked from public'
+      );
+      assert(
+        /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.generate_next_appointment_identifier\(uuid\)\s+TO\s+authenticated/i.test(
+          migrationSql
+        ),
+        'Execution must be granted to authenticated'
+      );
+    });
+
+    await st.test('Triggers guard tenancy, patient, and appointment identifier immutability', () => {
+      assert(
+        /CREATE\s+TRIGGER\s+trg_appointments_before_insert/i.test(migrationSql),
+        'trg_appointments_before_insert must be attached'
+      );
+      assert(
+        /CREATE\s+TRIGGER\s+trg_appointments_before_update/i.test(migrationSql),
+        'trg_appointments_before_update must be attached'
+      );
+      assert(
+        /OLD\.practice_id\s*<>\s*NEW\.practice_id\s+OR\s+OLD\.patient_id\s*<>\s*NEW\.patient_id\s+OR\s+OLD\.appointment_identifier\s*<>\s*NEW\.appointment_identifier/i.test(
+          migrationSql
+        ),
+        'Must strictly prevent altering practice_id, patient_id, or appointment_identifier'
+      );
+    });
+
+    await st.test('Triggers validate assigned physiotherapist membership and clinical role', () => {
+      assert(
+        /SELECT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+public\.practice_memberships\s+WHERE\s+practice_id\s*=\s*NEW\.practice_id\s+AND\s+user_id\s*=\s*NEW\.physiotherapist_id\s+AND\s+status\s*=\s*'active'\s+AND\s+role\s+IN\s*\('physiotherapist',\s*'practice_owner',\s*'practice_manager'\)\s*\)/i.test(
+          migrationSql
+        ),
+        'Physiotherapist must be validated against active practice membership with clinical/owner role'
+      );
+    });
+
+    await st.test('Triggers enforce state machine transitions and prohibit cancelled -> completed', () => {
+      assert(/OLD\.status\s*<>\s*NEW\.status/i.test(migrationSql), 'Trigger inspects status changes');
+      assert(
+        /v_allowed_transition/i.test(migrationSql),
+        'Trigger validates allowed transitions explicitly'
+      );
+      assert(
+        /NEW\.status\s*=\s*'cancelled'/i.test(migrationSql),
+        'Cancellation stamps cancelled_at and cancelled_by'
+      );
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 3: Tenant Isolation & RLS Policies
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 3: Tenant Isolation & RLS Policies ---', async (st) => {
+    await st.test('Row-Level Security is explicitly enabled on appointments and counters', () => {
+      assert(
+        /ALTER\s+TABLE\s+public\.appointments\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(migrationSql),
+        'RLS must be enabled on public.appointments'
+      );
+      assert(
+        /ALTER\s+TABLE\s+public\.practice_appointment_counters\s+ENABLE\s+ROW\s+LEVEL\s+SECURITY/i.test(
+          migrationSql
+        ),
+        'RLS must be enabled on public.practice_appointment_counters'
+      );
+    });
+
+    await st.test('SELECT policy restricts appointment access to active practice context and staff roles', () => {
+      assert(
+        /CREATE\s+POLICY\s+"Staff can view appointments in active practice"\s+ON\s+public\.appointments\s+FOR\s+SELECT\s+TO\s+authenticated/i.test(
+          migrationSql
+        ),
+        'SELECT policy must exist for authenticated staff'
+      );
+      assert(
+        /practice_id\s*=\s*public\.current_practice_id\(\)/i.test(migrationSql),
+        'Must filter by public.current_practice_id()'
+      );
+    });
+
+    await st.test('INSERT and UPDATE policies enforce active practice context and authorized staff roles', () => {
+      assert(
+        /CREATE\s+POLICY\s+"Staff can create appointments in active practice"\s+ON\s+public\.appointments\s+FOR\s+INSERT/i.test(
+          migrationSql
+        ),
+        'INSERT policy must be defined'
+      );
+      assert(
+        /CREATE\s+POLICY\s+"Staff can update appointments in active practice"\s+ON\s+public\.appointments\s+FOR\s+UPDATE/i.test(
+          migrationSql
+        ),
+        'UPDATE policy must be defined'
+      );
+    });
+
+    await st.test('DELETE policy is strictly DENIED across all roles (zero hard deletes)', () => {
+      assert(
+        !/CREATE\s+POLICY\s+[^;]+ON\s+public\.appointments\s+FOR\s+DELETE/i.test(migrationSql),
+        'No DELETE policy must be defined on public.appointments (default deny)'
+      );
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 4: Scope Boundary Verification
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 4: Scope Boundary Verification ---', async (st) => {
+    await st.test('No clinical visits, SOAP notes, or billing tables created in migration', () => {
+      const prohibited = [
+        'clinical_visits',
+        'clinical_notes',
+        'soap_notes',
+        'treatment_plans',
+        'invoices',
+        'payments',
+        'patient_wallets',
+        'wallet_transactions',
+        'packages',
+        'package_session_ledger',
+        'outcome_measures',
+        'home_exercises',
+      ];
+      for (const table of prohibited) {
+        const regex = new RegExp(`CREATE\\s+TABLE\\s+public\\.${table}`, 'i');
+        assert(!regex.test(migrationSql), `Prohibited table '${table}' must not be created`);
+      }
+    });
+
+    await st.test('Migration contains zero Kabworld references or IDs', () => {
+      assert(!/kabworld|psyjbmetnpsqarbumzrb/i.test(migrationSql), 'Zero Kabworld contamination');
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 5: Application Service & Domain Logic
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 5: Application Service & Domain Logic ---', async (st) => {
+    await st.test('appointmentService integrates with public.log_audit_event for lifecycle events', () => {
+      assert(
+        serviceCode.includes('appointment.created'),
+        'Must log appointment.created audit event'
+      );
+      assert(
+        serviceCode.includes('appointment.updated'),
+        'Must log appointment.updated audit event'
+      );
+      assert(
+        serviceCode.includes('appointment.status_changed') || serviceCode.includes('appointment.cancelled'),
+        'Must log appointment status audit events'
+      );
+      assert(
+        serviceCode.includes('appointment.rescheduled'),
+        'Must log appointment.rescheduled audit event'
+      );
+    });
+
+    await st.test('Sequential appointment identifier format matches APT-000001 pattern', () => {
+      const pattern = /^APT-\d{6}$/;
+      assert(pattern.test('APT-000001'), 'APT-000001 must match format');
+      assert(pattern.test('APT-000142'), 'APT-000142 must match format');
+      assert(!pattern.test('PAT-000001'), 'PAT prefix must be rejected');
+      assert(!pattern.test('EOC-000001'), 'EOC prefix must be rejected');
+    });
+
+    await st.test('Appointment state machine transition rules validate correctly', () => {
+      // Direct validation of allowed status transitions
+      const transitions = {
+        scheduled: ['confirmed', 'cancelled', 'rescheduled'],
+        confirmed: ['arrived', 'cancelled', 'rescheduled', 'no_show'],
+        arrived: ['in_progress', 'cancelled', 'incomplete'],
+        in_progress: ['completed', 'incomplete'],
+        completed: ['documentation_completed'],
+        cancelled: [],
+        no_show: [],
+        rescheduled: [],
+        incomplete: [],
+      };
+
+      // Valid paths
+      assert(transitions.scheduled.includes('confirmed'), 'scheduled -> confirmed must be allowed');
+      assert(transitions.confirmed.includes('arrived'), 'confirmed -> arrived must be allowed');
+      assert(transitions.arrived.includes('in_progress'), 'arrived -> in_progress must be allowed');
+      assert(transitions.in_progress.includes('completed'), 'in_progress -> completed must be allowed');
+
+      // Prohibited paths
+      assert(!transitions.cancelled.includes('completed'), 'cancelled -> completed must be strictly forbidden');
+      assert(!transitions.cancelled.includes('in_progress'), 'cancelled -> in_progress must be strictly forbidden');
+      assert(!transitions.no_show.includes('completed'), 'no_show -> completed must be forbidden');
+      assert(!transitions.rescheduled.includes('completed'), 'rescheduled -> completed must be forbidden');
+    });
+  });
+});

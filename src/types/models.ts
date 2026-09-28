@@ -6,6 +6,9 @@ import type {
   PatientStatus,
   PatientSex,
   EpisodeStatus,
+  AppointmentStatus,
+  AppointmentType,
+  AppointmentLocationMode,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -19,9 +22,31 @@ export type EpisodeOfCare = Database['public']['Tables']['episodes_of_care']['Ro
 export type EpisodeOfCareInsert = Database['public']['Tables']['episodes_of_care']['Insert'];
 export type EpisodeOfCareUpdate = Database['public']['Tables']['episodes_of_care']['Update'];
 
+export type Appointment = Database['public']['Tables']['appointments']['Row'];
+export type AppointmentInsert = Database['public']['Tables']['appointments']['Insert'];
+export type AppointmentUpdate = Database['public']['Tables']['appointments']['Update'];
+
 export interface EpisodeWithPatient extends EpisodeOfCare {
   patients?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
   primary_physiotherapist?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+}
+
+export interface AppointmentWithRelations extends Appointment {
+  patient?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
+  episode?: Pick<EpisodeOfCare, 'id' | 'episode_identifier' | 'title' | 'status'> | null;
+  physiotherapist?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+}
+
+export interface AppointmentFilters {
+  date?: string; // YYYY-MM-DD
+  startDate?: string;
+  endDate?: string;
+  patientId?: string;
+  episodeId?: string;
+  physiotherapistId?: string;
+  status?: AppointmentStatus | 'all';
+  appointmentType?: AppointmentType | 'all';
+  searchQuery?: string;
 }
 
 export interface UserPracticeMembership {
@@ -49,6 +74,9 @@ export type {
   PatientStatus,
   PatientSex,
   EpisodeStatus,
+  AppointmentStatus,
+  AppointmentType,
+  AppointmentLocationMode,
 };
 
 

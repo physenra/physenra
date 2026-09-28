@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { patientService } from '../../services/patientService';
 import { episodeService } from '../../services/episodeService';
+import { appointmentService } from '../../services/appointmentService';
 import { useRole } from '../../hooks/useRole';
 import { usePractice } from '../../hooks/usePractice';
-import type { Patient, EpisodeWithPatient } from '../../types/models';
+import type { Patient, EpisodeWithPatient, AppointmentWithRelations } from '../../types/models';
 import {
   ArrowLeft,
   Edit,
@@ -20,6 +21,8 @@ import {
   FolderKanban,
   FolderPlus,
   Calendar,
+  Clock,
+  CalendarPlus,
   CheckCircle,
   PauseCircle,
   PlayCircle,
@@ -32,6 +35,7 @@ export const PatientProfilePage: React.FC = () => {
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [episodes, setEpisodes] = useState<EpisodeWithPatient[]>([]);
+  const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -43,9 +47,10 @@ export const PatientProfilePage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [patientData, episodeResult] = await Promise.all([
+      const [patientData, episodeResult, appointmentResult] = await Promise.all([
         patientService.getPatientById(patientId),
         episodeService.getEpisodes({ patientId, status: 'all', limit: 100 }),
+        appointmentService.getAppointments({ patientId, limit: 100 }),
       ]);
 
       if (!patientData) {
@@ -53,6 +58,7 @@ export const PatientProfilePage: React.FC = () => {
       } else {
         setPatient(patientData);
         setEpisodes(episodeResult.episodes);
+        setAppointments(appointmentResult.appointments);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load patient record.';
@@ -479,6 +485,110 @@ export const PatientProfilePage: React.FC = () => {
         )}
       </div>
 
+      {/* Appointments & Schedule Section */}
+      <div className="patient-episodes-section mt-6">
+        <div className="section-header-bar">
+          <div className="section-header-title">
+            <Clock size={20} className="text-blue-600" />
+            <h3>Scheduled Appointments</h3>
+            <span className="count-badge">{appointments.length}</span>
+          </div>
+          {canEdit && patient.status !== 'archived' && (
+            <Link
+              to={`/app/appointments/new?patientId=${patient.id}`}
+              className="btn-primary"
+            >
+              <CalendarPlus size={16} />
+              <span>Book Appointment</span>
+            </Link>
+          )}
+        </div>
+
+        {appointments.length === 0 ? (
+          <div className="empty-episodes-card">
+            <Clock size={36} className="empty-state-icon" />
+            <h4>No Appointments Scheduled</h4>
+            <p>
+              This patient has no upcoming or past scheduled appointments in this practice.
+            </p>
+            {canEdit && patient.status !== 'archived' && (
+              <Link
+                to={`/app/appointments/new?patientId=${patient.id}`}
+                className="btn-secondary mt-4"
+              >
+                <CalendarPlus size={16} />
+                <span>Book First Appointment</span>
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="patient-table-container mt-4">
+            <table className="patient-table">
+              <thead>
+                <tr>
+                  <th>Appointment ID</th>
+                  <th>Date & Time</th>
+                  <th>Type</th>
+                  <th>Clinician</th>
+                  <th>Mode</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {appointments.map((appt) => (
+                  <tr key={appt.id} className="patient-row">
+                    <td>
+                      <Link to={`/app/appointments/${appt.id}`} className="identifier-link">
+                        {appt.appointment_identifier}
+                      </Link>
+                    </td>
+                    <td>
+                      <div className="cell-date">
+                        <Calendar size={12} />
+                        <span>
+                          {new Date(appt.scheduled_start).toLocaleDateString([], {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}{' '}
+                          ({new Date(appt.scheduled_start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="capitalize">{appt.appointment_type.replace('_', ' ')}</span>
+                    </td>
+                    <td>
+                      <span>
+                        {appt.physiotherapist?.display_name ||
+                          `${appt.physiotherapist?.first_name || ''} ${appt.physiotherapist?.last_name || ''}`.trim() ||
+                          'Physiotherapist'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="capitalize text-xs text-gray-500">
+                        {appt.location_mode.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`status-pill status-${appt.status}`}>
+                        <span className="capitalize">{appt.status.replace('_', ' ')}</span>
+                      </span>
+                    </td>
+                    <td>
+                      <Link to={`/app/appointments/${appt.id}`} className="btn-table-action">
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
       {/* Scope Boundary Notification */}
       <div className="info-banner mt-6">
         <div className="info-banner-icon">
@@ -487,8 +597,8 @@ export const PatientProfilePage: React.FC = () => {
         <div className="info-banner-content">
           <h4 className="info-banner-title">Clinical Care Hierarchy Established</h4>
           <p className="info-banner-text">
-            Patient Identity (<strong>{patient.patient_identifier}</strong>) and Episodes of Care
-            are active. Subsequent modules (Appointments, Clinical Visits, and SOAP Progress Notes)
+            Patient Identity (<strong>{patient.patient_identifier}</strong>), Episodes of Care,
+            and Scheduled Appointments are active. Subsequent modules (Clinical Visits and SOAP Progress Notes)
             will attach to specific care episodes in future development phases.
           </p>
         </div>
