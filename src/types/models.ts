@@ -35,6 +35,9 @@ import type {
   ServiceCategory,
   FeeScheduleStatus,
   InvoiceStatus,
+  PaymentMethod,
+  PaymentStatus,
+  ReceiptStatus,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -124,6 +127,20 @@ export type InvoiceUpdate = Database['public']['Tables']['invoices']['Update'];
 export type InvoiceLine = Database['public']['Tables']['invoice_lines']['Row'];
 export type InvoiceLineInsert = Database['public']['Tables']['invoice_lines']['Insert'];
 export type InvoiceLineUpdate = Database['public']['Tables']['invoice_lines']['Update'];
+
+export type PracticePaymentCounter = Database['public']['Tables']['practice_payment_counters']['Row'];
+export type Payment = Database['public']['Tables']['payments']['Row'];
+export type PaymentInsert = Database['public']['Tables']['payments']['Insert'];
+export type PaymentUpdate = Database['public']['Tables']['payments']['Update'];
+
+export type PracticeReceiptCounter = Database['public']['Tables']['practice_receipt_counters']['Row'];
+export type Receipt = Database['public']['Tables']['receipts']['Row'];
+export type ReceiptInsert = Database['public']['Tables']['receipts']['Insert'];
+export type ReceiptUpdate = Database['public']['Tables']['receipts']['Update'];
+
+export type PaymentAllocation = Database['public']['Tables']['payment_allocations']['Row'];
+export type PaymentAllocationInsert = Database['public']['Tables']['payment_allocations']['Insert'];
+export type PaymentAllocationUpdate = Database['public']['Tables']['payment_allocations']['Update'];
 
 export interface EpisodeWithPatient extends EpisodeOfCare {
   patients?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
@@ -375,6 +392,66 @@ export interface AuthUser {
   profile: Profile | null;
 }
 
+export interface PaymentAllocationWithInvoice extends PaymentAllocation {
+  invoice?: Pick<Invoice, 'id' | 'invoice_number' | 'grand_total' | 'balance_due' | 'status' | 'currency'> | null;
+}
+
+export interface PaymentWithRelations extends Payment {
+  patient?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
+  allocations?: PaymentAllocationWithInvoice[];
+  receipt?: Receipt | null;
+  recorder?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  voider?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+}
+
+export interface ReceiptWithRelations extends Receipt {
+  patient?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
+  payment?: (Pick<Payment, 'id' | 'payment_number' | 'payment_date' | 'amount' | 'currency' | 'payment_method' | 'reference_number' | 'status'> & {
+    allocations?: PaymentAllocationWithInvoice[];
+  }) | null;
+  issuer?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  voider?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+}
+
+export interface RecordPaymentAllocationItem {
+  invoice_id: string;
+  amount: number;
+}
+
+export interface RecordPaymentPayload {
+  patient_id: string;
+  payment_date?: string;
+  amount: number;
+  currency?: string;
+  payment_method: PaymentMethod;
+  reference_number?: string | null;
+  idempotency_key?: string;
+  notes?: string | null;
+  allocations: RecordPaymentAllocationItem[];
+}
+
+export interface VoidPaymentPayload {
+  payment_id: string;
+  void_reason: string;
+}
+
+export interface PaymentFilters {
+  status?: PaymentStatus | 'all';
+  patientId?: string;
+  paymentMethod?: PaymentMethod | 'all';
+  startDate?: string;
+  endDate?: string;
+  searchQuery?: string;
+}
+
+export interface ReceiptFilters {
+  status?: ReceiptStatus | 'all';
+  patientId?: string;
+  startDate?: string;
+  endDate?: string;
+  searchQuery?: string;
+}
+
 export type {
   MembershipRole,
   MembershipStatus,
@@ -411,6 +488,9 @@ export type {
   ServiceCategory,
   FeeScheduleStatus,
   InvoiceStatus,
+  PaymentMethod,
+  PaymentStatus,
+  ReceiptStatus,
 };
 
 

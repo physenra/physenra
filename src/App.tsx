@@ -46,6 +46,11 @@ import { FeeScheduleDetailPage } from './pages/fee-schedules/FeeScheduleDetailPa
 import { InvoiceListPage } from './pages/invoices/InvoiceListPage';
 import { CreateInvoicePage } from './pages/invoices/CreateInvoicePage';
 import { InvoiceDetailPage } from './pages/invoices/InvoiceDetailPage';
+import { PaymentListPage } from './pages/payments/PaymentListPage';
+import { CreatePaymentPage } from './pages/payments/CreatePaymentPage';
+import { PaymentDetailPage } from './pages/payments/PaymentDetailPage';
+import { ReceiptListPage } from './pages/receipts/ReceiptListPage';
+import { ReceiptDetailPage } from './pages/receipts/ReceiptDetailPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -144,6 +149,13 @@ export const App: React.FC = () => {
         <Route path="invoices" element={<InvoiceListPage />} />
         <Route path="invoices/new" element={<CreateInvoicePage />} />
         <Route path="invoices/:invoiceId" element={<InvoiceDetailPage />} />
+
+        {/* Payments & Receipts Foundation V1 */}
+        <Route path="payments" element={<PaymentListPage />} />
+        <Route path="payments/new" element={<CreatePaymentPage />} />
+        <Route path="payments/:paymentId" element={<PaymentDetailPage />} />
+        <Route path="receipts" element={<ReceiptListPage />} />
+        <Route path="receipts/:receiptId" element={<ReceiptDetailPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}

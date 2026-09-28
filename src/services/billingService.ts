@@ -30,17 +30,16 @@ import type {
 
 /**
  * Valid allowed state transitions for Billing & Invoicing V1.
- * State 'cancelled' has been removed; draft invoices can simply be deleted.
- * Transitions to 'partially_paid' and 'paid' require future Payments domain.
+ * Transitions to 'partially_paid' and 'paid' are unlocked by Payments V1 allocations.
  */
 export const ALLOWED_INVOICE_TRANSITIONS: Record<
   InvoiceStatus,
   InvoiceStatus[]
 > = {
   draft: ['issued'],
-  issued: ['void'],
-  partially_paid: ['paid', 'void'],
-  paid: ['void'],
+  issued: ['partially_paid', 'paid', 'void'],
+  partially_paid: ['issued', 'paid', 'void'],
+  paid: ['partially_paid', 'issued', 'void'],
   void: [], // Terminal, immutable state
 };
 

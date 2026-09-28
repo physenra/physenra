@@ -161,6 +161,9 @@ export type ServiceCategory =
 
 export type FeeScheduleStatus = 'draft' | 'active' | 'archived';
 export type InvoiceStatus = 'draft' | 'issued' | 'partially_paid' | 'paid' | 'void';
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'pos' | 'card' | 'other';
+export type PaymentStatus = 'confirmed' | 'voided';
+export type ReceiptStatus = 'issued' | 'voided';
 
 export interface Database {
   public: {
@@ -1951,6 +1954,210 @@ export interface Database {
         };
         Relationships: [];
       };
+      practice_payment_counters: {
+        Row: {
+          practice_id: string;
+          last_number: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          last_number?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          last_number?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      payments: {
+        Row: {
+          id: string;
+          practice_id: string;
+          payment_number: string;
+          patient_id: string;
+          payment_date: string;
+          amount: number;
+          currency: string;
+          payment_method: PaymentMethod;
+          reference_number: string | null;
+          idempotency_key: string;
+          status: PaymentStatus;
+          notes: string | null;
+          recorded_by: string;
+          confirmed_at: string;
+          voided_at: string | null;
+          voided_by: string | null;
+          void_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          payment_number: string;
+          patient_id: string;
+          payment_date?: string;
+          amount: number;
+          currency?: string;
+          payment_method: PaymentMethod;
+          reference_number?: string | null;
+          idempotency_key: string;
+          status?: PaymentStatus;
+          notes?: string | null;
+          recorded_by: string;
+          confirmed_at?: string;
+          voided_at?: string | null;
+          voided_by?: string | null;
+          void_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          payment_number?: string;
+          patient_id?: string;
+          payment_date?: string;
+          amount?: number;
+          currency?: string;
+          payment_method?: PaymentMethod;
+          reference_number?: string | null;
+          idempotency_key?: string;
+          status?: PaymentStatus;
+          notes?: string | null;
+          recorded_by?: string;
+          confirmed_at?: string;
+          voided_at?: string | null;
+          voided_by?: string | null;
+          void_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      practice_receipt_counters: {
+        Row: {
+          practice_id: string;
+          last_number: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          last_number?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          last_number?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      receipts: {
+        Row: {
+          id: string;
+          practice_id: string;
+          receipt_number: string;
+          payment_id: string;
+          patient_id: string;
+          issue_date: string;
+          amount: number;
+          currency: string;
+          payment_method: PaymentMethod;
+          reference_number: string | null;
+          status: ReceiptStatus;
+          issued_by: string;
+          issued_at: string;
+          voided_at: string | null;
+          voided_by: string | null;
+          void_reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          receipt_number: string;
+          payment_id: string;
+          patient_id: string;
+          issue_date?: string;
+          amount: number;
+          currency?: string;
+          payment_method: PaymentMethod;
+          reference_number?: string | null;
+          status?: ReceiptStatus;
+          issued_by: string;
+          issued_at?: string;
+          voided_at?: string | null;
+          voided_by?: string | null;
+          void_reason?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          receipt_number?: string;
+          payment_id?: string;
+          patient_id?: string;
+          issue_date?: string;
+          amount?: number;
+          currency?: string;
+          payment_method?: PaymentMethod;
+          reference_number?: string | null;
+          status?: ReceiptStatus;
+          issued_by?: string;
+          issued_at?: string;
+          voided_at?: string | null;
+          voided_by?: string | null;
+          void_reason?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      payment_allocations: {
+        Row: {
+          id: string;
+          practice_id: string;
+          payment_id: string;
+          invoice_id: string;
+          patient_id: string;
+          amount: number;
+          allocated_at: string;
+          allocated_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          payment_id: string;
+          invoice_id: string;
+          patient_id: string;
+          amount: number;
+          allocated_at?: string;
+          allocated_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          payment_id?: string;
+          invoice_id?: string;
+          patient_id?: string;
+          amount?: number;
+          allocated_at?: string;
+          allocated_by?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -2049,6 +2256,41 @@ export interface Database {
         };
         Returns: string;
       };
+      generate_next_payment_number: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
+      generate_next_receipt_number: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
+      record_payment_and_allocate: {
+        Args: {
+          p_practice_id: string;
+          p_patient_id: string;
+          p_payment_date: string;
+          p_amount: number;
+          p_currency: string;
+          p_payment_method: PaymentMethod;
+          p_reference_number: string | null;
+          p_idempotency_key: string;
+          p_notes: string | null;
+          p_allocations: Json;
+        };
+        Returns: Json;
+      };
+      void_payment: {
+        Args: {
+          p_practice_id: string;
+          p_payment_id: string;
+          p_void_reason: string;
+        };
+        Returns: Json;
+      };
       log_audit_event: {
         Args: {
           p_action: string;
@@ -2098,6 +2340,9 @@ export interface Database {
       service_category: ServiceCategory;
       fee_schedule_status: FeeScheduleStatus;
       invoice_status: InvoiceStatus;
+      payment_method: PaymentMethod;
+      payment_status: PaymentStatus;
+      receipt_status: ReceiptStatus;
     };
     CompositeTypes: {
       [_ in never]: never;
