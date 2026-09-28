@@ -11,7 +11,8 @@
 // 6. Strict Row-Level Security (RLS) & Role-Based Access Control (RBAC)
 // 7. Absolute domain boundary verification (Zero payments/packages/wallets/insurance/gateways)
 // 8. Application service domain logic, PostgREST hints & state machine rules
-// 9. Remote Supabase live query verification with PostgREST constraint hints
+// 9. Authoritative fee schedule pricing & rejection of client price manipulation
+// 10. Remote Supabase live query verification with PostgREST constraint hints
 // ==============================================================================
 
 const test = require('node:test');
@@ -62,7 +63,7 @@ test('PHYSENRA BILLING & INVOICING FOUNDATION V1 VERIFICATION', async (t) => {
       );
     });
 
-    await st.test('Migration defines controlled enum for invoice_status', () => {
+    await st.test('Migration defines controlled enum for invoice_status without cancelled', () => {
       assert(
         migrationSql.includes('CREATE TYPE public.invoice_status AS ENUM'),
         'Must create public.invoice_status enum'
@@ -72,13 +73,27 @@ test('PHYSENRA BILLING & INVOICING FOUNDATION V1 VERIFICATION', async (t) => {
         migrationSql.includes("'issued'") &&
         migrationSql.includes("'partially_paid'") &&
         migrationSql.includes("'paid'") &&
-        migrationSql.includes("'void'") &&
-        migrationSql.includes("'cancelled'"),
-        'invoice_status must contain draft, issued, partially_paid, paid, void, cancelled'
+        migrationSql.includes("'void'"),
+        'invoice_status must contain draft, issued, partially_paid, paid, void'
+      );
+      assert(
+        !migrationSql.includes("'cancelled'"),
+        'invoice_status must NOT contain cancelled'
       );
     });
 
-    await st.test('Migration creates public.invoices table with composite tenant keys and balances', () => {
+    await st.test('TypeScript types do NOT define cancelled status', () => {
+      assert(
+        !typesCode.includes("export type InvoiceStatus = 'draft' | 'issued' | 'partially_paid' | 'paid' | 'void' | 'cancelled';"),
+        'InvoiceStatus type must not include cancelled'
+      );
+      assert(
+        typesCode.includes("export type InvoiceStatus = 'draft' | 'issued' | 'partially_paid' | 'paid' | 'void';"),
+        'InvoiceStatus must strictly be draft | issued | partially_paid | paid | void'
+      );
+    });
+
+    await st.test('Migration creates public.invoices table with composite tenant keys and balance invariants', () => {
       assert(
         migrationSql.includes('CREATE TABLE IF NOT EXISTS public.invoices') ||
         migrationSql.includes('CREATE TABLE public.invoices'),
@@ -108,13 +123,25 @@ test('PHYSENRA BILLING & INVOICING FOUNDATION V1 VERIFICATION', async (t) => {
         migrationSql.includes('fk_invoices_schedule_practice'),
         'Must declare composite fk_invoices_schedule_practice'
       );
+      assert(
+        migrationSql.includes('chk_invoices_totals_balance CHECK (grand_total = (subtotal - discount_total + tax_total))'),
+        'Must enforce mathematical grand total check invariant'
+      );
+      assert(
+        migrationSql.includes('chk_invoices_balance CHECK (balance_due = grand_total - amount_paid)'),
+        'Must enforce balance_due check invariant'
+      );
     });
 
-    await st.test('Migration creates public.invoice_lines table with snapshot columns and composite FKs', () => {
+    await st.test('Migration creates public.invoice_lines table with mandatory service_id and snapshot columns', () => {
       assert(
         migrationSql.includes('CREATE TABLE IF NOT EXISTS public.invoice_lines') ||
         migrationSql.includes('CREATE TABLE public.invoice_lines'),
         'Must create public.invoice_lines table'
+      );
+      assert(
+        migrationSql.includes('service_id UUID NOT NULL'),
+        'service_id must be NOT NULL on invoice_lines'
       );
       assert(
         migrationSql.includes('service_code_snapshot VARCHAR(64) NOT NULL'),
@@ -147,7 +174,7 @@ test('PHYSENRA BILLING & INVOICING FOUNDATION V1 VERIFICATION', async (t) => {
   // SUITE 2: Identifier Generator & Trigger Invariants
   // ----------------------------------------------------------------------------
   await t.test('--- SUITE 2: Identifier Generator, Immutability & Hard Delete Protection ---', async (st) => {
-    await st.test('Sequence generator is SECURITY DEFINER with fixed search_path', () => {
+    await st.test('Sequence generator is SECURITY DEFINER with fixed search_path and RBAC protection', () => {
       assert(
         migrationSql.includes('FUNCTION public.generate_next_invoice_number'),
         'Must declare generate_next_invoice_number function'
@@ -163,6 +190,10 @@ test('PHYSENRA BILLING & INVOICING FOUNDATION V1 VERIFICATION', async (t) => {
       assert(
         migrationSql.includes('SET search_path = public, pg_temp'),
         'Generator must set search_path to public, pg_temp'
+      );
+      assert(
+        migrationSql.includes("ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist']"),
+        'Generator must restrict execution to authorized billing roles'
       );
     });
 
@@ -187,9 +218,73 @@ test('PHYSENRA BILLING & INVOICING FOUNDATION V1 VERIFICATION', async (t) => {
   });
 
   // ----------------------------------------------------------------------------
-  // SUITE 3: Tenant Isolation & Row-Level Security
+  // SUITE 3: Authoritative Pricing & Mathematical Integrity Invariants
   // ----------------------------------------------------------------------------
-  await t.test('--- SUITE 3: Tenant Isolation & Row-Level Security ---', async (st) => {
+  await t.test('--- SUITE 3: Authoritative Pricing & Mathematical Integrity ---', async (st) => {
+    await st.test('Line trigger authoritatively resolves price from fee_schedule_items and rejects manipulation', () => {
+      assert(
+        migrationSql.includes('FROM public.fee_schedule_items fsi'),
+        'Trigger must query fee_schedule_items directly'
+      );
+      assert(
+        migrationSql.includes('NEW.unit_price_snapshot := v_authoritative_price;'),
+        'Trigger must overwrite unit_price_snapshot with authoritative tariff'
+      );
+      assert(
+        migrationSql.includes('NEW.service_code_snapshot := v_service_code;'),
+        'Trigger must stamp service_code_snapshot from services table'
+      );
+      assert(
+        migrationSql.includes('NEW.service_name_snapshot := v_service_name;'),
+        'Trigger must stamp service_name_snapshot from services table'
+      );
+    });
+
+    await st.test('Line trigger computes deterministic tax and total values', () => {
+      assert(
+        migrationSql.includes('NEW.tax_amount := ROUND((v_subtotal - NEW.discount_amount) * (NEW.tax_rate_percent_snapshot / 100.0), 2);'),
+        'Tax must be derived deterministically from taxable subtotal'
+      );
+      assert(
+        migrationSql.includes('NEW.line_total := v_subtotal - NEW.discount_amount + NEW.tax_amount;'),
+        'Line total must be derived deterministically from subtotal, discount, and tax'
+      );
+    });
+
+    await st.test('Line trigger validates discount does not exceed subtotal', () => {
+      assert(
+        migrationSql.includes('IF NEW.discount_amount > v_subtotal THEN'),
+        'Trigger must reject discount exceeding subtotal'
+      );
+    });
+
+    await st.test('Invoice trigger strictly rejects premature payment transitions in Billing V1', () => {
+      assert(
+        migrationSql.includes("IF NEW.status IN ('partially_paid', 'paid') THEN") &&
+        migrationSql.includes("requires the Payments domain which is not implemented in Billing V1"),
+        'Trigger must block arbitrary client transitions to partially_paid or paid'
+      );
+    });
+
+    await st.test('Invoice trigger requires minimum 5-character reason for voiding', () => {
+      assert(
+        migrationSql.includes("length(trim(NEW.void_reason)) < 5"),
+        'Trigger must require at least 5 characters for void_reason'
+      );
+    });
+
+    await st.test('Invoice trigger restricts voiding to owners, managers, and accountants', () => {
+      assert(
+        migrationSql.includes("ARRAY['practice_owner', 'practice_manager', 'accountant']"),
+        'Voiding must be restricted to management and accounting roles'
+      );
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 4: Tenant Isolation & Row-Level Security
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 4: Tenant Isolation & Row-Level Security ---', async (st) => {
     await st.test('RLS is explicitly enabled on all billing tables', () => {
       assert(
         migrationSql.includes('ALTER TABLE public.practice_invoice_counters ENABLE ROW LEVEL SECURITY;'),
@@ -205,18 +300,25 @@ test('PHYSENRA BILLING & INVOICING FOUNDATION V1 VERIFICATION', async (t) => {
       );
     });
 
-    await st.test('RLS policies enforce practice isolation using current_practice_id()', () => {
+    await st.test('RLS policies enforce view-only access for physiotherapists', () => {
+      // Invoices
       assert(
-        migrationSql.includes('practice_id = public.current_practice_id()'),
-        'Policies must verify practice_id = current_practice_id()'
+        migrationSql.includes("CREATE POLICY \"invoices_practice_select\"") &&
+        migrationSql.includes("'physiotherapist'"),
+        'Physiotherapist must have SELECT access on invoices'
       );
+      const insertPolicy = migrationSql.split('CREATE POLICY "invoices_practice_insert"')[1].split(';')[0];
+      assert(!insertPolicy.includes('physiotherapist'), 'Physiotherapist must NOT have INSERT access on invoices');
+
+      const updatePolicy = migrationSql.split('CREATE POLICY "invoices_practice_update"')[1].split(';')[0];
+      assert(!updatePolicy.includes('physiotherapist'), 'Physiotherapist must NOT have UPDATE access on invoices');
     });
   });
 
   // ----------------------------------------------------------------------------
-  // SUITE 4: Absolute Domain Boundary Verification
+  // SUITE 5: Absolute Domain Boundary Verification
   // ----------------------------------------------------------------------------
-  await t.test('--- SUITE 4: Absolute Domain Boundary Verification ---', async (st) => {
+  await t.test('--- SUITE 5: Absolute Domain Boundary Verification ---', async (st) => {
     await st.test('Migration does NOT introduce prohibited table or column "payments"', () => {
       assert(
         !migrationSql.includes('CREATE TABLE public.payments') &&
@@ -265,9 +367,9 @@ test('PHYSENRA BILLING & INVOICING FOUNDATION V1 VERIFICATION', async (t) => {
   });
 
   // ----------------------------------------------------------------------------
-  // SUITE 5: Application Service & Domain Logic
+  // SUITE 6: Application Service & Domain Logic
   // ----------------------------------------------------------------------------
-  await t.test('--- SUITE 5: Application Service & Domain Logic ---', async (st) => {
+  await t.test('--- SUITE 6: Application Service & Domain Logic ---', async (st) => {
     await st.test('billingService integrates with public.log_audit_event for billing events', () => {
       assert(
         serviceCode.includes("p_action: 'invoice.created'"),
@@ -282,22 +384,30 @@ test('PHYSENRA BILLING & INVOICING FOUNDATION V1 VERIFICATION', async (t) => {
         'Must log invoice.voided'
       );
       assert(
-        serviceCode.includes("p_action: 'invoice.cancelled'"),
-        'Must log invoice.cancelled'
+        !serviceCode.includes("p_action: 'invoice.cancelled'"),
+        'Must NOT log invoice.cancelled'
       );
     });
 
-    await st.test('billingService enforces allowed lifecycle transitions', () => {
+    await st.test('billingService enforces allowed lifecycle transitions without cancelled', () => {
       assert(
         serviceCode.includes('ALLOWED_INVOICE_TRANSITIONS'),
         'Must define ALLOWED_INVOICE_TRANSITIONS'
       );
+      assert(
+        !serviceCode.includes("draft: ['issued', 'cancelled']"),
+        'Draft transitions must not include cancelled'
+      );
     });
 
-    await st.test('calculateLineAmounts computes deterministic values', () => {
+    await st.test('resolveServicePrice requires defined fee schedule tariff and throws on missing tariff', () => {
       assert(
-        serviceCode.includes('calculateLineAmounts'),
-        'Must define calculateLineAmounts helper'
+        serviceCode.includes('does not have an active tariff defined in the applicable fee schedule'),
+        'resolveServicePrice must reject services without active tariffs'
+      );
+      assert(
+        !serviceCode.includes('unitPrice: 0,\n      currency: \'NGN\',\n      isTaxable: false'),
+        'Must NOT provide silent zero-price fallback'
       );
     });
 
@@ -330,9 +440,9 @@ test('PHYSENRA BILLING & INVOICING FOUNDATION V1 VERIFICATION', async (t) => {
   });
 
   // ----------------------------------------------------------------------------
-  // SUITE 6: Remote Supabase Live Query Verification
+  // SUITE 7: Remote Supabase Live Query Verification
   // ----------------------------------------------------------------------------
-  await t.test('--- SUITE 6: Remote Supabase Live Query Verification ---', async (st) => {
+  await t.test('--- SUITE 7: Remote Supabase Live Query Verification ---', async (st) => {
     await st.test('Remote query returns HTTP 200 OK: Invoices with disambiguated relations', async () => {
       const select = `
         *,

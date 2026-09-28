@@ -4,9 +4,9 @@
 //
 // Governs:
 // 1. Standalone Invoices with optional composite clinical provenance
-// 2. Itemized Invoice Lines with immutable service and price financial snapshots
+// 2. Itemized Invoice Lines with immutable service and authoritative fee schedule snapshots
 // 3. Sequential practice-scoped invoice numbering (INV-000001)
-// 4. Strict state machine transitions (draft -> issued -> partially_paid -> paid, void, cancelled)
+// 4. Strict state machine transitions (draft -> issued -> void)
 // 5. PostgREST constraint disambiguation (explicit hints)
 // 6. Audit logging integration via public.log_audit_event
 // 7. Deterministic fixed-point financial calculation integrity
@@ -30,17 +30,18 @@ import type {
 
 /**
  * Valid allowed state transitions for Billing & Invoicing V1.
+ * State 'cancelled' has been removed; draft invoices can simply be deleted.
+ * Transitions to 'partially_paid' and 'paid' require future Payments domain.
  */
 export const ALLOWED_INVOICE_TRANSITIONS: Record<
   InvoiceStatus,
   InvoiceStatus[]
 > = {
-  draft: ['issued', 'cancelled'],
-  issued: ['partially_paid', 'paid', 'void'],
+  draft: ['issued'],
+  issued: ['void'],
   partially_paid: ['paid', 'void'],
   paid: ['void'],
   void: [], // Terminal, immutable state
-  cancelled: [], // Terminal, immutable state
 };
 
 /**
@@ -262,7 +263,7 @@ export const billingService = {
   // ----------------------------------------------------------------------------
 
   /**
-   * Creates a new draft invoice with optional initial lines.
+   * Creates a new draft invoice with authoritatively priced lines.
    */
   async createDraftInvoice(
     payload: {
@@ -276,16 +277,10 @@ export const billingService = {
       notes?: string | null;
       terms?: string | null;
       lines?: Array<{
-        service_id?: string | null;
-        service_code_snapshot: string;
-        service_name_snapshot: string;
-        description?: string | null;
+        service_id: string;
         quantity: number;
-        unit_price_snapshot: number;
-        currency?: string;
-        is_taxable?: boolean;
-        tax_rate_percent_snapshot?: number;
         discount_amount?: number;
+        description?: string | null;
       }>;
     },
     practiceId?: string
@@ -338,33 +333,45 @@ export const billingService = {
 
     const createdInvoice = invoiceData as Invoice;
 
-    // 3. Insert lines if provided
+    // 3. Insert lines with authoritative pricing
     if (payload.lines && payload.lines.length > 0) {
-      const lineInserts: InvoiceLineInsert[] = payload.lines.map((line) => {
-        const amounts = calculateLineAmounts(
-          line.quantity,
-          line.unit_price_snapshot,
-          line.discount_amount || 0,
-          line.is_taxable ? (line.tax_rate_percent_snapshot || 0) : 0
+      const lineInserts: InvoiceLineInsert[] = [];
+
+      for (const line of payload.lines) {
+        if (!line.service_id) {
+          throw new Error('Validation failure: service_id is mandatory for invoice lines.');
+        }
+
+        const pricing = await this.resolveServicePrice(
+          line.service_id,
+          payload.fee_schedule_id || null,
+          activePracticeId
         );
 
-        return {
+        const amounts = calculateLineAmounts(
+          line.quantity,
+          pricing.unitPrice,
+          line.discount_amount || 0,
+          pricing.taxRatePercent
+        );
+
+        lineInserts.push({
           practice_id: activePracticeId,
           invoice_id: createdInvoice.id,
-          service_id: line.service_id || null,
-          service_code_snapshot: line.service_code_snapshot,
-          service_name_snapshot: line.service_name_snapshot,
-          description: line.description || null,
+          service_id: line.service_id,
+          service_code_snapshot: pricing.serviceCode,
+          service_name_snapshot: pricing.serviceName,
+          description: line.description || pricing.description || null,
           quantity: line.quantity,
-          unit_price_snapshot: line.unit_price_snapshot,
-          currency: line.currency || invoiceCurrency,
-          is_taxable: line.is_taxable || false,
-          tax_rate_percent_snapshot: line.is_taxable ? (line.tax_rate_percent_snapshot || 0) : 0,
+          unit_price_snapshot: pricing.unitPrice,
+          currency: pricing.currency || invoiceCurrency,
+          is_taxable: pricing.isTaxable,
+          tax_rate_percent_snapshot: pricing.taxRatePercent,
           discount_amount: amounts.discountAmount,
           tax_amount: amounts.taxAmount,
           line_total: amounts.lineTotal,
-        };
-      });
+        });
+      }
 
       const { error: linesError } = await supabase
         .from('invoice_lines')
@@ -372,7 +379,7 @@ export const billingService = {
 
       if (linesError) {
         console.error('[billingService.createDraftInvoice] Error inserting lines:', linesError);
-        // Attempt cleanup of draft header
+        // Clean up draft header on error
         await supabase.from('invoices').delete().eq('id', createdInvoice.id);
         throw linesError;
       }
@@ -457,32 +464,25 @@ export const billingService = {
       p_entity_type: 'invoice',
       p_entity_id: invoiceId,
       p_metadata: {
-        invoice_number: current.invoice_number,
         updated_fields: Object.keys(updatePayload),
       },
       p_source: 'web',
     });
 
-    const refreshed = await this.getInvoiceById(invoiceId, activePracticeId);
-    return refreshed!;
+    const updated = await this.getInvoiceById(invoiceId, activePracticeId);
+    return updated!;
   },
 
   /**
-   * Adds an itemized charge line to a draft invoice.
+   * Adds an authoritatively priced itemized charge line to a draft invoice.
    */
   async addInvoiceLine(
     invoiceId: string,
     payload: {
-      service_id?: string | null;
-      service_code_snapshot: string;
-      service_name_snapshot: string;
-      description?: string | null;
+      service_id: string;
       quantity: number;
-      unit_price_snapshot: number;
-      currency?: string;
-      is_taxable?: boolean;
-      tax_rate_percent_snapshot?: number;
       discount_amount?: number;
+      description?: string | null;
     },
     practiceId?: string
   ): Promise<InvoiceLine> {
@@ -499,25 +499,36 @@ export const billingService = {
       throw new Error(`Cannot add line to non-draft invoice. Current status: ${invoice.status}.`);
     }
 
+    if (!payload.service_id) {
+      throw new Error('Validation failure: service_id is mandatory for invoice lines.');
+    }
+
+    // Authoritative pricing from fee schedule
+    const pricing = await this.resolveServicePrice(
+      payload.service_id,
+      invoice.fee_schedule_id,
+      activePracticeId
+    );
+
     const amounts = calculateLineAmounts(
       payload.quantity,
-      payload.unit_price_snapshot,
+      pricing.unitPrice,
       payload.discount_amount || 0,
-      payload.is_taxable ? (payload.tax_rate_percent_snapshot || 0) : 0
+      pricing.taxRatePercent
     );
 
     const lineInsert: InvoiceLineInsert = {
       practice_id: activePracticeId,
       invoice_id: invoiceId,
-      service_id: payload.service_id || null,
-      service_code_snapshot: payload.service_code_snapshot,
-      service_name_snapshot: payload.service_name_snapshot,
-      description: payload.description || null,
+      service_id: payload.service_id,
+      service_code_snapshot: pricing.serviceCode,
+      service_name_snapshot: pricing.serviceName,
+      description: payload.description || pricing.description || null,
       quantity: payload.quantity,
-      unit_price_snapshot: payload.unit_price_snapshot,
-      currency: payload.currency || invoice.currency,
-      is_taxable: payload.is_taxable || false,
-      tax_rate_percent_snapshot: payload.is_taxable ? (payload.tax_rate_percent_snapshot || 0) : 0,
+      unit_price_snapshot: pricing.unitPrice,
+      currency: pricing.currency || invoice.currency,
+      is_taxable: pricing.isTaxable,
+      tax_rate_percent_snapshot: pricing.taxRatePercent,
       discount_amount: amounts.discountAmount,
       tax_amount: amounts.taxAmount,
       line_total: amounts.lineTotal,
@@ -540,7 +551,7 @@ export const billingService = {
       p_entity_id: invoiceId,
       p_metadata: {
         line_id: data.id,
-        service_code: payload.service_code_snapshot,
+        service_code: pricing.serviceCode,
         quantity: payload.quantity,
         line_total: amounts.lineTotal,
       },
@@ -551,17 +562,15 @@ export const billingService = {
   },
 
   /**
-   * Updates an itemized charge line on a draft invoice.
+   * Updates quantity, discount, or description of a charge line on a draft invoice.
+   * Unit price and tax rate are authoritative and immutable.
    */
   async updateInvoiceLine(
     lineId: string,
     payload: {
-      description?: string | null;
       quantity?: number;
-      unit_price_snapshot?: number;
-      is_taxable?: boolean;
-      tax_rate_percent_snapshot?: number;
       discount_amount?: number;
+      description?: string | null;
     },
     practiceId?: string
   ): Promise<InvoiceLine> {
@@ -570,7 +579,6 @@ export const billingService = {
       throw new Error('Tenant context required: Active practice ID is missing.');
     }
 
-    // Fetch existing line
     const { data: existingLine, error: fetchError } = await supabase
       .from('invoice_lines')
       .select('*')
@@ -584,21 +592,18 @@ export const billingService = {
 
     const currentLine = existingLine as InvoiceLine;
     const qty = payload.quantity !== undefined ? payload.quantity : currentLine.quantity;
-    const price = payload.unit_price_snapshot !== undefined ? payload.unit_price_snapshot : currentLine.unit_price_snapshot;
-    const isTax = payload.is_taxable !== undefined ? payload.is_taxable : currentLine.is_taxable;
-    const taxRate = isTax
-      ? (payload.tax_rate_percent_snapshot !== undefined ? payload.tax_rate_percent_snapshot : currentLine.tax_rate_percent_snapshot)
-      : 0;
     const disc = payload.discount_amount !== undefined ? payload.discount_amount : currentLine.discount_amount;
 
-    const amounts = calculateLineAmounts(qty, price, disc, taxRate);
+    const amounts = calculateLineAmounts(
+      qty,
+      currentLine.unit_price_snapshot,
+      disc,
+      currentLine.is_taxable ? currentLine.tax_rate_percent_snapshot : 0
+    );
 
     const lineUpdate: InvoiceLineUpdate = {
       ...(payload.description !== undefined ? { description: payload.description } : {}),
       quantity: qty,
-      unit_price_snapshot: price,
-      is_taxable: isTax,
-      tax_rate_percent_snapshot: taxRate,
       discount_amount: amounts.discountAmount,
       tax_amount: amounts.taxAmount,
       line_total: amounts.lineTotal,
@@ -749,8 +754,8 @@ export const billingService = {
       throw new Error('Tenant context required: Active practice ID is missing.');
     }
 
-    if (!voidReason || !voidReason.trim()) {
-      throw new Error('Validation failure: Voiding an invoice requires a non-empty void reason.');
+    if (!voidReason || voidReason.trim().length < 5) {
+      throw new Error('Validation failure: A valid void reason of at least 5 characters is required.');
     }
 
     const invoice = await this.getInvoiceById(invoiceId, activePracticeId);
@@ -758,8 +763,8 @@ export const billingService = {
       throw new Error('Invoice not found.');
     }
 
-    if (!['issued', 'partially_paid', 'paid'].includes(invoice.status)) {
-      throw new Error(`Cannot void invoice in status '${invoice.status}'. Only issued invoices can be voided.`);
+    if (invoice.status !== 'issued') {
+      throw new Error(`Cannot void invoice: Only 'issued' invoices may be voided. Current status is '${invoice.status}'.`);
     }
 
     const now = new Date().toISOString();
@@ -767,13 +772,14 @@ export const billingService = {
       .from('invoices')
       .update({
         status: 'void',
-        void_reason: voidReason.trim(),
         voided_at: now,
+        void_reason: voidReason.trim(),
         balance_due: 0,
         updated_at: now,
       })
       .eq('practice_id', activePracticeId)
-      .eq('id', invoiceId);
+      .eq('id', invoiceId)
+      .eq('status', 'issued');
 
     if (error) {
       console.error('[billingService.voidInvoice] Error voiding invoice:', error);
@@ -810,8 +816,8 @@ export const billingService = {
       throw new Error('Invoice not found.');
     }
 
-    if (invoice.status !== 'draft' && invoice.status !== 'cancelled') {
-      throw new Error(`Cannot delete invoice in status '${invoice.status}'. Only draft or cancelled invoices may be removed.`);
+    if (invoice.status !== 'draft') {
+      throw new Error(`Cannot delete invoice in status '${invoice.status}'. Only draft invoices may be removed.`);
     }
 
     const { error } = await supabase
@@ -826,7 +832,7 @@ export const billingService = {
     }
 
     await supabase.rpc('log_audit_event', {
-      p_action: 'invoice.cancelled',
+      p_action: 'invoice.deleted',
       p_entity_type: 'invoice',
       p_entity_id: invoiceId,
       p_metadata: {
@@ -844,6 +850,7 @@ export const billingService = {
   /**
    * Resolves the authoritative unit price and tax configuration for a service
    * based on an optional fee schedule or active default fee schedule.
+   * Throws an error if no active tariff is defined in the applicable schedule.
    */
   async resolveServicePrice(
     serviceId: string,
@@ -854,7 +861,7 @@ export const billingService = {
     currency: string;
     isTaxable: boolean;
     taxRatePercent: number;
-    feeScheduleId: string | null;
+    feeScheduleId: string;
     serviceCode: string;
     serviceName: string;
     description: string | null;
@@ -894,38 +901,39 @@ export const billingService = {
       }
     }
 
-    // 3. Check fee schedule item if schedule is identified
-    if (targetScheduleId) {
-      const { data: itemData } = await supabase
-        .from('fee_schedule_items')
-        .select('*')
-        .eq('practice_id', activePracticeId)
-        .eq('fee_schedule_id', targetScheduleId)
-        .eq('service_id', serviceId)
-        .maybeSingle();
-
-      if (itemData) {
-        const item = itemData as FeeScheduleItem;
-        return {
-          unitPrice: Number(item.unit_price),
-          currency: item.currency || 'NGN',
-          isTaxable: item.is_taxable,
-          taxRatePercent: Number(item.tax_rate_percent),
-          feeScheduleId: targetScheduleId,
-          serviceCode: service.service_code,
-          serviceName: service.name,
-          description: service.description,
-        };
-      }
+    if (!targetScheduleId) {
+      throw new Error(
+        'No active fee schedule configured for this practice. Invoicing requires an active fee schedule.'
+      );
     }
 
-    // 4. Fallback to service base configuration
+    // 3. Look up fee schedule item in target schedule
+    const { data: itemData, error: itemError } = await supabase
+      .from('fee_schedule_items')
+      .select('*')
+      .eq('practice_id', activePracticeId)
+      .eq('fee_schedule_id', targetScheduleId)
+      .eq('service_id', serviceId)
+      .maybeSingle();
+
+    if (itemError) {
+      console.error('[billingService.resolveServicePrice] Error fetching tariff:', itemError);
+      throw itemError;
+    }
+
+    if (!itemData) {
+      throw new Error(
+        `Service '${service.name}' (${service.service_code}) does not have an active tariff defined in the applicable fee schedule.`
+      );
+    }
+
+    const item = itemData as FeeScheduleItem;
     return {
-      unitPrice: 0,
-      currency: 'NGN',
-      isTaxable: false,
-      taxRatePercent: 0,
-      feeScheduleId: targetScheduleId || null,
+      unitPrice: Number(item.unit_price),
+      currency: item.currency || 'NGN',
+      isTaxable: item.is_taxable,
+      taxRatePercent: item.is_taxable ? Number(item.tax_rate_percent) : 0,
+      feeScheduleId: targetScheduleId,
       serviceCode: service.service_code,
       serviceName: service.name,
       description: service.description,

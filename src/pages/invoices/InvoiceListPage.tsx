@@ -106,12 +106,6 @@ export const InvoiceListPage: React.FC = () => {
             <Ban size={12} /> Void
           </span>
         );
-      case 'cancelled':
-        return (
-          <span className="badge badge-secondary flex items-center gap-1">
-            Cancelled
-          </span>
-        );
       default:
         return <span className="badge">{status}</span>;
     }
@@ -125,7 +119,7 @@ export const InvoiceListPage: React.FC = () => {
   };
 
   // Summaries
-  const totalInvoiced = invoices.reduce((acc, inv) => acc + (inv.status !== 'void' && inv.status !== 'cancelled' ? Number(inv.grand_total) : 0), 0);
+  const totalInvoiced = invoices.reduce((acc, inv) => acc + (inv.status !== 'void' ? Number(inv.grand_total) : 0), 0);
   const totalOutstanding = invoices.reduce((acc, inv) => acc + (inv.status === 'issued' || inv.status === 'partially_paid' ? Number(inv.balance_due) : 0), 0);
 
   return (

@@ -160,7 +160,7 @@ export type ServiceCategory =
   | 'other';
 
 export type FeeScheduleStatus = 'draft' | 'active' | 'archived';
-export type InvoiceStatus = 'draft' | 'issued' | 'partially_paid' | 'paid' | 'void' | 'cancelled';
+export type InvoiceStatus = 'draft' | 'issued' | 'partially_paid' | 'paid' | 'void';
 
 export interface Database {
   public: {
@@ -1896,7 +1896,7 @@ export interface Database {
           id: string;
           practice_id: string;
           invoice_id: string;
-          service_id: string | null;
+          service_id: string;
           service_code_snapshot: string;
           service_name_snapshot: string;
           description: string | null;
@@ -1915,7 +1915,7 @@ export interface Database {
           id?: string;
           practice_id: string;
           invoice_id: string;
-          service_id?: string | null;
+          service_id: string;
           service_code_snapshot: string;
           service_name_snapshot: string;
           description?: string | null;
@@ -1934,7 +1934,7 @@ export interface Database {
           id?: string;
           practice_id?: string;
           invoice_id?: string;
-          service_id?: string | null;
+          service_id?: string;
           service_code_snapshot?: string;
           service_name_snapshot?: string;
           description?: string | null;

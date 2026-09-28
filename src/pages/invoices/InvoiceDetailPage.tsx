@@ -165,13 +165,9 @@ export const InvoiceDetailPage: React.FC = () => {
     e.preventDefault();
     if (!activePractice || !invoice) return;
 
-    let srvCode = 'CUSTOM';
-    let srvName = 'Custom Service';
-
-    const foundService = services.find((s) => s.id === selectedServiceId);
-    if (foundService) {
-      srvCode = foundService.service_code;
-      srvName = foundService.name;
+    if (!selectedServiceId) {
+      setError('Please select a service from your catalog.');
+      return;
     }
 
     setActionLoading(true);
@@ -180,15 +176,9 @@ export const InvoiceDetailPage: React.FC = () => {
       await billingService.addInvoiceLine(
         invoice.id,
         {
-          service_id: selectedServiceId || null,
-          service_code_snapshot: srvCode,
-          service_name_snapshot: srvName,
+          service_id: selectedServiceId,
           description: lineDesc || null,
           quantity: lineQty,
-          unit_price_snapshot: lineUnitPrice,
-          currency: invoice.currency,
-          is_taxable: lineIsTaxable,
-          tax_rate_percent_snapshot: lineIsTaxable ? lineTaxRate : 0,
           discount_amount: lineDiscount,
         },
         activePractice.id
@@ -258,12 +248,6 @@ export const InvoiceDetailPage: React.FC = () => {
         return (
           <span className="badge badge-danger flex items-center gap-1">
             <Ban size={12} /> Void
-          </span>
-        );
-      case 'cancelled':
-        return (
-          <span className="badge badge-secondary flex items-center gap-1">
-            Cancelled
           </span>
         );
       default:
@@ -694,7 +678,7 @@ export const InvoiceDetailPage: React.FC = () => {
                   onChange={(e) => handleServiceSelectInModal(e.target.value)}
                   className="input w-full"
                 >
-                  <option value="">-- Custom Manual Charge --</option>
+                  <option value="" disabled>-- Select Catalog Service --</option>
                   {services.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.service_code} - {s.name}
@@ -704,7 +688,7 @@ export const InvoiceDetailPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="label font-medium">Description</label>
+                <label className="label font-medium">Description / Notes</label>
                 <input
                   type="text"
                   value={lineDesc}
@@ -729,16 +713,10 @@ export const InvoiceDetailPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="label font-medium">Unit Price ({invoice.currency}) *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    required
-                    value={lineUnitPrice}
-                    onChange={(e) => setLineUnitPrice(parseFloat(e.target.value) || 0)}
-                    className="input w-full"
-                  />
+                  <label className="label font-medium">Unit Tariff ({invoice.currency})</label>
+                  <div className="p-2.5 bg-gray-50 border rounded text-sm font-mono text-gray-700">
+                    {invoice.currency} {lineUnitPrice.toFixed(2)}
+                  </div>
                 </div>
               </div>
 
@@ -756,27 +734,10 @@ export const InvoiceDetailPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="label font-medium flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      checked={lineIsTaxable}
-                      onChange={(e) => setLineIsTaxable(e.target.checked)}
-                      className="checkbox mr-1"
-                    />
-                    Is Taxable?
-                  </label>
-                  {lineIsTaxable && (
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.5"
-                      placeholder="Tax %"
-                      value={lineTaxRate}
-                      onChange={(e) => setLineTaxRate(parseFloat(e.target.value) || 0)}
-                      className="input w-full mt-1"
-                    />
-                  )}
+                  <label className="label font-medium">Tax Configuration</label>
+                  <div className="p-2.5 bg-gray-50 border rounded text-sm font-mono text-gray-700">
+                    {lineIsTaxable ? `${lineTaxRate}%` : 'Tax Exempt (0%)'}
+                  </div>
                 </div>
               </div>
 

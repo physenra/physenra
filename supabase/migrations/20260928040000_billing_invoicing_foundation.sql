@@ -3,10 +3,10 @@
 -- Migration: 20260928040000_billing_invoicing_foundation.sql
 --
 -- Features:
--- 1. Invoice Status Enum ('draft', 'issued', 'partially_paid', 'paid', 'void', 'cancelled')
+-- 1. Invoice Status Enum ('draft', 'issued', 'partially_paid', 'paid', 'void')
 -- 2. Practice Invoice Counter & Atomic Sequential Generator (INV-000001)
 -- 3. Standalone Top-Level Invoices Table with Optional Composite Clinical Provenance
--- 4. Itemized Invoice Lines with Immutable Service & Price Financial Snapshots
+-- 4. Itemized Invoice Lines with Authoritative Service & Fee Schedule Financial Snapshots
 -- 5. Strict Historical Price Preservation, Immutability & Lifecycle Triggers
 -- 6. Zero Hard-Delete Policy for Issued/Non-Draft Invoices and Their Lines
 -- 7. Deterministic Financial Calculation Integrity & Database-Enforced Totals
@@ -14,7 +14,7 @@
 -- 9. Row-Level Security (RLS) & Role-Based Access Control (RBAC) Policies
 -- ==============================================================================
 
--- 1. INVOICE STATUS ENUM
+-- 1. INVOICE STATUS ENUM (REFINED LIFECYCLE: DRAFT, ISSUED, PARTIALLY_PAID, PAID, VOID)
 -- ------------------------------------------------------------------------------
 DO $$
 BEGIN
@@ -24,8 +24,7 @@ BEGIN
             'issued',
             'partially_paid',
             'paid',
-            'void',
-            'cancelled'
+            'void'
         );
     END IF;
 END $$;
@@ -60,7 +59,8 @@ BEGIN
         RAISE EXCEPTION 'Operation not permitted: Tenant context mismatch.';
     END IF;
 
-    IF NOT public.user_has_practice_role(p_practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist', 'physiotherapist']) THEN
+    -- Only administrative and billing roles can generate invoice numbers (physiotherapists are view-only)
+    IF NOT public.user_has_practice_role(p_practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist']) THEN
         RAISE EXCEPTION 'Operation not permitted: Insufficient privileges to generate invoice number.';
     END IF;
 
@@ -127,15 +127,16 @@ CREATE TABLE IF NOT EXISTS public.invoices (
         amount_paid >= 0 AND 
         balance_due >= 0
     ),
+    CONSTRAINT chk_invoices_totals_balance CHECK (grand_total = (subtotal - discount_total + tax_total)),
     CONSTRAINT chk_invoices_balance CHECK (balance_due = grand_total - amount_paid),
     CONSTRAINT chk_invoices_void_reason CHECK (
-        status <> 'void' OR (void_reason IS NOT NULL AND trim(void_reason) <> '')
+        status <> 'void' OR (void_reason IS NOT NULL AND length(trim(void_reason)) >= 5)
     ),
     CONSTRAINT chk_invoices_voided_at CHECK (
         status <> 'void' OR voided_at IS NOT NULL
     ),
     CONSTRAINT chk_invoices_issued_at CHECK (
-        status IN ('draft', 'cancelled') OR issued_at IS NOT NULL
+        status = 'draft' OR issued_at IS NOT NULL
     ),
 
     -- Multi-tenant Composite Foreign Keys for Relational Provenance
@@ -155,7 +156,7 @@ CREATE TABLE IF NOT EXISTS public.invoice_lines (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     practice_id UUID NOT NULL REFERENCES public.practices(id) ON DELETE CASCADE,
     invoice_id UUID NOT NULL,
-    service_id UUID NULL,
+    service_id UUID NOT NULL,
     service_code_snapshot VARCHAR(64) NOT NULL,
     service_name_snapshot VARCHAR(255) NOT NULL,
     description VARCHAR(500) NULL,
@@ -184,7 +185,7 @@ CREATE TABLE IF NOT EXISTS public.invoice_lines (
     CONSTRAINT fk_invoice_lines_invoice_practice FOREIGN KEY (invoice_id, practice_id)
         REFERENCES public.invoices(id, practice_id) ON DELETE CASCADE,
     CONSTRAINT fk_invoice_lines_service_practice FOREIGN KEY (service_id, practice_id)
-        REFERENCES public.services(id, practice_id) ON DELETE SET NULL
+        REFERENCES public.services(id, practice_id) ON DELETE RESTRICT
 );
 
 -- 5. PERFORMANCE INDEXES
@@ -212,7 +213,7 @@ CREATE TRIGGER trg_invoice_lines_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION public.set_updated_at();
 
--- Trigger Function: Protect Invoice Line Immutability & Calculate Amounts
+-- Trigger Function: Protect Invoice Line Immutability, Authoritative Price Snapshot & Amount Calculation
 CREATE OR REPLACE FUNCTION public.protect_invoice_line_immutability()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -223,7 +224,17 @@ DECLARE
     v_invoice_status public.invoice_status;
     v_invoice_currency VARCHAR(3);
     v_invoice_practice_id UUID;
+    v_invoice_fee_schedule_id UUID;
+    v_effective_fee_schedule_id UUID;
     v_subtotal NUMERIC(12, 2);
+
+    -- Authoritative tariff resolution fields
+    v_authoritative_price NUMERIC(12, 2);
+    v_authoritative_currency VARCHAR(3);
+    v_authoritative_is_taxable BOOLEAN;
+    v_authoritative_tax_rate NUMERIC(5, 2);
+    v_service_code VARCHAR(64);
+    v_service_name VARCHAR(255);
 BEGIN
     IF TG_OP = 'DELETE' THEN
         SELECT status, practice_id INTO v_invoice_status, v_invoice_practice_id
@@ -242,7 +253,8 @@ BEGIN
     END IF;
 
     -- For INSERT or UPDATE:
-    SELECT status, currency, practice_id INTO v_invoice_status, v_invoice_currency, v_invoice_practice_id
+    SELECT status, currency, practice_id, fee_schedule_id 
+    INTO v_invoice_status, v_invoice_currency, v_invoice_practice_id, v_invoice_fee_schedule_id
     FROM public.invoices
     WHERE id = NEW.invoice_id;
 
@@ -258,15 +270,75 @@ BEGIN
         RAISE EXCEPTION 'Operation not permitted: Cannot modify lines of non-draft invoice (status: %). Issued invoices are immutable.', v_invoice_status;
     END IF;
 
-    -- Ensure line currency matches invoice currency
-    IF NEW.currency <> v_invoice_currency THEN
-        RAISE EXCEPTION 'Currency mismatch: Line currency (%) must match invoice currency (%).', NEW.currency, v_invoice_currency;
+    IF NEW.service_id IS NULL THEN
+        RAISE EXCEPTION 'Validation failure: service_id is mandatory for invoice lines. Custom manual uncatalogued lines are strictly prohibited.';
     END IF;
+
+    IF NEW.quantity <= 0 THEN
+        RAISE EXCEPTION 'Validation failure: quantity must be strictly greater than 0.';
+    END IF;
+
+    -- Resolve authoritative Fee Schedule: explicit invoice schedule or default active schedule
+    v_effective_fee_schedule_id := v_invoice_fee_schedule_id;
+    IF v_effective_fee_schedule_id IS NULL THEN
+        SELECT id INTO v_effective_fee_schedule_id
+        FROM public.fee_schedules
+        WHERE practice_id = NEW.practice_id
+          AND status = 'active'
+          AND is_default = true
+        LIMIT 1;
+    END IF;
+
+    IF v_effective_fee_schedule_id IS NULL THEN
+        RAISE EXCEPTION 'Validation failure: No applicable active fee schedule found for practice %. Invoicing requires an active fee schedule.', NEW.practice_id;
+    END IF;
+
+    -- Authoritatively look up the service and tariff
+    SELECT 
+        fsi.unit_price,
+        fsi.currency,
+        fsi.is_taxable,
+        fsi.tax_rate_percent,
+        s.service_code,
+        s.name
+    INTO
+        v_authoritative_price,
+        v_authoritative_currency,
+        v_authoritative_is_taxable,
+        v_authoritative_tax_rate,
+        v_service_code,
+        v_service_name
+    FROM public.fee_schedule_items fsi
+    JOIN public.services s ON s.id = fsi.service_id AND s.practice_id = fsi.practice_id
+    WHERE fsi.fee_schedule_id = v_effective_fee_schedule_id
+      AND fsi.service_id = NEW.service_id
+      AND fsi.practice_id = NEW.practice_id;
+
+    IF v_authoritative_price IS NULL THEN
+        RAISE EXCEPTION 'Validation failure: Service % does not have an active tariff defined in the applicable fee schedule %.', NEW.service_id, v_effective_fee_schedule_id;
+    END IF;
+
+    -- Ensure line currency matches invoice currency
+    IF v_authoritative_currency <> v_invoice_currency THEN
+        RAISE EXCEPTION 'Currency mismatch: Fee schedule tariff currency (%) does not match invoice currency (%).', v_authoritative_currency, v_invoice_currency;
+    END IF;
+
+    -- Stamp authoritative snapshots from Service Catalog and Fee Schedule
+    NEW.service_code_snapshot := v_service_code;
+    NEW.service_name_snapshot := v_service_name;
+    NEW.unit_price_snapshot := v_authoritative_price;
+    NEW.currency := v_authoritative_currency;
+    NEW.is_taxable := v_authoritative_is_taxable;
+    NEW.tax_rate_percent_snapshot := CASE WHEN v_authoritative_is_taxable THEN v_authoritative_tax_rate ELSE 0.00 END;
 
     -- Compute deterministic fixed-point monetary values
     v_subtotal := ROUND(NEW.quantity * NEW.unit_price_snapshot, 2);
+    IF NEW.discount_amount < 0 THEN
+        RAISE EXCEPTION 'Validation failure: discount_amount cannot be negative.';
+    END IF;
+
     IF NEW.discount_amount > v_subtotal THEN
-        RAISE EXCEPTION 'Discount amount (%) cannot exceed line subtotal (%).', NEW.discount_amount, v_subtotal;
+        RAISE EXCEPTION 'Validation failure: Discount amount (%) cannot exceed line subtotal (%).', NEW.discount_amount, v_subtotal;
     END IF;
 
     NEW.tax_amount := ROUND((v_subtotal - NEW.discount_amount) * (NEW.tax_rate_percent_snapshot / 100.0), 2);
@@ -355,12 +427,9 @@ BEGIN
         RAISE EXCEPTION 'Operation not permitted: invoice_number is immutable.';
     END IF;
 
-    -- Terminal states are completely locked
+    -- Terminal state: voided invoices are completely locked
     IF OLD.status = 'void' THEN
         RAISE EXCEPTION 'Operation not permitted: Voided invoices are terminal and immutable.';
-    END IF;
-    IF OLD.status = 'cancelled' THEN
-        RAISE EXCEPTION 'Operation not permitted: Cancelled invoices are terminal and immutable.';
     END IF;
 
     -- Transitions when OLD is issued, partially_paid, paid
@@ -381,26 +450,26 @@ BEGIN
 
         -- Permitted status transitions:
         IF NEW.status = 'void' THEN
-            IF NEW.void_reason IS NULL OR trim(NEW.void_reason) = '' THEN
-                RAISE EXCEPTION 'Operation not permitted: Voiding an invoice requires a non-empty void_reason.';
+            -- Only practice_owner, practice_manager, and accountant can void invoices
+            IF NOT public.user_has_practice_role(NEW.practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant']) THEN
+                RAISE EXCEPTION 'Operation not permitted: Insufficient privileges to void invoice. Only owners, practice managers, or accountants may void invoices.';
             END IF;
+
+            IF NEW.void_reason IS NULL OR length(trim(NEW.void_reason)) < 5 THEN
+                RAISE EXCEPTION 'Operation not permitted: Voiding an invoice requires a non-empty void_reason of at least 5 characters.';
+            END IF;
+
             NEW.voided_at := COALESCE(NEW.voided_at, now());
             NEW.voided_by := COALESCE(NEW.voided_by, auth.uid());
             NEW.balance_due := 0.00;
             RETURN NEW;
-        ELSIF NEW.status = 'draft' OR NEW.status = 'cancelled' THEN
-            RAISE EXCEPTION 'Operation not permitted: Cannot revert issued invoice to draft or cancelled.';
+        ELSIF NEW.status = 'draft' THEN
+            RAISE EXCEPTION 'Operation not permitted: Cannot revert issued invoice to draft.';
         END IF;
 
-        -- Status transitions for payment balance tracking:
+        -- Status transitions to payment states: Strictly blocked in Billing V1
         IF NEW.status IN ('partially_paid', 'paid') THEN
-            NEW.balance_due := NEW.grand_total - NEW.amount_paid;
-            IF NEW.status = 'paid' AND NEW.balance_due <> 0.00 THEN
-                RAISE EXCEPTION 'Operation not permitted: Invoice cannot be marked paid when balance_due is %', NEW.balance_due;
-            END IF;
-            IF NEW.status = 'partially_paid' AND (NEW.amount_paid <= 0.00 OR NEW.amount_paid >= NEW.grand_total) THEN
-                RAISE EXCEPTION 'Operation not permitted: partially_paid requires 0 < amount_paid < grand_total.';
-            END IF;
+            RAISE EXCEPTION 'Operation not permitted: Status transition to % requires the Payments domain which is not implemented in Billing V1.', NEW.status;
         END IF;
 
         RETURN NEW;
@@ -408,16 +477,11 @@ BEGIN
 
     -- OLD is draft:
     IF OLD.status = 'draft' THEN
-        -- Transition to cancelled allowed
-        IF NEW.status = 'cancelled' THEN
-            RETURN NEW;
-        END IF;
-
         -- Transition to issued:
         IF NEW.status = 'issued' THEN
-            -- Check user authorization for issuing:
+            -- Check user authorization for issuing (Owners, Managers, Accountants, Receptionists)
             IF NOT public.user_has_practice_role(NEW.practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist']) THEN
-                RAISE EXCEPTION 'Operation not permitted: Insufficient privileges to issue invoice.';
+                RAISE EXCEPTION 'Operation not permitted: Insufficient privileges to issue invoice. Physiotherapists have view-only billing access.';
             END IF;
 
             -- Verify lines exist:
@@ -465,7 +529,7 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
-    IF OLD.status IN ('issued', 'partially_paid', 'paid', 'void') THEN
+    IF OLD.status <> 'draft' THEN
         RAISE EXCEPTION 'Operation not permitted: Cannot delete non-draft invoice % (status: %). Use voiding for issued invoices.', OLD.invoice_number, OLD.status;
     END IF;
     RETURN OLD;
@@ -484,6 +548,7 @@ ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.invoice_lines ENABLE ROW LEVEL SECURITY;
 
 -- INVOICES RLS POLICIES
+-- SELECT: All practice staff including physiotherapists have view access
 DROP POLICY IF EXISTS "invoices_practice_select" ON public.invoices;
 CREATE POLICY "invoices_practice_select"
     ON public.invoices
@@ -493,25 +558,28 @@ CREATE POLICY "invoices_practice_select"
         AND public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist', 'physiotherapist'])
     );
 
+-- INSERT: Only administrative and billing roles can create invoices (physiotherapist is view-only)
 DROP POLICY IF EXISTS "invoices_practice_insert" ON public.invoices;
 CREATE POLICY "invoices_practice_insert"
     ON public.invoices
     FOR INSERT
     WITH CHECK (
         practice_id = public.current_practice_id()
-        AND public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist', 'physiotherapist'])
+        AND public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist'])
     );
 
+-- UPDATE: Only administrative and billing roles can update draft invoices
 DROP POLICY IF EXISTS "invoices_practice_update" ON public.invoices;
 CREATE POLICY "invoices_practice_update"
     ON public.invoices
     FOR UPDATE
     USING (
         practice_id = public.current_practice_id()
-        AND public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist', 'physiotherapist'])
+        AND public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist'])
     )
     WITH CHECK (practice_id = public.current_practice_id());
 
+-- DELETE: Only administrative and billing roles can delete draft invoices
 DROP POLICY IF EXISTS "invoices_practice_delete" ON public.invoices;
 CREATE POLICY "invoices_practice_delete"
     ON public.invoices
@@ -522,6 +590,7 @@ CREATE POLICY "invoices_practice_delete"
     );
 
 -- INVOICE LINES RLS POLICIES
+-- SELECT: All practice staff including physiotherapists have view access
 DROP POLICY IF EXISTS "invoice_lines_practice_select" ON public.invoice_lines;
 CREATE POLICY "invoice_lines_practice_select"
     ON public.invoice_lines
@@ -531,30 +600,33 @@ CREATE POLICY "invoice_lines_practice_select"
         AND public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist', 'physiotherapist'])
     );
 
+-- INSERT: Only administrative and billing roles can insert lines (physiotherapist is view-only)
 DROP POLICY IF EXISTS "invoice_lines_practice_insert" ON public.invoice_lines;
 CREATE POLICY "invoice_lines_practice_insert"
     ON public.invoice_lines
     FOR INSERT
     WITH CHECK (
         practice_id = public.current_practice_id()
-        AND public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist', 'physiotherapist'])
+        AND public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist'])
     );
 
+-- UPDATE: Only administrative and billing roles can update lines
 DROP POLICY IF EXISTS "invoice_lines_practice_update" ON public.invoice_lines;
 CREATE POLICY "invoice_lines_practice_update"
     ON public.invoice_lines
     FOR UPDATE
     USING (
         practice_id = public.current_practice_id()
-        AND public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist', 'physiotherapist'])
+        AND public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist'])
     )
     WITH CHECK (practice_id = public.current_practice_id());
 
+-- DELETE: Only administrative and billing roles can delete lines
 DROP POLICY IF EXISTS "invoice_lines_practice_delete" ON public.invoice_lines;
 CREATE POLICY "invoice_lines_practice_delete"
     ON public.invoice_lines
     FOR DELETE
     USING (
         practice_id = public.current_practice_id()
-        AND public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist', 'physiotherapist'])
+        AND public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant', 'receptionist'])
     );

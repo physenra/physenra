@@ -3,7 +3,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import {
   Receipt,
   ArrowLeft,
-  Plus,
   Trash2,
   AlertCircle,
   Calendar,
@@ -140,72 +139,35 @@ export const CreateInvoicePage: React.FC = () => {
   }, [activePractice, selectedPatientId]);
 
   // Line item handlers
-  const handleAddLine = async (serviceId?: string) => {
-    if (!activePractice) return;
+  const handleAddLine = async (serviceId: string) => {
+    if (!activePractice || !serviceId) return;
 
-    let srvCode = 'CUSTOM';
-    let srvName = 'Custom Service';
-    let desc = '';
-    let unitPrice = 0;
-    let isTaxable = false;
-    let taxRate = 0;
-
-    if (serviceId) {
+    try {
       const resolved = await billingService.resolveServicePrice(
         serviceId,
         selectedScheduleId || null,
         activePractice.id
       );
-      srvCode = resolved.serviceCode;
-      srvName = resolved.serviceName;
-      desc = resolved.description || '';
-      unitPrice = resolved.unitPrice;
-      isTaxable = resolved.isTaxable;
-      taxRate = resolved.taxRatePercent;
-    }
 
-    const newLine: LineItemDraft = {
-      id: Math.random().toString(36).substring(2, 9),
-      service_id: serviceId || '',
-      service_code_snapshot: srvCode,
-      service_name_snapshot: srvName,
-      description: desc,
-      quantity: 1,
-      unit_price_snapshot: unitPrice,
-      currency,
-      is_taxable: isTaxable,
-      tax_rate_percent_snapshot: taxRate,
-      discount_amount: 0,
-    };
+      const newLine: LineItemDraft = {
+        id: Math.random().toString(36).substring(2, 9),
+        service_id: serviceId,
+        service_code_snapshot: resolved.serviceCode,
+        service_name_snapshot: resolved.serviceName,
+        description: resolved.description || '',
+        quantity: 1,
+        unit_price_snapshot: resolved.unitPrice,
+        currency: resolved.currency || currency,
+        is_taxable: resolved.isTaxable,
+        tax_rate_percent_snapshot: resolved.taxRatePercent,
+        discount_amount: 0,
+      };
 
-    setLines([...lines, newLine]);
-  };
-
-  const handleServiceSelect = async (lineId: string, srvId: string) => {
-    if (!activePractice || !srvId) return;
-    try {
-      const resolved = await billingService.resolveServicePrice(
-        srvId,
-        selectedScheduleId || null,
-        activePractice.id
-      );
-      setLines(
-        lines.map((l) => {
-          if (l.id !== lineId) return l;
-          return {
-            ...l,
-            service_id: srvId,
-            service_code_snapshot: resolved.serviceCode,
-            service_name_snapshot: resolved.serviceName,
-            description: resolved.description || '',
-            unit_price_snapshot: resolved.unitPrice,
-            is_taxable: resolved.isTaxable,
-            tax_rate_percent_snapshot: resolved.taxRatePercent,
-          };
-        })
-      );
-    } catch (err) {
+      setLines([...lines, newLine]);
+      setError(null);
+    } catch (err: any) {
       console.error('Error resolving service price:', err);
+      setError(err.message || 'Selected service has no active fee schedule tariff.');
     }
   };
 
@@ -255,7 +217,7 @@ export const CreateInvoicePage: React.FC = () => {
     setError(null);
 
     try {
-      // 1. Create draft invoice with lines
+      // 1. Create draft invoice with authoritative line items
       const created = await billingService.createDraftInvoice(
         {
           patient_id: selectedPatientId,
@@ -268,16 +230,10 @@ export const CreateInvoicePage: React.FC = () => {
           notes,
           terms,
           lines: lines.map((l) => ({
-            service_id: l.service_id || null,
-            service_code_snapshot: l.service_code_snapshot,
-            service_name_snapshot: l.service_name_snapshot,
-            description: l.description,
+            service_id: l.service_id,
             quantity: l.quantity,
-            unit_price_snapshot: l.unit_price_snapshot,
-            currency: l.currency,
-            is_taxable: l.is_taxable,
-            tax_rate_percent_snapshot: l.is_taxable ? l.tax_rate_percent_snapshot : 0,
             discount_amount: l.discount_amount,
+            description: l.description || null,
           })),
         },
         activePractice.id
@@ -513,13 +469,6 @@ export const CreateInvoicePage: React.FC = () => {
               </div>
 
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleAddLine()}
-                  className="btn btn-sm btn-ghost flex items-center gap-1"
-                >
-                  <Plus size={14} /> Custom Line
-                </button>
                 <div className="relative">
                   <select
                     className="btn btn-sm btn-primary cursor-pointer"
@@ -555,11 +504,11 @@ export const CreateInvoicePage: React.FC = () => {
                 <table className="table w-full text-sm">
                   <thead>
                     <tr>
-                      <th style={{ width: '30%' }}>Service / Description</th>
+                      <th style={{ width: '32%' }}>Service / Description</th>
                       <th style={{ width: '12%' }}>Qty</th>
-                      <th style={{ width: '15%' }}>Unit Price</th>
-                      <th style={{ width: '12%' }}>Discount</th>
-                      <th style={{ width: '12%' }}>Tax %</th>
+                      <th style={{ width: '15%' }}>Unit Tariff</th>
+                      <th style={{ width: '13%' }}>Discount</th>
+                      <th style={{ width: '12%' }}>Tax</th>
                       <th className="text-right" style={{ width: '14%' }}>Total</th>
                       <th style={{ width: '5%' }}></th>
                     </tr>
@@ -577,21 +526,13 @@ export const CreateInvoicePage: React.FC = () => {
                         <tr key={l.id}>
                           <td>
                             <div className="space-y-1">
-                              <select
-                                value={l.service_id}
-                                onChange={(e) => handleServiceSelect(l.id, e.target.value)}
-                                className="input input-sm w-full font-medium"
-                              >
-                                <option value="">-- Custom Manual Service --</option>
-                                {services.map((srv) => (
-                                  <option key={srv.id} value={srv.id}>
-                                    {srv.service_code} - {srv.name}
-                                  </option>
-                                ))}
-                              </select>
+                              <div>
+                                <span className="font-medium text-gray-900">{l.service_name_snapshot}</span>
+                                <span className="ml-2 text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{l.service_code_snapshot}</span>
+                              </div>
                               <input
                                 type="text"
-                                placeholder="Service note / description..."
+                                placeholder="Optional line note / description..."
                                 value={l.description}
                                 onChange={(e) => handleUpdateLine(l.id, { description: e.target.value })}
                                 className="input input-xs w-full text-gray-600"
@@ -608,51 +549,30 @@ export const CreateInvoicePage: React.FC = () => {
                               className="input input-sm w-full text-center"
                             />
                           </td>
-                          <td>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={l.unit_price_snapshot}
-                              onChange={(e) => handleUpdateLine(l.id, { unit_price_snapshot: parseFloat(e.target.value) || 0 })}
-                              className="input input-sm w-full text-right"
-                            />
+                          <td className="font-mono text-gray-700">
+                            {currency} {l.unit_price_snapshot.toFixed(2)}
                           </td>
                           <td>
                             <input
                               type="number"
                               min="0"
+                              max={amounts.subtotal}
                               step="0.01"
                               value={l.discount_amount}
-                              onChange={(e) => handleUpdateLine(l.id, { discount_amount: parseFloat(e.target.value) || 0 })}
+                              onChange={(e) => handleUpdateLine(l.id, { discount_amount: Math.min(amounts.subtotal, Math.max(0, parseFloat(e.target.value) || 0)) })}
                               className="input input-sm w-full text-right"
                             />
                           </td>
                           <td>
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="checkbox"
-                                checked={l.is_taxable}
-                                onChange={(e) => handleUpdateLine(l.id, { is_taxable: e.target.checked })}
-                                className="checkbox checkbox-sm"
-                                title="Taxable"
-                              />
+                            <div className="text-xs">
                               {l.is_taxable ? (
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  step="0.5"
-                                  value={l.tax_rate_percent_snapshot}
-                                  onChange={(e) => handleUpdateLine(l.id, { tax_rate_percent_snapshot: parseFloat(e.target.value) || 0 })}
-                                  className="input input-sm w-16 text-right"
-                                />
+                                <span className="text-amber-700 font-medium">{l.tax_rate_percent_snapshot}% ({currency} {amounts.taxAmount.toFixed(2)})</span>
                               ) : (
-                                <span className="text-xs text-gray-400">0%</span>
+                                <span className="text-gray-400">Exempt (0%)</span>
                               )}
                             </div>
                           </td>
-                          <td className="text-right font-semibold text-gray-900">
+                          <td className="text-right font-semibold text-gray-900 font-mono">
                             {currency} {amounts.lineTotal.toFixed(2)}
                           </td>
                           <td className="text-right">
