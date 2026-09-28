@@ -9,6 +9,7 @@ import type {
   AppointmentWithRelations,
   AppointmentStatus,
   AppointmentType,
+  AppointmentLocationMode,
 } from '../../types/models';
 
 export const AppointmentListPage: React.FC = () => {
@@ -160,14 +161,27 @@ export const AppointmentListPage: React.FC = () => {
 
   const formatAppointmentType = (type: AppointmentType) => {
     switch (type) {
-      case 'initial_assessment':
-        return 'Initial Assessment';
+      case 'initial_consultation':
+        return 'Initial Consultation';
       case 'follow_up':
-        return 'Follow-Up';
-      case 'consultation':
-        return 'Consultation';
-      case 'review':
-        return 'Review';
+        return 'Follow-up';
+      case 'reassessment':
+        return 'Reassessment';
+      case 'home_visit':
+        return 'Home Visit';
+      default:
+        return 'Other';
+    }
+  };
+
+  const formatLocationMode = (mode: AppointmentLocationMode) => {
+    switch (mode) {
+      case 'clinic':
+        return 'Clinic';
+      case 'home':
+        return 'Home';
+      case 'telehealth':
+        return 'Telehealth';
       default:
         return 'Other';
     }
@@ -364,10 +378,10 @@ export const AppointmentListPage: React.FC = () => {
               className="select text-xs w-full"
             >
               <option value="all">All Types</option>
-              <option value="initial_assessment">Initial Assessment</option>
-              <option value="follow_up">Follow-Up</option>
-              <option value="consultation">Consultation</option>
-              <option value="review">Review</option>
+              <option value="initial_consultation">Initial Consultation</option>
+              <option value="follow_up">Follow-up</option>
+              <option value="reassessment">Reassessment</option>
+              <option value="home_visit">Home Visit</option>
               <option value="other">Other</option>
             </select>
           </div>
@@ -462,8 +476,8 @@ export const AppointmentListPage: React.FC = () => {
                         `${appt.physiotherapist?.first_name || ''} ${appt.physiotherapist?.last_name || ''}`.trim() ||
                         'Unassigned'}
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap text-xs capitalize text-gray-500">
-                      {appt.location_mode.replace('_', ' ')}
+                    <td className="py-3 px-4 whitespace-nowrap text-xs text-gray-500">
+                      {formatLocationMode(appt.location_mode)}
                     </td>
                     <td className="py-3 px-4 whitespace-nowrap">
                       <span className={`badge ${getStatusBadgeClass(appt.status)}`}>

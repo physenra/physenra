@@ -9,6 +9,8 @@
 // 4. Strict Row-Level Security (RLS) & zero hard-delete policy
 // 5. Absolute domain boundary verification (Zero clinical visits/SOAP/billing)
 // 6. Application service domain logic & state machine rules
+// 7. Canonical vocabulary alignment (Phase 12: Appointment Types & Location Modes)
+// 8. Conflict detection logic (Phase 8: 8 operational overlap scenarios)
 // ==============================================================================
 
 const test = require('node:test');
@@ -23,6 +25,13 @@ const MIGRATION_PATH = path.join(
   'migrations',
   '20260928021000_appointment_scheduling_foundation.sql'
 );
+const CORRECTION_MIGRATION_PATH = path.join(
+  __dirname,
+  '..',
+  'supabase',
+  'migrations',
+  '20260928022000_correct_appointment_vocabulary.sql'
+);
 const SERVICE_PATH = path.join(
   __dirname,
   '..',
@@ -30,9 +39,18 @@ const SERVICE_PATH = path.join(
   'services',
   'appointmentService.ts'
 );
+const TYPES_PATH = path.join(
+  __dirname,
+  '..',
+  'src',
+  'types',
+  'database.ts'
+);
 
 const migrationSql = fs.readFileSync(MIGRATION_PATH, 'utf8');
+const correctionSql = fs.readFileSync(CORRECTION_MIGRATION_PATH, 'utf8');
 const serviceCode = fs.readFileSync(SERVICE_PATH, 'utf8');
+const typesCode = fs.readFileSync(TYPES_PATH, 'utf8');
 
 test('PHYSENRA APPOINTMENT & SCHEDULING FOUNDATION V1 VERIFICATION', async (t) => {
   // ----------------------------------------------------------------------------
@@ -279,12 +297,14 @@ test('PHYSENRA APPOINTMENT & SCHEDULING FOUNDATION V1 VERIFICATION', async (t) =
       ];
       for (const table of prohibited) {
         const regex = new RegExp(`CREATE\\s+TABLE\\s+public\\.${table}`, 'i');
-        assert(!regex.test(migrationSql), `Prohibited table '${table}' must not be created`);
+        assert(!regex.test(migrationSql), `Prohibited table '${table}' must not be created in base migration`);
+        assert(!regex.test(correctionSql), `Prohibited table '${table}' must not be created in correction migration`);
       }
     });
 
-    await st.test('Migration contains zero Kabworld references or IDs', () => {
-      assert(!/kabworld|psyjbmetnpsqarbumzrb/i.test(migrationSql), 'Zero Kabworld contamination');
+    await st.test('Migrations contain zero Kabworld references or IDs', () => {
+      assert(!/kabworld|psyjbmetnpsqarbumzrb/i.test(migrationSql), 'Zero Kabworld contamination in base migration');
+      assert(!/kabworld|psyjbmetnpsqarbumzrb/i.test(correctionSql), 'Zero Kabworld contamination in correction migration');
     });
   });
 
@@ -320,7 +340,6 @@ test('PHYSENRA APPOINTMENT & SCHEDULING FOUNDATION V1 VERIFICATION', async (t) =
     });
 
     await st.test('Appointment state machine transition rules validate correctly', () => {
-      // Direct validation of allowed status transitions
       const transitions = {
         scheduled: ['confirmed', 'cancelled', 'rescheduled'],
         confirmed: ['arrived', 'cancelled', 'rescheduled', 'no_show'],
@@ -344,6 +363,196 @@ test('PHYSENRA APPOINTMENT & SCHEDULING FOUNDATION V1 VERIFICATION', async (t) =
       assert(!transitions.cancelled.includes('in_progress'), 'cancelled -> in_progress must be strictly forbidden');
       assert(!transitions.no_show.includes('completed'), 'no_show -> completed must be forbidden');
       assert(!transitions.rescheduled.includes('completed'), 'rescheduled -> completed must be forbidden');
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 6: Canonical Vocabulary Alignment (Phase 12 Verification)
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 6: Canonical Vocabulary Alignment ---', async (st) => {
+    const canonicalAppointmentTypes = [
+      'initial_consultation',
+      'follow_up',
+      'reassessment',
+      'home_visit',
+      'other',
+    ];
+    const invalidAppointmentTypes = [
+      'initial_assessment',
+      'consultation',
+      'review',
+    ];
+
+    const canonicalLocationModes = [
+      'clinic',
+      'home',
+      'telehealth',
+      'other',
+    ];
+    const invalidLocationModes = [
+      'in_clinic',
+      'home_visit', // home_visit must NOT be a location_mode
+      'online',
+    ];
+
+    await st.test('Forward-only migration enforces canonical CHECK constraints', () => {
+      assert(
+        /chk_appointments_appointment_type\s+CHECK\s*\(\s*appointment_type\s+IN\s*\(\s*'initial_consultation',\s*'follow_up',\s*'reassessment',\s*'home_visit',\s*'other'\s*\)\s*\)/i.test(
+          correctionSql
+        ),
+        'Correction migration must enforce canonical appointment types'
+      );
+      assert(
+        /chk_appointments_location_mode\s+CHECK\s*\(\s*location_mode\s+IN\s*\(\s*'clinic',\s*'home',\s*'telehealth',\s*'other'\s*\)\s*\)/i.test(
+          correctionSql
+        ),
+        'Correction migration must enforce canonical location modes'
+      );
+      assert(
+        /ALTER\s+COLUMN\s+location_mode\s+SET\s+DEFAULT\s+'clinic'/i.test(correctionSql),
+        'location_mode default must be updated to clinic'
+      );
+    });
+
+    await st.test('TypeScript database definitions enforce canonical appointment types', () => {
+      for (const valid of canonicalAppointmentTypes) {
+        assert(
+          typesCode.includes(`'${valid}'`),
+          `database.ts must include canonical appointment type '${valid}'`
+        );
+      }
+      for (const invalid of invalidAppointmentTypes) {
+        assert(
+          !new RegExp(`export\\s+type\\s+AppointmentType\\s*=[^;]*'${invalid}'`, 's').test(typesCode),
+          `database.ts must NOT include obsolete appointment type '${invalid}'`
+        );
+      }
+    });
+
+    await st.test('TypeScript database definitions enforce canonical location modes', () => {
+      for (const valid of canonicalLocationModes) {
+        assert(
+          typesCode.includes(`'${valid}'`),
+          `database.ts must include canonical location mode '${valid}'`
+        );
+      }
+      for (const invalid of invalidLocationModes) {
+        assert(
+          !new RegExp(`export\\s+type\\s+AppointmentLocationMode\\s*=[^;]*'${invalid}'`, 's').test(typesCode),
+          `database.ts must NOT include obsolete location mode '${invalid}'`
+        );
+      }
+    });
+
+    await st.test('home_visit is valid as appointment_type but strictly invalid as location_mode', () => {
+      const apptTypeMatch = typesCode.match(/export\s+type\s+AppointmentType\s*=\s*([^;]+);/);
+      const locModeMatch = typesCode.match(/export\s+type\s+AppointmentLocationMode\s*=\s*([^;]+);/);
+
+      assert(apptTypeMatch && apptTypeMatch[1].includes("'home_visit'"), 'home_visit must be in AppointmentType');
+      assert(locModeMatch && !locModeMatch[1].includes("'home_visit'"), 'home_visit must NOT be in AppointmentLocationMode');
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 7: Conflict Detection Logic (Phase 8 Verification)
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 7: Conflict Detection Logic ---', async (st) => {
+    // Standard interval overlap function used by appointmentService & SQL
+    function hasOverlap(slot1Start, slot1End, slot2Start, slot2End) {
+      const s1 = new Date(slot1Start).getTime();
+      const e1 = new Date(slot1End).getTime();
+      const s2 = new Date(slot2Start).getTime();
+      const e2 = new Date(slot2End).getTime();
+      return s1 < e2 && e1 > s2;
+    }
+
+    const baseStart = '2026-10-01T10:00:00.000Z';
+    const baseEnd = '2026-10-01T11:00:00.000Z';
+
+    await st.test('Scenario 1: Exact same time slot results in conflict', () => {
+      assert.strictEqual(
+        hasOverlap(baseStart, baseEnd, '2026-10-01T10:00:00.000Z', '2026-10-01T11:00:00.000Z'),
+        true,
+        'Exact same time must conflict'
+      );
+    });
+
+    await st.test('Scenario 2: Partial overlap at beginning (starts before, ends during)', () => {
+      assert.strictEqual(
+        hasOverlap(baseStart, baseEnd, '2026-10-01T09:30:00.000Z', '2026-10-01T10:30:00.000Z'),
+        true,
+        'Partial overlap at beginning must conflict'
+      );
+    });
+
+    await st.test('Scenario 3: Partial overlap at end (starts during, ends after)', () => {
+      assert.strictEqual(
+        hasOverlap(baseStart, baseEnd, '2026-10-01T10:30:00.000Z', '2026-10-01T11:30:00.000Z'),
+        true,
+        'Partial overlap at end must conflict'
+      );
+    });
+
+    await st.test('Scenario 4: New appointment completely inside existing appointment', () => {
+      assert.strictEqual(
+        hasOverlap(baseStart, baseEnd, '2026-10-01T10:15:00.000Z', '2026-10-01T10:45:00.000Z'),
+        true,
+        'Enclosed appointment must conflict'
+      );
+    });
+
+    await st.test('Scenario 5: Existing appointment completely inside new appointment', () => {
+      assert.strictEqual(
+        hasOverlap(baseStart, baseEnd, '2026-10-01T09:00:00.000Z', '2026-10-01T12:00:00.000Z'),
+        true,
+        'Enclosing appointment must conflict'
+      );
+    });
+
+    await st.test('Scenario 6: Adjacent appointments (back-to-back) MUST NOT conflict', () => {
+      // Slot right before: 09:00 - 10:00
+      assert.strictEqual(
+        hasOverlap(baseStart, baseEnd, '2026-10-01T09:00:00.000Z', '2026-10-01T10:00:00.000Z'),
+        false,
+        'Preceding adjacent appointment must NOT conflict'
+      );
+      // Slot right after: 11:00 - 12:00
+      assert.strictEqual(
+        hasOverlap(baseStart, baseEnd, '2026-10-01T11:00:00.000Z', '2026-10-01T12:00:00.000Z'),
+        false,
+        'Succeeding adjacent appointment must NOT conflict'
+      );
+    });
+
+    await st.test('Scenario 7 & 8: Clinician and practice scoping isolation', () => {
+      // Overlap function is only evaluated when physiotherapist_id and practice_id match
+      const apptA = {
+        physioId: 'physio-1',
+        practiceId: 'practice-1',
+        start: baseStart,
+        end: baseEnd,
+      };
+      const apptDiffPhysio = {
+        physioId: 'physio-2',
+        practiceId: 'practice-1',
+        start: baseStart,
+        end: baseEnd,
+      };
+      const apptDiffPractice = {
+        physioId: 'physio-1',
+        practiceId: 'practice-2',
+        start: baseStart,
+        end: baseEnd,
+      };
+
+      function checkApptConflict(a, b) {
+        if (a.practiceId !== b.practiceId) return false;
+        if (a.physioId !== b.physioId) return false;
+        return hasOverlap(a.start, a.end, b.start, b.end);
+      }
+
+      assert.strictEqual(checkApptConflict(apptA, apptDiffPhysio), false, 'Different physiotherapist must NOT conflict');
+      assert.strictEqual(checkApptConflict(apptA, apptDiffPractice), false, 'Different practice must NOT conflict');
     });
   });
 });

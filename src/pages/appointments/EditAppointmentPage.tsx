@@ -23,7 +23,7 @@ export const EditAppointmentPage: React.FC = () => {
   // Form states
   const [physiotherapistId, setPhysiotherapistId] = useState('');
   const [appointmentType, setAppointmentType] = useState<AppointmentType>('follow_up');
-  const [locationMode, setLocationMode] = useState<AppointmentLocationMode>('in_clinic');
+  const [locationMode, setLocationMode] = useState<AppointmentLocationMode>('clinic');
   const [appointmentDate, setAppointmentDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [durationMinutes, setDurationMinutes] = useState(45);
@@ -206,10 +206,10 @@ export const EditAppointmentPage: React.FC = () => {
               onChange={(e) => setAppointmentType(e.target.value as AppointmentType)}
               className="select w-full text-xs"
             >
-              <option value="initial_assessment">Initial Assessment</option>
-              <option value="follow_up">Follow-Up Treatment</option>
-              <option value="consultation">Consultation</option>
-              <option value="review">Clinical Review</option>
+              <option value="initial_consultation">Initial Consultation</option>
+              <option value="follow_up">Follow-up</option>
+              <option value="reassessment">Reassessment</option>
+              <option value="home_visit">Home Visit</option>
               <option value="other">Other</option>
             </select>
           </div>
@@ -220,9 +220,9 @@ export const EditAppointmentPage: React.FC = () => {
               onChange={(e) => setLocationMode(e.target.value as AppointmentLocationMode)}
               className="select w-full text-xs"
             >
-              <option value="in_clinic">In-Clinic</option>
-              <option value="home_visit">Home Visit</option>
-              <option value="online">Online / Telehealth</option>
+              <option value="clinic">Clinic</option>
+              <option value="home">Home</option>
+              <option value="telehealth">Telehealth</option>
               <option value="other">Other</option>
             </select>
           </div>

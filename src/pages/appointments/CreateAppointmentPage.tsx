@@ -28,7 +28,7 @@ export const CreateAppointmentPage: React.FC = () => {
   const [episodeId, setEpisodeId] = useState<string>(preselectedEpisodeId || '');
   const [physiotherapistId, setPhysiotherapistId] = useState<string>('');
   const [appointmentType, setAppointmentType] = useState<AppointmentType>('follow_up');
-  const [locationMode, setLocationMode] = useState<AppointmentLocationMode>('in_clinic');
+  const [locationMode, setLocationMode] = useState<AppointmentLocationMode>('clinic');
   const [appointmentDate, setAppointmentDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
@@ -373,10 +373,10 @@ export const CreateAppointmentPage: React.FC = () => {
                 className="select w-full"
                 required
               >
-                <option value="initial_assessment">Initial Assessment</option>
-                <option value="follow_up">Follow-Up Treatment</option>
-                <option value="consultation">Consultation</option>
-                <option value="review">Clinical Review</option>
+                <option value="initial_consultation">Initial Consultation</option>
+                <option value="follow_up">Follow-up</option>
+                <option value="reassessment">Reassessment</option>
+                <option value="home_visit">Home Visit</option>
                 <option value="other">Other</option>
               </select>
             </div>
@@ -391,9 +391,9 @@ export const CreateAppointmentPage: React.FC = () => {
                 className="select w-full"
                 required
               >
-                <option value="in_clinic">In-Clinic</option>
-                <option value="home_visit">Home Visit</option>
-                <option value="online">Online / Telehealth (Admin slot)</option>
+                <option value="clinic">Clinic</option>
+                <option value="home">Home</option>
+                <option value="telehealth">Telehealth</option>
                 <option value="other">Other</option>
               </select>
             </div>

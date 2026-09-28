@@ -8,6 +8,7 @@ import type {
   AppointmentWithRelations,
   AppointmentStatus,
   AppointmentType,
+  AppointmentLocationMode,
 } from '../../types/models';
 
 export const AppointmentDetailPage: React.FC = () => {
@@ -142,14 +143,27 @@ export const AppointmentDetailPage: React.FC = () => {
 
   const formatAppointmentType = (type: AppointmentType) => {
     switch (type) {
-      case 'initial_assessment':
-        return 'Initial Assessment';
+      case 'initial_consultation':
+        return 'Initial Consultation';
       case 'follow_up':
-        return 'Follow-Up Treatment';
-      case 'consultation':
-        return 'Consultation';
-      case 'review':
-        return 'Clinical Review';
+        return 'Follow-up';
+      case 'reassessment':
+        return 'Reassessment';
+      case 'home_visit':
+        return 'Home Visit';
+      default:
+        return 'Other';
+    }
+  };
+
+  const formatLocationMode = (mode: AppointmentLocationMode) => {
+    switch (mode) {
+      case 'clinic':
+        return 'Clinic';
+      case 'home':
+        return 'Home';
+      case 'telehealth':
+        return 'Telehealth';
       default:
         return 'Other';
     }
@@ -340,8 +354,8 @@ export const AppointmentDetailPage: React.FC = () => {
               </div>
               <div>
                 <span className="text-xs text-gray-400 block">Location / Mode</span>
-                <span className="font-medium capitalize text-gray-800 dark:text-gray-200">
-                  {appointment.location_mode.replace('_', ' ')}
+                <span className="font-medium text-gray-800 dark:text-gray-200">
+                  {formatLocationMode(appointment.location_mode)}
                 </span>
               </div>
             </div>

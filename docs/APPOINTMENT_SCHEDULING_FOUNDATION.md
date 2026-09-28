@@ -57,12 +57,12 @@ Operational Identifier: `appointment_identifier` (Text, format `APT-000001`, uni
 | `episode_id` | `uuid` | `NULL REFERENCES public.episodes_of_care(id)` | Optional linked clinical episode |
 | `physiotherapist_id` | `uuid` | `NOT NULL REFERENCES auth.users(id)` | Assigned clinician (must be active staff) |
 | `appointment_identifier` | `text` | `NOT NULL` | Sequential human identifier (`APT-000001`) |
-| `appointment_type` | `text` | `NOT NULL` | Type: `initial_assessment`, `follow_up`, `consultation`, `review` |
+| `appointment_type` | `text` | `NOT NULL` | Type: `initial_consultation`, `follow_up`, `reassessment`, `home_visit`, `other` |
 | `status` | `text` | `NOT NULL DEFAULT 'scheduled'` | Controlled state machine status |
 | `scheduled_start` | `timestamptz` | `NOT NULL` | Start timestamp (with time zone) |
 | `scheduled_end` | `timestamptz` | `NOT NULL` | End timestamp (`scheduled_end > scheduled_start`) |
 | `duration_minutes` | `integer` | `NOT NULL CHECK (duration_minutes >= 5 AND duration_minutes <= 480)` | Duration in minutes |
-| `location_mode` | `text` | `NOT NULL DEFAULT 'in_clinic'` | Mode: `in_clinic`, `home_visit`, `online` |
+| `location_mode` | `text` | `NOT NULL DEFAULT 'clinic'` | Mode: `clinic`, `home`, `telehealth`, `other` |
 | `notes` | `text` | `NULL` | Administrative scheduling notes (not clinical documentation) |
 | `cancellation_reason` | `text` | `NULL` | Captured if status transitions to `cancelled` |
 | `cancelled_at` | `timestamptz` | `NULL` | Timestamp of cancellation |

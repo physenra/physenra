@@ -39,15 +39,15 @@ export type AppointmentStatus =
   | 'rescheduled'
   | 'incomplete';
 export type AppointmentType =
-  | 'initial_assessment'
+  | 'initial_consultation'
   | 'follow_up'
-  | 'consultation'
-  | 'review'
+  | 'reassessment'
+  | 'home_visit'
   | 'other';
 export type AppointmentLocationMode =
-  | 'in_clinic'
-  | 'home_visit'
-  | 'online'
+  | 'clinic'
+  | 'home'
+  | 'telehealth'
   | 'other';
 
 export interface Database {

@@ -426,7 +426,7 @@ export const EpisodeProfilePage: React.FC = () => {
             <Clock size={36} className="empty-state-icon" />
             <h4>No Appointments Linked to this Episode</h4>
             <p>
-              Schedule an assessment, follow-up, or clinical consultation linked to this care episode.
+              Schedule an initial consultation, follow-up, or reassessment linked to this care episode.
             </p>
             {canEdit && episode.status !== 'archived' && (
               <Link

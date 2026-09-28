@@ -325,7 +325,7 @@ export const appointmentService = {
       scheduled_start: input.scheduled_start,
       scheduled_end: scheduledEnd,
       duration_minutes: input.duration_minutes,
-      location_mode: input.location_mode || 'in_clinic',
+      location_mode: input.location_mode || 'clinic',
       notes: input.notes?.trim() || null,
     };
 
