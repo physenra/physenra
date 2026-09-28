@@ -22,6 +22,7 @@ import {
   Building2,
   Layers,
   Sparkles,
+  FileCheck,
 } from 'lucide-react';
 
 export const EpisodeProfilePage: React.FC = () => {
@@ -247,16 +248,37 @@ export const EpisodeProfilePage: React.FC = () => {
             </>
           )}
 
-          {canChangeClinicalStatus && episode.status === 'completed' && (
-            <button
-              type="button"
-              className="btn-secondary text-teal-700"
-              disabled={actionLoading}
-              onClick={() => handleStatusChange('active')}
+          {canChangeClinicalStatus && (episode.status === 'active' || episode.status === 'paused') && (
+            <Link
+              to={`/app/discharge-summaries/new?episodeId=${episode.id}`}
+              className="btn-secondary"
+              style={{ color: '#059669', borderColor: '#a7f3d0', backgroundColor: '#ecfdf5' }}
             >
-              <RotateCcw size={16} />
-              <span>Reopen Episode</span>
-            </button>
+              <FileCheck size={16} />
+              <span>Formal Discharge</span>
+            </Link>
+          )}
+
+          {canChangeClinicalStatus && episode.status === 'completed' && (
+            <>
+              <Link
+                to={`/app/discharge-summaries?episodeId=${episode.id}`}
+                className="btn-secondary"
+                style={{ color: '#059669', borderColor: '#a7f3d0', backgroundColor: '#ecfdf5' }}
+              >
+                <FileCheck size={16} />
+                <span>Discharge Summary</span>
+              </Link>
+              <button
+                type="button"
+                className="btn-secondary text-teal-700"
+                disabled={actionLoading}
+                onClick={() => handleStatusChange('active')}
+              >
+                <RotateCcw size={16} />
+                <span>Reopen Episode</span>
+              </button>
+            </>
           )}
 
           {canArchive && (

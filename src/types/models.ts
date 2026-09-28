@@ -29,6 +29,9 @@ import type {
   OverallProgressRating,
   ProgressReviewPlanRecommendation,
   GoalProgressStatus,
+  DischargeSummaryStatus,
+  DischargeReason,
+  DischargeDisposition,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -89,6 +92,11 @@ export type ProgressReviewUpdate = Database['public']['Tables']['progress_review
 export type ProgressReviewGoal = Database['public']['Tables']['progress_review_goals']['Row'];
 export type ProgressReviewGoalInsert = Database['public']['Tables']['progress_review_goals']['Insert'];
 export type ProgressReviewGoalUpdate = Database['public']['Tables']['progress_review_goals']['Update'];
+
+export type DischargeSummary = Database['public']['Tables']['discharge_summaries']['Row'];
+export type DischargeSummaryInsert = Database['public']['Tables']['discharge_summaries']['Insert'];
+export type DischargeSummaryUpdate = Database['public']['Tables']['discharge_summaries']['Update'];
+export type PracticeDischargeSummaryCounter = Database['public']['Tables']['practice_discharge_summary_counters']['Row'];
 
 export interface EpisodeWithPatient extends EpisodeOfCare {
   patients?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
@@ -251,6 +259,30 @@ export interface ProgressReviewFilters {
   endDate?: string;
 }
 
+export interface DischargeSummaryWithRelations extends DischargeSummary {
+  patient?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
+  episode?: Pick<EpisodeOfCare, 'id' | 'episode_identifier' | 'title' | 'status'> | null;
+  treatment_plan?: Pick<TreatmentPlan, 'id' | 'plan_identifier' | 'title' | 'status'> | null;
+  originating_clinical_visit?: Pick<ClinicalVisit, 'id' | 'visit_identifier' | 'status' | 'actual_start' | 'actual_end'> | null;
+  final_progress_review?: Pick<ProgressReview, 'id' | 'review_identifier' | 'review_date' | 'overall_status'> | null;
+  discharging_clinician?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  finalizer?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  amender?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+}
+
+export interface DischargeSummaryFilters {
+  patientId?: string;
+  episodeId?: string;
+  treatmentPlanId?: string;
+  clinicianId?: string;
+  status?: DischargeSummaryStatus | 'all';
+  dischargeReason?: DischargeReason | 'all';
+  dischargeDisposition?: DischargeDisposition | 'all';
+  searchQuery?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface UserPracticeMembership {
   id: string;
   practiceId: string;
@@ -299,6 +331,9 @@ export type {
   OverallProgressRating,
   ProgressReviewPlanRecommendation,
   GoalProgressStatus,
+  DischargeSummaryStatus,
+  DischargeReason,
+  DischargeDisposition,
 };
 
 

@@ -129,6 +129,26 @@ export type GoalProgressStatus =
   | 'regressed'
   | 'discontinued';
 
+export type DischargeSummaryStatus = 'draft' | 'finalized' | 'amended';
+export type DischargeReason =
+  | 'goals_achieved'
+  | 'goals_partially_achieved'
+  | 'patient_independent'
+  | 'plateau'
+  | 'patient_choice'
+  | 'transfer_of_care'
+  | 'referred_elsewhere'
+  | 'lost_to_follow_up'
+  | 'financial_administrative'
+  | 'other';
+export type DischargeDisposition =
+  | 'discharged_to_self_management'
+  | 'discharged_with_home_program'
+  | 'follow_up_with_referrer'
+  | 'transferred_to_other_provider'
+  | 'continued_care_elsewhere'
+  | 'other';
+
 export interface Database {
   public: {
     Tables: {
@@ -1445,11 +1465,134 @@ export interface Database {
         };
         Relationships: [];
       };
+      practice_discharge_summary_counters: {
+        Row: {
+          practice_id: string;
+          last_number: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      discharge_summaries: {
+        Row: {
+          id: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id: string;
+          treatment_plan_id: string | null;
+          originating_clinical_visit_id: string | null;
+          final_progress_review_id: string | null;
+          discharging_clinician_id: string;
+          summary_identifier: string;
+          discharge_date: string;
+          discharge_reason: DischargeReason;
+          discharge_disposition: DischargeDisposition;
+          status: DischargeSummaryStatus;
+          clinical_summary: string;
+          functional_status_at_discharge: string;
+          goal_attainment_summary: string;
+          outcome_measure_summary: string | null;
+          treatment_summary: string | null;
+          hep_transition_summary: string | null;
+          recommendations: string | null;
+          follow_up_recommendations: string | null;
+          finalized_at: string | null;
+          finalized_by: string | null;
+          amendment_reason: string | null;
+          amended_at: string | null;
+          amended_by: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id: string;
+          treatment_plan_id?: string | null;
+          originating_clinical_visit_id?: string | null;
+          final_progress_review_id?: string | null;
+          discharging_clinician_id: string;
+          summary_identifier: string;
+          discharge_date?: string;
+          discharge_reason?: DischargeReason;
+          discharge_disposition?: DischargeDisposition;
+          status?: DischargeSummaryStatus;
+          clinical_summary: string;
+          functional_status_at_discharge: string;
+          goal_attainment_summary: string;
+          outcome_measure_summary?: string | null;
+          treatment_summary?: string | null;
+          hep_transition_summary?: string | null;
+          recommendations?: string | null;
+          follow_up_recommendations?: string | null;
+          finalized_at?: string | null;
+          finalized_by?: string | null;
+          amendment_reason?: string | null;
+          amended_at?: string | null;
+          amended_by?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          patient_id?: string;
+          episode_id?: string;
+          treatment_plan_id?: string | null;
+          originating_clinical_visit_id?: string | null;
+          final_progress_review_id?: string | null;
+          discharging_clinician_id?: string;
+          summary_identifier?: string;
+          discharge_date?: string;
+          discharge_reason?: DischargeReason;
+          discharge_disposition?: DischargeDisposition;
+          status?: DischargeSummaryStatus;
+          clinical_summary?: string;
+          functional_status_at_discharge?: string;
+          goal_attainment_summary?: string;
+          outcome_measure_summary?: string | null;
+          treatment_summary?: string | null;
+          hep_transition_summary?: string | null;
+          recommendations?: string | null;
+          follow_up_recommendations?: string | null;
+          finalized_at?: string | null;
+          finalized_by?: string | null;
+          amendment_reason?: string | null;
+          amended_at?: string | null;
+          amended_by?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      generate_next_discharge_summary_identifier: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
       generate_next_progress_review_identifier: {
         Args: {
           p_practice_id: string;
@@ -1562,6 +1705,9 @@ export interface Database {
       overall_progress_rating: OverallProgressRating;
       progress_review_plan_recommendation: ProgressReviewPlanRecommendation;
       goal_progress_status: GoalProgressStatus;
+      discharge_summary_status: DischargeSummaryStatus;
+      discharge_reason: DischargeReason;
+      discharge_disposition: DischargeDisposition;
     };
     CompositeTypes: {
       [_ in never]: never;

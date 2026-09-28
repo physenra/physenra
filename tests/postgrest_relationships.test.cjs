@@ -24,6 +24,7 @@ const APPOINTMENT_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'appoint
 const OUTCOME_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'outcomeMeasureService.ts');
 const TREATMENT_PLAN_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'treatmentPlanService.ts');
 const PROGRESS_REVIEW_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'progressReviewService.ts');
+const DISCHARGE_SUMMARY_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'dischargeSummaryService.ts');
 const CREATE_VISIT_PAGE_PATH = path.join(ROOT_DIR, 'src', 'pages', 'visits', 'CreateClinicalVisitPage.tsx');
 
 const SUPABASE_URL = 'https://xxknmdgneamtoahqayvl.supabase.co';
@@ -38,6 +39,7 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
   const outcomeServiceCode = fs.readFileSync(OUTCOME_SERVICE_PATH, 'utf8');
   const tpServiceCode = fs.readFileSync(TREATMENT_PLAN_SERVICE_PATH, 'utf8');
   const prServiceCode = fs.readFileSync(PROGRESS_REVIEW_SERVICE_PATH, 'utf8');
+  const dischargeServiceCode = fs.readFileSync(DISCHARGE_SUMMARY_SERVICE_PATH, 'utf8');
   const createVisitPageCode = fs.readFileSync(CREATE_VISIT_PAGE_PATH, 'utf8');
 
   // ----------------------------------------------------------------------------
@@ -348,6 +350,61 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
   });
 
   // ----------------------------------------------------------------------------
+  // SUITE 8: Discharge Summary Service PostgREST Disambiguation
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 8: Discharge Summary Service PostgREST Disambiguation ---', async (st) => {
+    await st.test('dischargeSummaryService uses fk_discharge_summaries_patient_practice constraint hint', () => {
+      assert(
+        dischargeServiceCode.includes('patient:patients!fk_discharge_summaries_patient_practice'),
+        'dischargeSummaryService must disambiguate patient relation using !fk_discharge_summaries_patient_practice'
+      );
+    });
+
+    await st.test('dischargeSummaryService uses fk_discharge_summaries_episode_patient_practice constraint hint', () => {
+      assert(
+        dischargeServiceCode.includes('episode:episodes_of_care!fk_discharge_summaries_episode_patient_practice'),
+        'dischargeSummaryService must disambiguate episode relation using !fk_discharge_summaries_episode_patient_practice'
+      );
+    });
+
+    await st.test('dischargeSummaryService uses fk_discharge_summaries_plan_patient_episode_practice constraint hint', () => {
+      assert(
+        dischargeServiceCode.includes('treatment_plan:treatment_plans!fk_discharge_summaries_plan_patient_episode_practice'),
+        'dischargeSummaryService must disambiguate treatment plan relation using !fk_discharge_summaries_plan_patient_episode_practice'
+      );
+    });
+
+    await st.test('dischargeSummaryService uses fk_discharge_summaries_visit_patient_practice constraint hint', () => {
+      assert(
+        dischargeServiceCode.includes('originating_clinical_visit:clinical_visits!fk_discharge_summaries_visit_patient_practice'),
+        'dischargeSummaryService must disambiguate clinical visit relation using !fk_discharge_summaries_visit_patient_practice'
+      );
+    });
+
+    await st.test('dischargeSummaryService uses fk_discharge_summaries_review_patient_episode_practice constraint hint', () => {
+      assert(
+        dischargeServiceCode.includes('final_progress_review:progress_reviews!fk_discharge_summaries_review_patient_episode_practice'),
+        'dischargeSummaryService must disambiguate final progress review relation using !fk_discharge_summaries_review_patient_episode_practice'
+      );
+    });
+
+    await st.test('dischargeSummaryService contains zero unhinted embeds for patient, episode, or visit', () => {
+      assert(
+        !dischargeServiceCode.includes('patient:patients ('),
+        'dischargeSummaryService must not contain unhinted patient:patients ('
+      );
+      assert(
+        !dischargeServiceCode.includes('episode:episodes_of_care ('),
+        'dischargeSummaryService must not contain unhinted episode:episodes_of_care ('
+      );
+      assert(
+        !dischargeServiceCode.includes('originating_clinical_visit:clinical_visits ('),
+        'dischargeSummaryService must not contain unhinted originating_clinical_visit:clinical_visits ('
+      );
+    });
+  });
+
+  // ----------------------------------------------------------------------------
   // SUITE 9: Remote PostgREST API Live Query Verification
   // ----------------------------------------------------------------------------
   await t.test('--- SUITE 9: Remote PostgREST API Live Query Verification ---', async (st) => {
@@ -406,6 +463,11 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
         name: 'Progress Review Goals with disambiguated goal and linked outcome assessment',
         table: 'progress_review_goals',
         select: '*,treatment_plan_goal:treatment_plan_goals!fk_prg_goals_goal_practice(id,goal_statement,status),linked_outcome_assessment:outcome_measure_assessments!fk_prg_goals_outcome_assessment(id,assessment_identifier,status,numeric_score)'
+      },
+      {
+        name: 'Discharge Summaries with disambiguated patient, episode, treatment plan, originating visit, and final review',
+        table: 'discharge_summaries',
+        select: '*,patient:patients!fk_discharge_summaries_patient_practice(id,patient_identifier,first_name,last_name,phone,email),episode:episodes_of_care!fk_discharge_summaries_episode_patient_practice(id,episode_identifier,title,status),treatment_plan:treatment_plans!fk_discharge_summaries_plan_patient_episode_practice(id,plan_identifier,title,status),originating_clinical_visit:clinical_visits!fk_discharge_summaries_visit_patient_practice(id,visit_identifier,status,actual_start,actual_end),final_progress_review:progress_reviews!fk_discharge_summaries_review_patient_episode_practice(id,review_identifier,review_date,overall_status)'
       }
     ];
 
@@ -473,6 +535,22 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
         res.status,
         300,
         `Expected HTTP 300 (Ambiguous relationship) for unhinted progress_reviews query, got ${res.status}`
+      );
+    });
+
+    await st.test('Unhinted discharge_summaries query reproduces PGRST201 HTTP 300 to prove disambiguation is required', async () => {
+      const url = `${SUPABASE_URL}/rest/v1/discharge_summaries?select=*,patients(id)&limit=1`;
+      const res = await fetch(url, {
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Practice-ID': PRACTICE_ID
+        }
+      });
+      assert.equal(
+        res.status,
+        300,
+        `Expected HTTP 300 (Ambiguous relationship) for unhinted discharge_summaries query, got ${res.status}`
       );
     });
   });

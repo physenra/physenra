@@ -35,6 +35,9 @@ import { TreatmentPlanDetailPage } from './pages/treatment-plans/TreatmentPlanDe
 import { ProgressReviewListPage } from './pages/progress-reviews/ProgressReviewListPage';
 import { CreateProgressReviewPage } from './pages/progress-reviews/CreateProgressReviewPage';
 import { ProgressReviewDetailPage } from './pages/progress-reviews/ProgressReviewDetailPage';
+import { DischargeSummaryListPage } from './pages/discharge-summaries/DischargeSummaryListPage';
+import { CreateDischargeSummaryPage } from './pages/discharge-summaries/CreateDischargeSummaryPage';
+import { DischargeSummaryDetailPage } from './pages/discharge-summaries/DischargeSummaryDetailPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -116,6 +119,11 @@ export const App: React.FC = () => {
         <Route path="progress-reviews" element={<ProgressReviewListPage />} />
         <Route path="progress-reviews/new" element={<CreateProgressReviewPage />} />
         <Route path="progress-reviews/:reviewId" element={<ProgressReviewDetailPage />} />
+
+        {/* Discharge Summary Foundation V1 */}
+        <Route path="discharge-summaries" element={<DischargeSummaryListPage />} />
+        <Route path="discharge-summaries/new" element={<CreateDischargeSummaryPage />} />
+        <Route path="discharge-summaries/:summaryId" element={<DischargeSummaryDetailPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}
