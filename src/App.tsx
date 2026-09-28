@@ -5,6 +5,10 @@ import { AppShell } from './components/layout/AppShell';
 import { LoginPage } from './pages/auth/LoginPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { PracticeSettingsPage } from './pages/practice/PracticeSettingsPage';
+import { PatientListPage } from './pages/patients/PatientListPage';
+import { CreatePatientPage } from './pages/patients/CreatePatientPage';
+import { PatientProfilePage } from './pages/patients/PatientProfilePage';
+import { EditPatientPage } from './pages/patients/EditPatientPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -32,6 +36,12 @@ export const App: React.FC = () => {
         <Route index element={<Navigate to="/app/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="practice" element={<PracticeSettingsPage />} />
+        
+        {/* Patient Registry Foundation V1 */}
+        <Route path="patients" element={<PatientListPage />} />
+        <Route path="patients/new" element={<CreatePatientPage />} />
+        <Route path="patients/:patientId" element={<PatientProfilePage />} />
+        <Route path="patients/:patientId/edit" element={<EditPatientPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}

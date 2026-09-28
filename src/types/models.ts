@@ -1,8 +1,18 @@
-import type { Database, MembershipRole, MembershipStatus, PracticeStatus } from './database';
+import type {
+  Database,
+  MembershipRole,
+  MembershipStatus,
+  PracticeStatus,
+  PatientStatus,
+  PatientSex,
+} from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type Practice = Database['public']['Tables']['practices']['Row'];
 export type PracticeMembership = Database['public']['Tables']['practice_memberships']['Row'];
+export type Patient = Database['public']['Tables']['patients']['Row'];
+export type PatientInsert = Database['public']['Tables']['patients']['Insert'];
+export type PatientUpdate = Database['public']['Tables']['patients']['Update'];
 
 export interface UserPracticeMembership {
   id: string;
@@ -22,4 +32,11 @@ export interface AuthUser {
   profile: Profile | null;
 }
 
-export type { MembershipRole, MembershipStatus, PracticeStatus };
+export type {
+  MembershipRole,
+  MembershipStatus,
+  PracticeStatus,
+  PatientStatus,
+  PatientSex,
+};
+

@@ -2,7 +2,7 @@
  * Physenra Application Foundation V1 Test Suite
  *
  * Verifies:
- * 1. Static codebase hygiene (zero secrets, zero Kabworld references)
+ * 1. Static codebase hygiene (zero secrets, zero legacy external product references)
  * 2. Multi-tenant practice context & custom header handling
  * 3. Role-based access control (RBAC) rules & permissions logic
  * 4. Scope boundaries (zero patient, clinical, billing, or wallet modules)
@@ -121,12 +121,14 @@ test('No patient or clinical database structures exist in application foundation
 
   const content = fs.readFileSync(schemaFile, 'utf8');
 
-  // Verify that clinical modules are not defined in Database Foundation V1
+  // Verify that subsequent clinical and financial modules are not defined prematurely
   const forbiddenModules = [
-    'patients',
     'appointments',
     'clinical_notes',
+    'clinical_visits',
     'soap_notes',
+    'episodes_of_care',
+    'treatment_plans',
     'invoices',
     'payments',
     'wallets',
@@ -137,7 +139,7 @@ test('No patient or clinical database structures exist in application foundation
     const regex = new RegExp(`['"]?${mod}['"]?\\s*:\\s*\\{`, 'i');
     assert(
       !regex.test(content),
-      `Scope violation: Found unauthorized clinical module '${mod}' in types/database.ts`
+      `Scope violation: Found unauthorized future module '${mod}' in types/database.ts`
     );
   }
 });

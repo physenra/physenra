@@ -24,6 +24,8 @@ export type SubscriptionStatus =
   | 'paused'
   | 'cancelled'
   | 'expired';
+export type PatientStatus = 'active' | 'inactive' | 'archived';
+export type PatientSex = 'male' | 'female' | 'other' | 'unknown';
 
 export interface Database {
   public: {
@@ -62,8 +64,10 @@ export interface Database {
           phone?: string | null;
           timezone?: string;
           country?: string;
+          created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       profiles: {
         Row: {
@@ -89,14 +93,17 @@ export interface Database {
           updated_at?: string;
         };
         Update: {
+          id?: string;
           display_name?: string | null;
           first_name?: string | null;
           last_name?: string | null;
           phone?: string | null;
           avatar_url?: string | null;
           is_platform_admin?: boolean;
+          created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       practice_memberships: {
         Row: {
@@ -120,11 +127,16 @@ export interface Database {
           updated_at?: string;
         };
         Update: {
+          id?: string;
+          practice_id?: string;
+          user_id?: string;
           role?: MembershipRole;
           status?: MembershipStatus;
           joined_at?: string | null;
+          created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       subscriptions: {
         Row: {
@@ -152,14 +164,18 @@ export interface Database {
           updated_at?: string;
         };
         Update: {
+          id?: string;
+          practice_id?: string;
           plan_tier?: SubscriptionTier;
           status?: SubscriptionStatus;
           seat_limit?: number;
           current_period_start?: string;
           current_period_end?: string;
           cancel_at_period_end?: boolean;
+          created_at?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       audit_events: {
         Row: {
@@ -190,10 +206,134 @@ export interface Database {
           user_agent?: string | null;
           created_at?: string;
         };
-        Update: never; // Audit events are immutable
+        Update: never; // Audit events are strictly immutable
+        Relationships: [];
+      };
+      practice_patient_counters: {
+        Row: {
+          practice_id: string;
+          next_val: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      patients: {
+        Row: {
+          id: string;
+          practice_id: string;
+          patient_identifier: string;
+          first_name: string;
+          middle_name: string | null;
+          last_name: string;
+          preferred_name: string | null;
+          date_of_birth: string | null;
+          sex: PatientSex | null;
+          phone: string | null;
+          email: string | null;
+          address_line1: string | null;
+          address_line2: string | null;
+          city: string | null;
+          state_province: string | null;
+          postal_code: string | null;
+          country: string;
+          emergency_contact_name: string | null;
+          emergency_contact_relationship: string | null;
+          emergency_contact_phone: string | null;
+          emergency_contact_email: string | null;
+          status: PatientStatus;
+          administrative_notes: string | null;
+          archived_at: string | null;
+          archived_by: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id?: string;
+          patient_identifier?: string;
+          first_name: string;
+          middle_name?: string | null;
+          last_name: string;
+          preferred_name?: string | null;
+          date_of_birth?: string | null;
+          sex?: PatientSex | null;
+          phone?: string | null;
+          email?: string | null;
+          address_line1?: string | null;
+          address_line2?: string | null;
+          city?: string | null;
+          state_province?: string | null;
+          postal_code?: string | null;
+          country?: string;
+          emergency_contact_name?: string | null;
+          emergency_contact_relationship?: string | null;
+          emergency_contact_phone?: string | null;
+          emergency_contact_email?: string | null;
+          status?: PatientStatus;
+          administrative_notes?: string | null;
+          archived_at?: string | null;
+          archived_by?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          patient_identifier?: string;
+          first_name?: string;
+          middle_name?: string | null;
+          last_name?: string;
+          preferred_name?: string | null;
+          date_of_birth?: string | null;
+          sex?: PatientSex | null;
+          phone?: string | null;
+          email?: string | null;
+          address_line1?: string | null;
+          address_line2?: string | null;
+          city?: string | null;
+          state_province?: string | null;
+          postal_code?: string | null;
+          country?: string;
+          emergency_contact_name?: string | null;
+          emergency_contact_relationship?: string | null;
+          emergency_contact_phone?: string | null;
+          emergency_contact_email?: string | null;
+          status?: PatientStatus;
+          administrative_notes?: string | null;
+          archived_at?: string | null;
+          archived_by?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
       };
     };
+    Views: {
+      [_ in never]: never;
+    };
     Functions: {
+      generate_next_patient_identifier: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
       current_practice_id: {
         Args: Record<PropertyKey, never>;
         Returns: string | null;
@@ -219,6 +359,18 @@ export interface Database {
         };
         Returns: string;
       };
+    };
+    Enums: {
+      membership_role: MembershipRole;
+      membership_status: MembershipStatus;
+      practice_status: PracticeStatus;
+      subscription_tier: SubscriptionTier;
+      subscription_status: SubscriptionStatus;
+      patient_status: PatientStatus;
+      patient_sex: PatientSex;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
     };
   };
 }
