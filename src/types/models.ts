@@ -11,6 +11,8 @@ import type {
   AppointmentLocationMode,
   ClinicalVisitStatus,
   ClinicalVisitLocationMode,
+  ClinicalNoteStatus,
+  ClinicalNoteType,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -32,6 +34,10 @@ export type ClinicalVisit = Database['public']['Tables']['clinical_visits']['Row
 export type ClinicalVisitInsert = Database['public']['Tables']['clinical_visits']['Insert'];
 export type ClinicalVisitUpdate = Database['public']['Tables']['clinical_visits']['Update'];
 
+export type ClinicalNote = Database['public']['Tables']['clinical_notes']['Row'];
+export type ClinicalNoteInsert = Database['public']['Tables']['clinical_notes']['Insert'];
+export type ClinicalNoteUpdate = Database['public']['Tables']['clinical_notes']['Update'];
+
 export interface EpisodeWithPatient extends EpisodeOfCare {
   patients?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
   primary_physiotherapist?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
@@ -49,6 +55,27 @@ export interface ClinicalVisitWithRelations extends ClinicalVisit {
   episode?: Pick<EpisodeOfCare, 'id' | 'episode_identifier' | 'title' | 'status'> | null;
   appointment?: Pick<Appointment, 'id' | 'appointment_identifier' | 'status' | 'scheduled_start' | 'scheduled_end' | 'appointment_type'> | null;
   physiotherapist?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  clinical_note?: Pick<ClinicalNote, 'id' | 'note_identifier' | 'status'> | null;
+}
+
+export interface ClinicalNoteWithRelations extends ClinicalNote {
+  patient?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
+  episode?: Pick<EpisodeOfCare, 'id' | 'episode_identifier' | 'title' | 'status'> | null;
+  clinical_visit?: Pick<ClinicalVisit, 'id' | 'visit_identifier' | 'status' | 'actual_start' | 'actual_end'> | null;
+  author?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  finalizer?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  parent_note?: Pick<ClinicalNote, 'id' | 'note_identifier' | 'note_type' | 'status'> | null;
+  addenda?: ClinicalNoteWithRelations[];
+}
+
+export interface ClinicalNoteFilters {
+  patientId?: string;
+  episodeId?: string;
+  visitId?: string;
+  authorId?: string;
+  status?: ClinicalNoteStatus | 'all';
+  noteType?: ClinicalNoteType | 'all';
+  searchQuery?: string;
 }
 
 export interface AppointmentFilters {
@@ -105,6 +132,8 @@ export type {
   AppointmentLocationMode,
   ClinicalVisitStatus,
   ClinicalVisitLocationMode,
+  ClinicalNoteStatus,
+  ClinicalNoteType,
 };
 
 

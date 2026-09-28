@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { clinicalVisitService } from '../../services/clinicalVisitService';
+import { clinicalNoteService } from '../../services/clinicalNoteService';
 import type {
   ClinicalVisitWithRelations,
   ClinicalVisitStatus,
   ClinicalVisitLocationMode,
+  ClinicalNoteWithRelations,
 } from '../../types/models';
 
 export const ClinicalVisitDetailPage: React.FC = () => {
@@ -22,6 +24,7 @@ export const ClinicalVisitDetailPage: React.FC = () => {
   const [completeEndTime, setCompleteEndTime] = useState(new Date().toISOString().slice(0, 16));
 
   const [isUpdating, setIsUpdating] = useState(false);
+  const [clinicalNote, setClinicalNote] = useState<ClinicalNoteWithRelations | null>(null);
 
   const loadVisit = async () => {
     if (!visitId) return;
@@ -35,6 +38,12 @@ export const ClinicalVisitDetailPage: React.FC = () => {
         setVisit(data);
         if (data.encounter_notes) {
           setCompleteNotes(data.encounter_notes);
+        }
+        try {
+          const note = await clinicalNoteService.getPrimaryNoteForVisit(visitId);
+          setClinicalNote(note);
+        } catch (noteErr) {
+          console.warn('Could not load clinical note for visit:', noteErr);
         }
       }
     } catch (err: any) {
@@ -357,6 +366,44 @@ export const ClinicalVisitDetailPage: React.FC = () => {
               Encounter record is terminal and immutable.
             </span>
           )}
+
+          {clinicalNote ? (
+            <Link
+              to={`/app/clinical-notes/${clinicalNote.id}`}
+              style={{
+                backgroundColor: '#0284c7',
+                color: '#fff',
+                padding: '0.5rem 1rem',
+                borderRadius: '6px',
+                textDecoration: 'none',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              View SOAP Note ({clinicalNote.note_identifier})
+            </Link>
+          ) : (
+            visit.status !== 'cancelled' && (
+              <Link
+                to={`/app/clinical-notes/new?visitId=${visit.id}`}
+                style={{
+                  backgroundColor: '#0284c7',
+                  color: '#fff',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '6px',
+                  textDecoration: 'none',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                }}
+              >
+                + Document SOAP Note
+              </Link>
+            )
+          )}
         </div>
       </div>
 
@@ -372,9 +419,9 @@ export const ClinicalVisitDetailPage: React.FC = () => {
           color: '#475569',
         }}
       >
-        <strong>Clinical Architecture Rule:</strong> Clinical Visit records the actual encounter execution and timing.
-        Clinical evaluation and SOAP note documentation belong to the upcoming dedicated Clinical Note domain. This
-        encounter does not deduct patient wallet credits or package sessions.
+        <strong>Clinical Architecture Invariant:</strong> Patient ≠ Episode of Care ≠ Appointment ≠ Clinical Visit ≠ Clinical Note.
+        Clinical Visit records the actual encounter execution and timing. Clinical evaluation and SOAP notes are maintained in the
+        dedicated Clinical Note domain. This encounter does not deduct patient wallet credits or package sessions in V1.
       </div>
 
       {/* Cancellation Banner */}
@@ -505,6 +552,141 @@ export const ClinicalVisitDetailPage: React.FC = () => {
             </p>
           )}
         </div>
+      </div>
+
+      {/* Clinical Note (SOAP Documentation) Card */}
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          padding: '1.5rem',
+          borderRadius: '8px',
+          border: '1px solid #e2e8f0',
+          marginTop: '1.5rem',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '0.75rem',
+            borderBottom: '1px solid #f1f5f9',
+            paddingBottom: '0.5rem',
+          }}
+        >
+          <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, color: '#0f172a' }}>
+            Clinical Note (SOAP Documentation)
+          </h2>
+          {clinicalNote ? (
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '0.2rem 0.5rem',
+                borderRadius: '9999px',
+                textTransform: 'capitalize',
+                backgroundColor: clinicalNote.status === 'draft' ? '#fef3c7' : '#dcfce7',
+                color: clinicalNote.status === 'draft' ? '#92400e' : '#166534',
+              }}
+            >
+              {clinicalNote.status}
+            </span>
+          ) : null}
+        </div>
+
+        {clinicalNote ? (
+          <div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1rem',
+                flexWrap: 'wrap',
+                gap: '0.5rem',
+              }}
+            >
+              <div>
+                <Link
+                  to={`/app/clinical-notes/${clinicalNote.id}`}
+                  style={{ color: '#0284c7', fontWeight: 700, fontSize: '1.125rem', textDecoration: 'none' }}
+                >
+                  {clinicalNote.note_identifier}
+                </Link>
+                <span style={{ fontSize: '0.8125rem', color: '#64748b', marginLeft: '0.75rem' }}>
+                  {clinicalNote.note_type.toUpperCase()} • Last updated {formatTimestamp(clinicalNote.updated_at || clinicalNote.created_at)}
+                </span>
+              </div>
+              <Link
+                to={`/app/clinical-notes/${clinicalNote.id}`}
+                style={{
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                  color: '#0284c7',
+                  textDecoration: 'none',
+                }}
+              >
+                {clinicalNote.status === 'draft' ? 'Continue Editing Draft →' : 'View Full Note →'}
+              </Link>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '0.75rem',
+                fontSize: '0.8125rem',
+              }}
+            >
+              <div style={{ backgroundColor: '#f8fafc', padding: '0.75rem', borderRadius: '6px', border: '1px solid #f1f5f9' }}>
+                <strong style={{ color: '#0369a1', display: 'block', marginBottom: '0.25rem' }}>S: Subjective</strong>
+                <p style={{ margin: 0, color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {clinicalNote.subjective || '(None)'}
+                </p>
+              </div>
+              <div style={{ backgroundColor: '#f8fafc', padding: '0.75rem', borderRadius: '6px', border: '1px solid #f1f5f9' }}>
+                <strong style={{ color: '#0369a1', display: 'block', marginBottom: '0.25rem' }}>O: Objective</strong>
+                <p style={{ margin: 0, color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {clinicalNote.objective || '(None)'}
+                </p>
+              </div>
+              <div style={{ backgroundColor: '#f8fafc', padding: '0.75rem', borderRadius: '6px', border: '1px solid #f1f5f9' }}>
+                <strong style={{ color: '#0369a1', display: 'block', marginBottom: '0.25rem' }}>A: Assessment</strong>
+                <p style={{ margin: 0, color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {clinicalNote.assessment || '(None)'}
+                </p>
+              </div>
+              <div style={{ backgroundColor: '#f8fafc', padding: '0.75rem', borderRadius: '6px', border: '1px solid #f1f5f9' }}>
+                <strong style={{ color: '#0369a1', display: 'block', marginBottom: '0.25rem' }}>P: Plan</strong>
+                <p style={{ margin: 0, color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {clinicalNote.plan || '(None)'}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
+              No clinical documentation recorded for this encounter yet.
+            </p>
+            {visit.status !== 'cancelled' && (
+              <Link
+                to={`/app/clinical-notes/new?visitId=${visit.id}`}
+                style={{
+                  backgroundColor: '#0284c7',
+                  color: '#ffffff',
+                  padding: '0.4rem 0.875rem',
+                  borderRadius: '6px',
+                  textDecoration: 'none',
+                  fontSize: '0.8125rem',
+                  fontWeight: 600,
+                }}
+              >
+                + Document SOAP Note
+              </Link>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Operational Notes Card */}

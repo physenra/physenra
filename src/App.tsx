@@ -20,6 +20,9 @@ import { EditAppointmentPage } from './pages/appointments/EditAppointmentPage';
 import { ClinicalVisitListPage } from './pages/visits/ClinicalVisitListPage';
 import { CreateClinicalVisitPage } from './pages/visits/CreateClinicalVisitPage';
 import { ClinicalVisitDetailPage } from './pages/visits/ClinicalVisitDetailPage';
+import { ClinicalNoteListPage } from './pages/notes/ClinicalNoteListPage';
+import { CreateClinicalNotePage } from './pages/notes/CreateClinicalNotePage';
+import { ClinicalNoteDetailPage } from './pages/notes/ClinicalNoteDetailPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -70,6 +73,14 @@ export const App: React.FC = () => {
         <Route path="visits" element={<ClinicalVisitListPage />} />
         <Route path="visits/new" element={<CreateClinicalVisitPage />} />
         <Route path="visits/:visitId" element={<ClinicalVisitDetailPage />} />
+        <Route path="clinical-visits" element={<ClinicalVisitListPage />} />
+        <Route path="clinical-visits/new" element={<CreateClinicalVisitPage />} />
+        <Route path="clinical-visits/:visitId" element={<ClinicalVisitDetailPage />} />
+
+        {/* Clinical Note / SOAP Foundation V1 */}
+        <Route path="clinical-notes" element={<ClinicalNoteListPage />} />
+        <Route path="clinical-notes/new" element={<CreateClinicalNotePage />} />
+        <Route path="clinical-notes/:noteId" element={<ClinicalNoteDetailPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}

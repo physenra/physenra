@@ -123,8 +123,6 @@ test('No patient or clinical database structures exist in application foundation
 
   // Verify that subsequent clinical and financial modules are not defined prematurely
   const forbiddenModules = [
-    'clinical_notes',
-    'soap_notes',
     'treatment_plans',
     'invoices',
     'payments',

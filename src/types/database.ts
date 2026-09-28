@@ -60,6 +60,8 @@ export type ClinicalVisitLocationMode =
   | 'home'
   | 'telehealth'
   | 'other';
+export type ClinicalNoteStatus = 'draft' | 'finalized' | 'amended';
+export type ClinicalNoteType = 'soap' | 'addendum';
 
 export interface Database {
   public: {
@@ -609,11 +611,107 @@ export interface Database {
         };
         Relationships: [];
       };
+      practice_clinical_note_counters: {
+        Row: {
+          practice_id: string;
+          next_val: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      clinical_notes: {
+        Row: {
+          id: string;
+          practice_id: string;
+          clinical_visit_id: string;
+          patient_id: string;
+          episode_id: string | null;
+          author_id: string;
+          note_identifier: string;
+          note_type: ClinicalNoteType;
+          parent_note_id: string | null;
+          status: ClinicalNoteStatus;
+          subjective: string;
+          objective: string;
+          assessment: string;
+          plan: string;
+          amendment_reason: string | null;
+          finalized_at: string | null;
+          finalized_by: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          clinical_visit_id: string;
+          patient_id: string;
+          episode_id?: string | null;
+          author_id: string;
+          note_identifier?: string;
+          note_type?: ClinicalNoteType;
+          parent_note_id?: string | null;
+          status?: ClinicalNoteStatus;
+          subjective?: string;
+          objective?: string;
+          assessment?: string;
+          plan?: string;
+          amendment_reason?: string | null;
+          finalized_at?: string | null;
+          finalized_by?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          clinical_visit_id?: string;
+          patient_id?: string;
+          episode_id?: string | null;
+          author_id?: string;
+          note_identifier?: string;
+          note_type?: ClinicalNoteType;
+          parent_note_id?: string | null;
+          status?: ClinicalNoteStatus;
+          subjective?: string;
+          objective?: string;
+          assessment?: string;
+          plan?: string;
+          amendment_reason?: string | null;
+          finalized_at?: string | null;
+          finalized_by?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      generate_next_clinical_note_identifier: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
       generate_next_clinical_visit_identifier: {
         Args: {
           p_practice_id: string;
@@ -678,6 +776,8 @@ export interface Database {
       appointment_location_mode: AppointmentLocationMode;
       clinical_visit_status: ClinicalVisitStatus;
       clinical_visit_location_mode: ClinicalVisitLocationMode;
+      clinical_note_status: ClinicalNoteStatus;
+      clinical_note_type: ClinicalNoteType;
     };
     CompositeTypes: {
       [_ in never]: never;
