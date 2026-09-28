@@ -121,9 +121,8 @@ test('No patient or clinical database structures exist in application foundation
 
   const content = fs.readFileSync(schemaFile, 'utf8');
 
-  // Verify that subsequent clinical and financial modules are not defined prematurely
+  // Verify that subsequent financial and communication modules are not defined prematurely
   const forbiddenModules = [
-    'invoices',
     'payments',
     'wallets',
     'whatsapp_messages',

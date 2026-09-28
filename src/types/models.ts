@@ -34,6 +34,7 @@ import type {
   DischargeDisposition,
   ServiceCategory,
   FeeScheduleStatus,
+  InvoiceStatus,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -113,6 +114,16 @@ export type PracticeFeeScheduleCounter = Database['public']['Tables']['practice_
 export type FeeScheduleItem = Database['public']['Tables']['fee_schedule_items']['Row'];
 export type FeeScheduleItemInsert = Database['public']['Tables']['fee_schedule_items']['Insert'];
 export type FeeScheduleItemUpdate = Database['public']['Tables']['fee_schedule_items']['Update'];
+
+export type PracticeInvoiceCounter = Database['public']['Tables']['practice_invoice_counters']['Row'];
+
+export type Invoice = Database['public']['Tables']['invoices']['Row'];
+export type InvoiceInsert = Database['public']['Tables']['invoices']['Insert'];
+export type InvoiceUpdate = Database['public']['Tables']['invoices']['Update'];
+
+export type InvoiceLine = Database['public']['Tables']['invoice_lines']['Row'];
+export type InvoiceLineInsert = Database['public']['Tables']['invoice_lines']['Insert'];
+export type InvoiceLineUpdate = Database['public']['Tables']['invoice_lines']['Update'];
 
 export interface EpisodeWithPatient extends EpisodeOfCare {
   patients?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
@@ -321,6 +332,31 @@ export interface FeeScheduleFilters {
   isDefault?: boolean;
 }
 
+export interface InvoiceLineWithService extends InvoiceLine {
+  service?: Pick<Service, 'id' | 'service_code' | 'name' | 'category' | 'standard_duration_minutes'> | null;
+}
+
+export interface InvoiceWithRelations extends Invoice {
+  patient?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
+  episode?: Pick<EpisodeOfCare, 'id' | 'episode_identifier' | 'title' | 'status'> | null;
+  clinical_visit?: Pick<ClinicalVisit, 'id' | 'visit_identifier' | 'status' | 'actual_start' | 'actual_end'> | null;
+  fee_schedule?: Pick<FeeSchedule, 'id' | 'schedule_identifier' | 'name' | 'currency'> | null;
+  lines?: InvoiceLineWithService[];
+  creator?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  finalizer?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  voider?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+}
+
+export interface InvoiceFilters {
+  status?: InvoiceStatus | 'all';
+  patientId?: string;
+  episodeId?: string;
+  clinicalVisitId?: string;
+  startDate?: string;
+  endDate?: string;
+  searchQuery?: string;
+}
+
 export interface UserPracticeMembership {
   id: string;
   practiceId: string;
@@ -374,6 +410,7 @@ export type {
   DischargeDisposition,
   ServiceCategory,
   FeeScheduleStatus,
+  InvoiceStatus,
 };
 
 

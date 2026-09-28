@@ -160,6 +160,7 @@ export type ServiceCategory =
   | 'other';
 
 export type FeeScheduleStatus = 'draft' | 'active' | 'archived';
+export type InvoiceStatus = 'draft' | 'issued' | 'partially_paid' | 'paid' | 'void' | 'cancelled';
 
 export interface Database {
   public: {
@@ -1777,6 +1778,179 @@ export interface Database {
         };
         Relationships: [];
       };
+      practice_invoice_counters: {
+        Row: {
+          practice_id: string;
+          last_number: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      invoices: {
+        Row: {
+          id: string;
+          practice_id: string;
+          invoice_number: string;
+          patient_id: string;
+          episode_id: string | null;
+          clinical_visit_id: string | null;
+          fee_schedule_id: string | null;
+          issue_date: string;
+          invoice_date: string;
+          due_date: string | null;
+          status: InvoiceStatus;
+          currency: string;
+          subtotal: number;
+          discount_total: number;
+          tax_total: number;
+          grand_total: number;
+          total_amount: number;
+          amount_paid: number;
+          balance_due: number;
+          notes: string | null;
+          terms: string | null;
+          issued_at: string | null;
+          finalized_by: string | null;
+          voided_at: string | null;
+          voided_by: string | null;
+          void_reason: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          invoice_number: string;
+          patient_id: string;
+          episode_id?: string | null;
+          clinical_visit_id?: string | null;
+          fee_schedule_id?: string | null;
+          issue_date?: string;
+          due_date?: string | null;
+          status?: InvoiceStatus;
+          currency?: string;
+          subtotal?: number;
+          discount_total?: number;
+          tax_total?: number;
+          grand_total?: number;
+          amount_paid?: number;
+          balance_due?: number;
+          notes?: string | null;
+          terms?: string | null;
+          issued_at?: string | null;
+          finalized_by?: string | null;
+          voided_at?: string | null;
+          voided_by?: string | null;
+          void_reason?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          invoice_number?: string;
+          patient_id?: string;
+          episode_id?: string | null;
+          clinical_visit_id?: string | null;
+          fee_schedule_id?: string | null;
+          issue_date?: string;
+          due_date?: string | null;
+          status?: InvoiceStatus;
+          currency?: string;
+          subtotal?: number;
+          discount_total?: number;
+          tax_total?: number;
+          grand_total?: number;
+          amount_paid?: number;
+          balance_due?: number;
+          notes?: string | null;
+          terms?: string | null;
+          issued_at?: string | null;
+          finalized_by?: string | null;
+          voided_at?: string | null;
+          voided_by?: string | null;
+          void_reason?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      invoice_lines: {
+        Row: {
+          id: string;
+          practice_id: string;
+          invoice_id: string;
+          service_id: string | null;
+          service_code_snapshot: string;
+          service_name_snapshot: string;
+          description: string | null;
+          quantity: number;
+          unit_price_snapshot: number;
+          currency: string;
+          is_taxable: boolean;
+          tax_rate_percent_snapshot: number;
+          tax_amount: number;
+          discount_amount: number;
+          line_total: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          invoice_id: string;
+          service_id?: string | null;
+          service_code_snapshot: string;
+          service_name_snapshot: string;
+          description?: string | null;
+          quantity?: number;
+          unit_price_snapshot: number;
+          currency: string;
+          is_taxable?: boolean;
+          tax_rate_percent_snapshot?: number;
+          tax_amount?: number;
+          discount_amount?: number;
+          line_total?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          invoice_id?: string;
+          service_id?: string | null;
+          service_code_snapshot?: string;
+          service_name_snapshot?: string;
+          description?: string | null;
+          quantity?: number;
+          unit_price_snapshot?: number;
+          currency?: string;
+          is_taxable?: boolean;
+          tax_rate_percent_snapshot?: number;
+          tax_amount?: number;
+          discount_amount?: number;
+          line_total?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -1869,6 +2043,12 @@ export interface Database {
         Args: Record<PropertyKey, never>;
         Returns: boolean;
       };
+      generate_next_invoice_number: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
       log_audit_event: {
         Args: {
           p_action: string;
@@ -1917,6 +2097,7 @@ export interface Database {
       discharge_disposition: DischargeDisposition;
       service_category: ServiceCategory;
       fee_schedule_status: FeeScheduleStatus;
+      invoice_status: InvoiceStatus;
     };
     CompositeTypes: {
       [_ in never]: never;

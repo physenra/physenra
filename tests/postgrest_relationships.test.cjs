@@ -26,6 +26,7 @@ const TREATMENT_PLAN_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'trea
 const PROGRESS_REVIEW_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'progressReviewService.ts');
 const DISCHARGE_SUMMARY_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'dischargeSummaryService.ts');
 const SERVICE_CATALOG_PATH = path.join(ROOT_DIR, 'src', 'services', 'serviceCatalogService.ts');
+const BILLING_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'billingService.ts');
 const CREATE_VISIT_PAGE_PATH = path.join(ROOT_DIR, 'src', 'pages', 'visits', 'CreateClinicalVisitPage.tsx');
 
 const SUPABASE_URL = 'https://xxknmdgneamtoahqayvl.supabase.co';
@@ -426,9 +427,54 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
   });
 
   // ----------------------------------------------------------------------------
-  // SUITE 10: Remote PostgREST API Live Query Verification
+  // SUITE 10: Billing Service PostgREST Disambiguation
   // ----------------------------------------------------------------------------
-  await t.test('--- SUITE 10: Remote PostgREST API Live Query Verification ---', async (st) => {
+  await t.test('--- SUITE 10: Billing Service PostgREST Disambiguation ---', async (st) => {
+    const billingCode = fs.readFileSync(BILLING_SERVICE_PATH, 'utf8');
+    await st.test('billingService uses fk_invoices_patient_practice constraint hint', () => {
+      assert(
+        billingCode.includes('patient:patients!fk_invoices_patient_practice'),
+        'billingService must disambiguate patient relation using !fk_invoices_patient_practice'
+      );
+    });
+
+    await st.test('billingService uses fk_invoices_episode_patient_practice constraint hint', () => {
+      assert(
+        billingCode.includes('episode:episodes_of_care!fk_invoices_episode_patient_practice'),
+        'billingService must disambiguate episode relation using !fk_invoices_episode_patient_practice'
+      );
+    });
+
+    await st.test('billingService uses fk_invoices_visit_patient_practice constraint hint', () => {
+      assert(
+        billingCode.includes('clinical_visit:clinical_visits!fk_invoices_visit_patient_practice'),
+        'billingService must disambiguate visit relation using !fk_invoices_visit_patient_practice'
+      );
+    });
+
+    await st.test('billingService uses fk_invoices_schedule_practice constraint hint', () => {
+      assert(
+        billingCode.includes('fee_schedule:fee_schedules!fk_invoices_schedule_practice'),
+        'billingService must disambiguate fee schedule relation using !fk_invoices_schedule_practice'
+      );
+    });
+
+    await st.test('billingService uses fk_invoice_lines_invoice_practice and fk_invoice_lines_service_practice hints', () => {
+      assert(
+        billingCode.includes('lines:invoice_lines!fk_invoice_lines_invoice_practice'),
+        'billingService must disambiguate lines relation'
+      );
+      assert(
+        billingCode.includes('service:services!fk_invoice_lines_service_practice'),
+        'billingService must disambiguate line service relation'
+      );
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 11: Remote PostgREST API Live Query Verification
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 11: Remote PostgREST API Live Query Verification ---', async (st) => {
     const remoteQueries = [
       {
         name: 'Clinical Visits with disambiguated patient, episode, and appointment',
@@ -499,6 +545,16 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
         name: 'Fee Schedule Items with disambiguated service',
         table: 'fee_schedule_items',
         select: '*,service:services!fk_fee_schedule_items_service_practice(*)'
+      },
+      {
+        name: 'Invoices with disambiguated patient, episode, clinical visit, fee schedule, and lines',
+        table: 'invoices',
+        select: '*,patient:patients!fk_invoices_patient_practice(id,patient_identifier,first_name,last_name),episode:episodes_of_care!fk_invoices_episode_patient_practice(id,episode_identifier,title),clinical_visit:clinical_visits!fk_invoices_visit_patient_practice(id,visit_identifier),fee_schedule:fee_schedules!fk_invoices_schedule_practice(id,schedule_identifier,name),lines:invoice_lines!fk_invoice_lines_invoice_practice(*,service:services!fk_invoice_lines_service_practice(id,service_code,name))'
+      },
+      {
+        name: 'Invoice Lines with disambiguated service',
+        table: 'invoice_lines',
+        select: '*,service:services!fk_invoice_lines_service_practice(*)'
       }
     ];
 

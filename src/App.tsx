@@ -43,6 +43,9 @@ import { CreateServicePage } from './pages/services/CreateServicePage';
 import { FeeScheduleListPage } from './pages/fee-schedules/FeeScheduleListPage';
 import { CreateFeeSchedulePage } from './pages/fee-schedules/CreateFeeSchedulePage';
 import { FeeScheduleDetailPage } from './pages/fee-schedules/FeeScheduleDetailPage';
+import { InvoiceListPage } from './pages/invoices/InvoiceListPage';
+import { CreateInvoicePage } from './pages/invoices/CreateInvoicePage';
+import { InvoiceDetailPage } from './pages/invoices/InvoiceDetailPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -136,6 +139,11 @@ export const App: React.FC = () => {
         <Route path="fee-schedules" element={<FeeScheduleListPage />} />
         <Route path="fee-schedules/new" element={<CreateFeeSchedulePage />} />
         <Route path="fee-schedules/:scheduleId" element={<FeeScheduleDetailPage />} />
+
+        {/* Billing & Invoicing Foundation V1 */}
+        <Route path="invoices" element={<InvoiceListPage />} />
+        <Route path="invoices/new" element={<CreateInvoicePage />} />
+        <Route path="invoices/:invoiceId" element={<InvoiceDetailPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}
