@@ -25,6 +25,10 @@ import type {
   TreatmentGoalCategory,
   TreatmentGoalPriority,
   TreatmentGoalStatus,
+  ProgressReviewStatus,
+  OverallProgressRating,
+  ProgressReviewPlanRecommendation,
+  GoalProgressStatus,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -77,6 +81,14 @@ export type TreatmentPlanUpdate = Database['public']['Tables']['treatment_plans'
 export type TreatmentPlanGoal = Database['public']['Tables']['treatment_plan_goals']['Row'];
 export type TreatmentPlanGoalInsert = Database['public']['Tables']['treatment_plan_goals']['Insert'];
 export type TreatmentPlanGoalUpdate = Database['public']['Tables']['treatment_plan_goals']['Update'];
+
+export type ProgressReview = Database['public']['Tables']['progress_reviews']['Row'];
+export type ProgressReviewInsert = Database['public']['Tables']['progress_reviews']['Insert'];
+export type ProgressReviewUpdate = Database['public']['Tables']['progress_reviews']['Update'];
+
+export type ProgressReviewGoal = Database['public']['Tables']['progress_review_goals']['Row'];
+export type ProgressReviewGoalInsert = Database['public']['Tables']['progress_review_goals']['Insert'];
+export type ProgressReviewGoalUpdate = Database['public']['Tables']['progress_review_goals']['Update'];
 
 export interface EpisodeWithPatient extends EpisodeOfCare {
   patients?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
@@ -212,6 +224,33 @@ export interface TreatmentPlanFilters {
   endDate?: string;
 }
 
+export interface ProgressReviewGoalWithDetails extends ProgressReviewGoal {
+  treatment_plan_goal?: TreatmentPlanGoalWithOutcome | null;
+  linked_outcome_assessment?: OutcomeMeasureAssessmentWithRelations | null;
+}
+
+export interface ProgressReviewWithRelations extends ProgressReview {
+  patient?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
+  episode?: Pick<EpisodeOfCare, 'id' | 'episode_identifier' | 'title' | 'status'> | null;
+  treatment_plan?: Pick<TreatmentPlan, 'id' | 'plan_identifier' | 'title' | 'status' | 'start_date' | 'target_review_date'> | null;
+  originating_clinical_visit?: Pick<ClinicalVisit, 'id' | 'visit_identifier' | 'status' | 'actual_start' | 'actual_end'> | null;
+  reviewing_clinician?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  finalizer?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  amender?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  goals?: ProgressReviewGoalWithDetails[];
+}
+
+export interface ProgressReviewFilters {
+  patientId?: string;
+  episodeId?: string;
+  treatmentPlanId?: string;
+  clinicianId?: string;
+  status?: ProgressReviewStatus | 'all';
+  searchQuery?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface UserPracticeMembership {
   id: string;
   practiceId: string;
@@ -256,6 +295,10 @@ export type {
   TreatmentGoalCategory,
   TreatmentGoalPriority,
   TreatmentGoalStatus,
+  ProgressReviewStatus,
+  OverallProgressRating,
+  ProgressReviewPlanRecommendation,
+  GoalProgressStatus,
 };
 
 

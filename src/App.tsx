@@ -32,6 +32,9 @@ import { HEPDetailPage } from './pages/hep/HEPDetailPage';
 import { TreatmentPlanListPage } from './pages/treatment-plans/TreatmentPlanListPage';
 import { CreateTreatmentPlanPage } from './pages/treatment-plans/CreateTreatmentPlanPage';
 import { TreatmentPlanDetailPage } from './pages/treatment-plans/TreatmentPlanDetailPage';
+import { ProgressReviewListPage } from './pages/progress-reviews/ProgressReviewListPage';
+import { CreateProgressReviewPage } from './pages/progress-reviews/CreateProgressReviewPage';
+import { ProgressReviewDetailPage } from './pages/progress-reviews/ProgressReviewDetailPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -108,6 +111,11 @@ export const App: React.FC = () => {
         <Route path="treatment-plans" element={<TreatmentPlanListPage />} />
         <Route path="treatment-plans/new" element={<CreateTreatmentPlanPage />} />
         <Route path="treatment-plans/:planId" element={<TreatmentPlanDetailPage />} />
+
+        {/* Milestone & Progress Review Foundation V1 */}
+        <Route path="progress-reviews" element={<ProgressReviewListPage />} />
+        <Route path="progress-reviews/new" element={<CreateProgressReviewPage />} />
+        <Route path="progress-reviews/:reviewId" element={<ProgressReviewDetailPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}

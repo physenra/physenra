@@ -23,6 +23,7 @@ const EPISODE_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'episodeServ
 const APPOINTMENT_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'appointmentService.ts');
 const OUTCOME_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'outcomeMeasureService.ts');
 const TREATMENT_PLAN_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'treatmentPlanService.ts');
+const PROGRESS_REVIEW_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'progressReviewService.ts');
 const CREATE_VISIT_PAGE_PATH = path.join(ROOT_DIR, 'src', 'pages', 'visits', 'CreateClinicalVisitPage.tsx');
 
 const SUPABASE_URL = 'https://xxknmdgneamtoahqayvl.supabase.co';
@@ -36,6 +37,7 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
   const apptServiceCode = fs.readFileSync(APPOINTMENT_SERVICE_PATH, 'utf8');
   const outcomeServiceCode = fs.readFileSync(OUTCOME_SERVICE_PATH, 'utf8');
   const tpServiceCode = fs.readFileSync(TREATMENT_PLAN_SERVICE_PATH, 'utf8');
+  const prServiceCode = fs.readFileSync(PROGRESS_REVIEW_SERVICE_PATH, 'utf8');
   const createVisitPageCode = fs.readFileSync(CREATE_VISIT_PAGE_PATH, 'utf8');
 
   // ----------------------------------------------------------------------------
@@ -283,9 +285,72 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
   });
 
   // ----------------------------------------------------------------------------
-  // SUITE 8: Remote PostgREST API Live Query Verification
+  // SUITE 8: Progress Review Service PostgREST Disambiguation
   // ----------------------------------------------------------------------------
-  await t.test('--- SUITE 8: Remote PostgREST API Live Query Verification ---', async (st) => {
+  await t.test('--- SUITE 8: Progress Review Service PostgREST Disambiguation ---', async (st) => {
+    await st.test('progressReviewService uses fk_progress_reviews_patient_practice constraint hint', () => {
+      assert(
+        prServiceCode.includes('patient:patients!fk_progress_reviews_patient_practice'),
+        'progressReviewService must disambiguate patient relation using !fk_progress_reviews_patient_practice'
+      );
+    });
+
+    await st.test('progressReviewService uses fk_progress_reviews_episode_patient_practice constraint hint', () => {
+      assert(
+        prServiceCode.includes('episode:episodes_of_care!fk_progress_reviews_episode_patient_practice'),
+        'progressReviewService must disambiguate episode relation using !fk_progress_reviews_episode_patient_practice'
+      );
+    });
+
+    await st.test('progressReviewService uses fk_progress_reviews_plan_patient_episode_practice constraint hint', () => {
+      assert(
+        prServiceCode.includes('treatment_plan:treatment_plans!fk_progress_reviews_plan_patient_episode_practice'),
+        'progressReviewService must disambiguate treatment plan relation using !fk_progress_reviews_plan_patient_episode_practice'
+      );
+    });
+
+    await st.test('progressReviewService uses fk_progress_reviews_visit_patient_practice constraint hint', () => {
+      assert(
+        prServiceCode.includes('originating_clinical_visit:clinical_visits!fk_progress_reviews_visit_patient_practice'),
+        'progressReviewService must disambiguate clinical visit relation using !fk_progress_reviews_visit_patient_practice'
+      );
+    });
+
+    await st.test('progressReviewService uses fk_prg_goals_review_practice and fk_prg_goals_goal_practice hints', () => {
+      assert(
+        prServiceCode.includes('goals:progress_review_goals!fk_prg_goals_review_practice'),
+        'progressReviewService must disambiguate review goals using !fk_prg_goals_review_practice'
+      );
+      assert(
+        prServiceCode.includes('treatment_plan_goal:treatment_plan_goals!fk_prg_goals_goal_practice'),
+        'progressReviewService must disambiguate plan goal using !fk_prg_goals_goal_practice'
+      );
+      assert(
+        prServiceCode.includes('linked_outcome_assessment:outcome_measure_assessments!fk_prg_goals_outcome_assessment'),
+        'progressReviewService must disambiguate outcome assessment using !fk_prg_goals_outcome_assessment'
+      );
+    });
+
+    await st.test('progressReviewService contains zero unhinted embeds for patient, episode, or visit', () => {
+      assert(
+        !prServiceCode.includes('patient:patients ('),
+        'progressReviewService must not contain unhinted patient:patients ('
+      );
+      assert(
+        !prServiceCode.includes('episode:episodes_of_care ('),
+        'progressReviewService must not contain unhinted episode:episodes_of_care ('
+      );
+      assert(
+        !prServiceCode.includes('originating_clinical_visit:clinical_visits ('),
+        'progressReviewService must not contain unhinted clinical_visit:clinical_visits ('
+      );
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 9: Remote PostgREST API Live Query Verification
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 9: Remote PostgREST API Live Query Verification ---', async (st) => {
     const remoteQueries = [
       {
         name: 'Clinical Visits with disambiguated patient, episode, and appointment',
@@ -331,6 +396,16 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
         name: 'Treatment Plan Goals with disambiguated baseline and target outcome assessments',
         table: 'treatment_plan_goals',
         select: '*,baseline_outcome_assessment:outcome_measure_assessments!fk_tp_goals_baseline_oa(id,assessment_identifier,status,numeric_score),target_outcome_assessment:outcome_measure_assessments!fk_tp_goals_target_oa(id,assessment_identifier,status,numeric_score)'
+      },
+      {
+        name: 'Progress Reviews with disambiguated patient, episode, treatment plan, and originating visit',
+        table: 'progress_reviews',
+        select: '*,patient:patients!fk_progress_reviews_patient_practice(id,patient_identifier,first_name,last_name,phone,email),episode:episodes_of_care!fk_progress_reviews_episode_patient_practice(id,episode_identifier,title,status),treatment_plan:treatment_plans!fk_progress_reviews_plan_patient_episode_practice(id,plan_identifier,title,status),originating_clinical_visit:clinical_visits!fk_progress_reviews_visit_patient_practice(id,visit_identifier,status,actual_start,actual_end)'
+      },
+      {
+        name: 'Progress Review Goals with disambiguated goal and linked outcome assessment',
+        table: 'progress_review_goals',
+        select: '*,treatment_plan_goal:treatment_plan_goals!fk_prg_goals_goal_practice(id,goal_statement,status),linked_outcome_assessment:outcome_measure_assessments!fk_prg_goals_outcome_assessment(id,assessment_identifier,status,numeric_score)'
       }
     ];
 
@@ -382,6 +457,22 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
         res.status,
         300,
         `Expected HTTP 300 (Ambiguous relationship) for unhinted treatment_plans query, got ${res.status}`
+      );
+    });
+
+    await st.test('Unhinted progress_reviews query reproduces PGRST201 HTTP 300 to prove disambiguation is required', async () => {
+      const url = `${SUPABASE_URL}/rest/v1/progress_reviews?select=*,patients(id)&limit=1`;
+      const res = await fetch(url, {
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Practice-ID': PRACTICE_ID
+        }
+      });
+      assert.equal(
+        res.status,
+        300,
+        `Expected HTTP 300 (Ambiguous relationship) for unhinted progress_reviews query, got ${res.status}`
       );
     });
   });

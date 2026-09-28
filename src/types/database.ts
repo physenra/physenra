@@ -107,6 +107,28 @@ export type TreatmentGoalStatus =
   | 'not_achieved'
   | 'discontinued';
 
+export type ProgressReviewStatus = 'draft' | 'finalized' | 'amended';
+export type OverallProgressRating =
+  | 'significant_improvement'
+  | 'progressing'
+  | 'slow_progress'
+  | 'plateaued'
+  | 'regressed'
+  | 'goals_met';
+export type ProgressReviewPlanRecommendation =
+  | 'continue_current_plan'
+  | 'modify_goals'
+  | 'advance_interventions'
+  | 'reduce_frequency'
+  | 'prepare_discharge';
+export type GoalProgressStatus =
+  | 'in_progress'
+  | 'achieved'
+  | 'partially_achieved'
+  | 'not_achieved'
+  | 'regressed'
+  | 'discontinued';
+
 export interface Database {
   public: {
     Tables: {
@@ -1270,11 +1292,170 @@ export interface Database {
         };
         Relationships: [];
       };
+      practice_progress_review_counters: {
+        Row: {
+          practice_id: string;
+          last_number: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      progress_reviews: {
+        Row: {
+          id: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id: string;
+          treatment_plan_id: string;
+          originating_clinical_visit_id: string | null;
+          reviewing_clinician_id: string;
+          review_identifier: string;
+          review_date: string;
+          period_start_date: string | null;
+          period_end_date: string | null;
+          overall_status: ProgressReviewStatus;
+          overall_progress_assessment: OverallProgressRating;
+          clinical_summary: string;
+          barriers_identified: string | null;
+          treatment_modifications: string | null;
+          plan_recommendation: ProgressReviewPlanRecommendation;
+          next_review_due_date: string | null;
+          finalized_at: string | null;
+          finalized_by: string | null;
+          amendment_reason: string | null;
+          amended_at: string | null;
+          amended_by: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id: string;
+          treatment_plan_id: string;
+          originating_clinical_visit_id?: string | null;
+          reviewing_clinician_id: string;
+          review_identifier: string;
+          review_date?: string;
+          period_start_date?: string | null;
+          period_end_date?: string | null;
+          overall_status?: ProgressReviewStatus;
+          overall_progress_assessment?: OverallProgressRating;
+          clinical_summary: string;
+          barriers_identified?: string | null;
+          treatment_modifications?: string | null;
+          plan_recommendation?: ProgressReviewPlanRecommendation;
+          next_review_due_date?: string | null;
+          finalized_at?: string | null;
+          finalized_by?: string | null;
+          amendment_reason?: string | null;
+          amended_at?: string | null;
+          amended_by?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          patient_id?: string;
+          episode_id?: string;
+          treatment_plan_id?: string;
+          originating_clinical_visit_id?: string | null;
+          reviewing_clinician_id?: string;
+          review_identifier?: string;
+          review_date?: string;
+          period_start_date?: string | null;
+          period_end_date?: string | null;
+          overall_status?: ProgressReviewStatus;
+          overall_progress_assessment?: OverallProgressRating;
+          clinical_summary?: string;
+          barriers_identified?: string | null;
+          treatment_modifications?: string | null;
+          plan_recommendation?: ProgressReviewPlanRecommendation;
+          next_review_due_date?: string | null;
+          finalized_at?: string | null;
+          finalized_by?: string | null;
+          amendment_reason?: string | null;
+          amended_at?: string | null;
+          amended_by?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      progress_review_goals: {
+        Row: {
+          id: string;
+          practice_id: string;
+          progress_review_id: string;
+          treatment_plan_goal_id: string;
+          status_at_review: GoalProgressStatus;
+          current_value: string | null;
+          measurement_method: string | null;
+          clinician_assessment: string;
+          progress_notes: string | null;
+          linked_outcome_assessment_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          progress_review_id: string;
+          treatment_plan_goal_id: string;
+          status_at_review?: GoalProgressStatus;
+          current_value?: string | null;
+          measurement_method?: string | null;
+          clinician_assessment: string;
+          progress_notes?: string | null;
+          linked_outcome_assessment_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          progress_review_id?: string;
+          treatment_plan_goal_id?: string;
+          status_at_review?: GoalProgressStatus;
+          current_value?: string | null;
+          measurement_method?: string | null;
+          clinician_assessment?: string;
+          progress_notes?: string | null;
+          linked_outcome_assessment_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      generate_next_progress_review_identifier: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
       generate_next_treatment_plan_identifier: {
         Args: {
           p_practice_id: string;
@@ -1377,6 +1558,10 @@ export interface Database {
       treatment_goal_category: TreatmentGoalCategory;
       treatment_goal_priority: TreatmentGoalPriority;
       treatment_goal_status: TreatmentGoalStatus;
+      progress_review_status: ProgressReviewStatus;
+      overall_progress_rating: OverallProgressRating;
+      progress_review_plan_recommendation: ProgressReviewPlanRecommendation;
+      goal_progress_status: GoalProgressStatus;
     };
     CompositeTypes: {
       [_ in never]: never;

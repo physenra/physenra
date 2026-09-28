@@ -12,6 +12,7 @@ import {
   Award,
   TrendingUp,
   ExternalLink,
+  ClipboardCheck,
 } from 'lucide-react';
 import { treatmentPlanService } from '../../services/treatmentPlanService';
 import type {
@@ -494,6 +495,25 @@ export const TreatmentPlanDetailPage: React.FC = () => {
 
             {plan.status === 'active' && (
               <>
+                <Link
+                  to={`/app/progress-reviews/new?patientId=${plan.patient_id}&episodeId=${plan.episode_id}&treatmentPlanId=${plan.id}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.375rem',
+                    backgroundColor: '#0284c7',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '0.5rem 0.875rem',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                  }}
+                >
+                  <ClipboardCheck size={16} />
+                  Conduct Progress Review
+                </Link>
                 <button
                   type="button"
                   onClick={() => setShowAddGoalModal(true)}
