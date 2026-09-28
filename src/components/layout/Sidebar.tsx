@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Building2, ShieldCheck, Users, FolderKanban, Calendar, Activity, FileText, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Building2, ShieldCheck, Users, FolderKanban, Calendar, Activity, FileText, TrendingUp, Dumbbell } from 'lucide-react';
 import { usePractice } from '../../hooks/usePractice';
 import { useRole } from '../../hooks/useRole';
 
@@ -81,6 +81,16 @@ export const Sidebar: React.FC = () => {
           >
             <TrendingUp size={18} />
             <span>Outcome Measures</span>
+          </NavLink>
+
+          <NavLink
+            to="/app/hep"
+            className={({ isActive }) =>
+              `nav-link ${isActive ? 'nav-link-active' : ''}`
+            }
+          >
+            <Dumbbell size={18} />
+            <span>Home Exercises</span>
           </NavLink>
 
           <NavLink

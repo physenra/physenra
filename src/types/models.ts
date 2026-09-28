@@ -17,6 +17,10 @@ import type {
   OutcomeMeasureScoringType,
   OutcomeAssessmentType,
   OutcomeAssessmentStatus,
+  HEPStatus,
+  ExerciseCategory,
+  ExerciseBodyRegion,
+  ExerciseLaterality,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -49,6 +53,18 @@ export type OutcomeMeasureDefinitionUpdate = Database['public']['Tables']['outco
 export type OutcomeMeasureAssessment = Database['public']['Tables']['outcome_measure_assessments']['Row'];
 export type OutcomeMeasureAssessmentInsert = Database['public']['Tables']['outcome_measure_assessments']['Insert'];
 export type OutcomeMeasureAssessmentUpdate = Database['public']['Tables']['outcome_measure_assessments']['Update'];
+
+export type Exercise = Database['public']['Tables']['exercises']['Row'];
+export type ExerciseInsert = Database['public']['Tables']['exercises']['Insert'];
+export type ExerciseUpdate = Database['public']['Tables']['exercises']['Update'];
+
+export type HomeExerciseProgram = Database['public']['Tables']['home_exercise_programs']['Row'];
+export type HomeExerciseProgramInsert = Database['public']['Tables']['home_exercise_programs']['Insert'];
+export type HomeExerciseProgramUpdate = Database['public']['Tables']['home_exercise_programs']['Update'];
+
+export type HomeExerciseProgramItem = Database['public']['Tables']['home_exercise_program_items']['Row'];
+export type HomeExerciseProgramItemInsert = Database['public']['Tables']['home_exercise_program_items']['Insert'];
+export type HomeExerciseProgramItemUpdate = Database['public']['Tables']['home_exercise_program_items']['Update'];
 
 export interface EpisodeWithPatient extends EpisodeOfCare {
   patients?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
@@ -135,6 +151,30 @@ export interface OutcomeMeasureFilters {
   searchQuery?: string;
 }
 
+export interface HomeExerciseProgramItemWithExercise extends HomeExerciseProgramItem {
+  exercise?: Exercise | null;
+}
+
+export interface HomeExerciseProgramWithRelations extends HomeExerciseProgram {
+  patient?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
+  episode?: Pick<EpisodeOfCare, 'id' | 'episode_identifier' | 'title' | 'status'> | null;
+  clinical_visit?: Pick<ClinicalVisit, 'id' | 'visit_identifier' | 'status' | 'actual_start' | 'actual_end'> | null;
+  prescribing_clinician?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  finalizer?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  items?: HomeExerciseProgramItemWithExercise[];
+}
+
+export interface HEPFilters {
+  patientId?: string;
+  episodeId?: string;
+  visitId?: string;
+  clinicianId?: string;
+  status?: HEPStatus | 'all';
+  searchQuery?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface UserPracticeMembership {
   id: string;
   practiceId: string;
@@ -171,6 +211,10 @@ export type {
   OutcomeMeasureScoringType,
   OutcomeAssessmentType,
   OutcomeAssessmentStatus,
+  HEPStatus,
+  ExerciseCategory,
+  ExerciseBodyRegion,
+  ExerciseLaterality,
 };
 
 

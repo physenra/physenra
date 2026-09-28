@@ -26,6 +26,9 @@ import { ClinicalNoteDetailPage } from './pages/notes/ClinicalNoteDetailPage';
 import { OutcomeMeasureListPage } from './pages/outcomes/OutcomeMeasureListPage';
 import { CreateOutcomeAssessmentPage } from './pages/outcomes/CreateOutcomeAssessmentPage';
 import { OutcomeAssessmentDetailPage } from './pages/outcomes/OutcomeAssessmentDetailPage';
+import { HEPListPage } from './pages/hep/HEPListPage';
+import { CreateHEPPage } from './pages/hep/CreateHEPPage';
+import { HEPDetailPage } from './pages/hep/HEPDetailPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -89,6 +92,14 @@ export const App: React.FC = () => {
         <Route path="outcome-measures" element={<OutcomeMeasureListPage />} />
         <Route path="outcome-measures/new" element={<CreateOutcomeAssessmentPage />} />
         <Route path="outcome-measures/:assessmentId" element={<OutcomeAssessmentDetailPage />} />
+
+        {/* Home Exercise Program (HEP) Foundation V1 */}
+        <Route path="hep" element={<HEPListPage />} />
+        <Route path="hep/new" element={<CreateHEPPage />} />
+        <Route path="hep/:programId" element={<HEPDetailPage />} />
+        <Route path="home-exercises" element={<HEPListPage />} />
+        <Route path="home-exercises/new" element={<CreateHEPPage />} />
+        <Route path="home-exercises/:programId" element={<HEPDetailPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}

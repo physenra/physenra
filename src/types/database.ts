@@ -66,6 +66,29 @@ export type OutcomeMeasureCategory = 'pain' | 'functional' | 'mobility' | 'quali
 export type OutcomeMeasureScoringType = 'numeric' | 'percentage' | 'timed_seconds' | 'points_scale' | 'categorical';
 export type OutcomeAssessmentType = 'baseline' | 'interim' | 'discharge' | 'follow_up' | 'routine';
 export type OutcomeAssessmentStatus = 'draft' | 'finalized' | 'amended';
+export type HEPStatus = 'draft' | 'active' | 'paused' | 'completed' | 'discontinued';
+export type ExerciseCategory =
+  | 'mobility'
+  | 'strengthening'
+  | 'stretching'
+  | 'aerobic'
+  | 'balance'
+  | 'neuromuscular'
+  | 'functional'
+  | 'other';
+export type ExerciseBodyRegion =
+  | 'cervical'
+  | 'thoracic'
+  | 'lumbar'
+  | 'shoulder'
+  | 'elbow'
+  | 'wrist_hand'
+  | 'hip'
+  | 'knee'
+  | 'ankle_foot'
+  | 'full_body'
+  | 'other';
+export type ExerciseLaterality = 'bilateral' | 'left' | 'right' | 'unilateral' | 'na';
 
 export interface Database {
   public: {
@@ -864,11 +887,221 @@ export interface Database {
         };
         Relationships: [];
       };
+      exercises: {
+        Row: {
+          id: string;
+          practice_id: string | null;
+          is_system: boolean;
+          name: string;
+          category: ExerciseCategory;
+          body_region: ExerciseBodyRegion;
+          default_laterality: ExerciseLaterality;
+          equipment: string | null;
+          description: string | null;
+          instructions: string | null;
+          precautions: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+          created_by: string | null;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: string;
+          practice_id?: string | null;
+          is_system?: boolean;
+          name: string;
+          category?: ExerciseCategory;
+          body_region?: ExerciseBodyRegion;
+          default_laterality?: ExerciseLaterality;
+          equipment?: string | null;
+          description?: string | null;
+          instructions?: string | null;
+          precautions?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string | null;
+          is_system?: boolean;
+          name?: string;
+          category?: ExerciseCategory;
+          body_region?: ExerciseBodyRegion;
+          default_laterality?: ExerciseLaterality;
+          equipment?: string | null;
+          description?: string | null;
+          instructions?: string | null;
+          precautions?: string | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+          created_by?: string | null;
+          updated_by?: string | null;
+        };
+        Relationships: [];
+      };
+      practice_hep_counters: {
+        Row: {
+          practice_id: string;
+          next_val: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      home_exercise_programs: {
+        Row: {
+          id: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id: string | null;
+          clinical_visit_id: string | null;
+          prescribing_clinician_id: string;
+          program_identifier: string;
+          title: string;
+          instructions: string | null;
+          start_date: string;
+          review_date: string | null;
+          status: HEPStatus;
+          finalized_at: string | null;
+          finalized_by: string | null;
+          discontinued_reason: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id?: string | null;
+          clinical_visit_id?: string | null;
+          prescribing_clinician_id: string;
+          program_identifier: string;
+          title: string;
+          instructions?: string | null;
+          start_date?: string;
+          review_date?: string | null;
+          status?: HEPStatus;
+          finalized_at?: string | null;
+          finalized_by?: string | null;
+          discontinued_reason?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          patient_id?: string;
+          episode_id?: string | null;
+          clinical_visit_id?: string | null;
+          prescribing_clinician_id?: string;
+          program_identifier?: string;
+          title?: string;
+          instructions?: string | null;
+          start_date?: string;
+          review_date?: string | null;
+          status?: HEPStatus;
+          finalized_at?: string | null;
+          finalized_by?: string | null;
+          discontinued_reason?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      home_exercise_program_items: {
+        Row: {
+          id: string;
+          practice_id: string;
+          program_id: string;
+          exercise_id: string;
+          order_index: number;
+          sets: number | null;
+          repetitions: number | null;
+          hold_seconds: number | null;
+          duration_minutes: number | null;
+          rest_seconds: number | null;
+          frequency: string | null;
+          intensity_load: string | null;
+          laterality: ExerciseLaterality;
+          instructions: string | null;
+          precautions: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          program_id: string;
+          exercise_id: string;
+          order_index?: number;
+          sets?: number | null;
+          repetitions?: number | null;
+          hold_seconds?: number | null;
+          duration_minutes?: number | null;
+          rest_seconds?: number | null;
+          frequency?: string | null;
+          intensity_load?: string | null;
+          laterality?: ExerciseLaterality;
+          instructions?: string | null;
+          precautions?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          program_id?: string;
+          exercise_id?: string;
+          order_index?: number;
+          sets?: number | null;
+          repetitions?: number | null;
+          hold_seconds?: number | null;
+          duration_minutes?: number | null;
+          rest_seconds?: number | null;
+          frequency?: string | null;
+          intensity_load?: string | null;
+          laterality?: ExerciseLaterality;
+          instructions?: string | null;
+          precautions?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      generate_next_hep_identifier: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
       generate_next_outcome_measure_identifier: {
         Args: {
           p_practice_id: string;
@@ -951,6 +1184,10 @@ export interface Database {
       outcome_measure_scoring_type: OutcomeMeasureScoringType;
       outcome_assessment_type: OutcomeAssessmentType;
       outcome_assessment_status: OutcomeAssessmentStatus;
+      hep_status: HEPStatus;
+      exercise_category: ExerciseCategory;
+      exercise_body_region: ExerciseBodyRegion;
+      exercise_laterality: ExerciseLaterality;
     };
     CompositeTypes: {
       [_ in never]: never;

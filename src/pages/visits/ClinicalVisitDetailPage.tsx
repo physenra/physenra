@@ -3,12 +3,14 @@ import { useParams, Link } from 'react-router-dom';
 import { clinicalVisitService } from '../../services/clinicalVisitService';
 import { clinicalNoteService } from '../../services/clinicalNoteService';
 import { outcomeMeasureService } from '../../services/outcomeMeasureService';
+import { hepService } from '../../services/hepService';
 import type {
   ClinicalVisitWithRelations,
   ClinicalVisitStatus,
   ClinicalVisitLocationMode,
   ClinicalNoteWithRelations,
   OutcomeMeasureAssessmentWithRelations,
+  HomeExerciseProgramWithRelations,
 } from '../../types/models';
 
 export const ClinicalVisitDetailPage: React.FC = () => {
@@ -28,6 +30,7 @@ export const ClinicalVisitDetailPage: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [clinicalNote, setClinicalNote] = useState<ClinicalNoteWithRelations | null>(null);
   const [outcomeAssessments, setOutcomeAssessments] = useState<OutcomeMeasureAssessmentWithRelations[]>([]);
+  const [homeExercisePrograms, setHomeExercisePrograms] = useState<HomeExerciseProgramWithRelations[]>([]);
 
   const loadVisit = async () => {
     if (!visitId) return;
@@ -54,6 +57,13 @@ export const ClinicalVisitDetailPage: React.FC = () => {
           setOutcomeAssessments(assessments);
         } catch (oaErr) {
           console.warn('Could not load outcome assessments for visit:', oaErr);
+        }
+
+        try {
+          const programs = await hepService.getProgramsForVisit(visitId);
+          setHomeExercisePrograms(programs);
+        } catch (hepErr) {
+          console.warn('Could not load exercise programs for visit:', hepErr);
         }
       }
     } catch (err: any) {
@@ -179,6 +189,15 @@ export const ClinicalVisitDetailPage: React.FC = () => {
       return `${d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
     } catch {
       return isoString;
+    }
+  };
+
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '—';
+    try {
+      return new Date(dateStr).toLocaleDateString(undefined, { dateStyle: 'medium' });
+    } catch {
+      return dateStr;
     }
   };
 
@@ -841,6 +860,147 @@ export const ClinicalVisitDetailPage: React.FC = () => {
         ) : (
           <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
             No standardized outcome measures administered during this encounter.
+          </p>
+        )}
+      </div>
+
+      {/* Home Exercise Programs (HEP) Card */}
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          padding: '1.5rem',
+          borderRadius: '8px',
+          border: '1px solid #e2e8f0',
+          marginTop: '1.5rem',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '0.75rem',
+            borderBottom: '1px solid #f1f5f9',
+            paddingBottom: '0.5rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, color: '#0f172a' }}>
+              Home Exercise Programs (HEP)
+            </h2>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '0.15rem 0.5rem',
+                borderRadius: '9999px',
+                backgroundColor: homeExercisePrograms.length > 0 ? '#e0f2fe' : '#f1f5f9',
+                color: homeExercisePrograms.length > 0 ? '#0369a1' : '#475569',
+              }}
+            >
+              {homeExercisePrograms.length} Prescribed
+            </span>
+          </div>
+
+          {visit.status !== 'cancelled' && (
+            <Link
+              to={`/app/hep/new?visitId=${visit.id}&patientId=${visit.patient_id}&episodeId=${visit.episode_id || ''}`}
+              style={{
+                backgroundColor: '#0284c7',
+                color: '#ffffff',
+                padding: '0.4rem 0.875rem',
+                borderRadius: '6px',
+                textDecoration: 'none',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              + Prescribe Exercise Program
+            </Link>
+          )}
+        </div>
+
+        {homeExercisePrograms.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {homeExercisePrograms.map((prog) => (
+              <div
+                key={prog.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '0.75rem 1rem',
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <Link
+                      to={`/app/hep/${prog.id}`}
+                      style={{ color: '#0284c7', fontWeight: 700, fontSize: '0.875rem', textDecoration: 'none' }}
+                    >
+                      {prog.program_identifier}
+                    </Link>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>
+                      {prog.title}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.6875rem',
+                        fontWeight: 600,
+                        padding: '0.1rem 0.4rem',
+                        borderRadius: '4px',
+                        textTransform: 'capitalize',
+                        backgroundColor:
+                          prog.status === 'active'
+                            ? '#dcfce7'
+                            : prog.status === 'draft'
+                            ? '#fef3c7'
+                            : prog.status === 'paused'
+                            ? '#ffedd5'
+                            : '#f1f5f9',
+                        color:
+                          prog.status === 'active'
+                            ? '#166534'
+                            : prog.status === 'draft'
+                            ? '#92400e'
+                            : prog.status === 'paused'
+                            ? '#9a3412'
+                            : '#475569',
+                      }}
+                    >
+                      {prog.status}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                    Start Date: {formatDate(prog.start_date)}
+                    {prog.review_date && ` • Review Due: ${formatDate(prog.review_date)}`}
+                  </div>
+                </div>
+
+                <div>
+                  <Link
+                    to={`/app/hep/${prog.id}`}
+                    style={{
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      color: '#0284c7',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    View Prescription →
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
+            No home exercise program prescribed during this clinical visit.
           </p>
         )}
       </div>

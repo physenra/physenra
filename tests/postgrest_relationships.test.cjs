@@ -257,6 +257,16 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
         name: 'Outcome Assessments with disambiguated patient, episode, visit, and definition',
         table: 'outcome_measure_assessments',
         select: '*,patient:patients!fk_outcome_assessments_patient_practice(id,patient_identifier,first_name,last_name,phone,email),episode:episodes_of_care!fk_outcome_assessments_episode_patient_practice(id,episode_identifier,title,status),clinical_visit:clinical_visits!fk_outcome_assessments_visit_patient_practice(id,visit_identifier,status,actual_start,actual_end),definition:outcome_measure_definitions(*)'
+      },
+      {
+        name: 'Home Exercise Programs with disambiguated patient, episode, and clinical visit',
+        table: 'home_exercise_programs',
+        select: '*,patient:patients!fk_hep_patient_practice(id,patient_identifier,first_name,last_name,phone,email),episode:episodes_of_care!fk_hep_episode_patient_practice(id,episode_identifier,title,status),clinical_visit:clinical_visits!fk_hep_visit_patient_practice(id,visit_identifier,status,actual_start,actual_end)'
+      },
+      {
+        name: 'Home Exercise Program Items with exercise details',
+        table: 'home_exercise_program_items',
+        select: '*,exercise:exercises!fk_hep_items_exercise(*)'
       }
     ];
 
