@@ -9,6 +9,8 @@ import type {
   AppointmentStatus,
   AppointmentType,
   AppointmentLocationMode,
+  ClinicalVisitStatus,
+  ClinicalVisitLocationMode,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -26,6 +28,10 @@ export type Appointment = Database['public']['Tables']['appointments']['Row'];
 export type AppointmentInsert = Database['public']['Tables']['appointments']['Insert'];
 export type AppointmentUpdate = Database['public']['Tables']['appointments']['Update'];
 
+export type ClinicalVisit = Database['public']['Tables']['clinical_visits']['Row'];
+export type ClinicalVisitInsert = Database['public']['Tables']['clinical_visits']['Insert'];
+export type ClinicalVisitUpdate = Database['public']['Tables']['clinical_visits']['Update'];
+
 export interface EpisodeWithPatient extends EpisodeOfCare {
   patients?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
   primary_physiotherapist?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
@@ -34,6 +40,14 @@ export interface EpisodeWithPatient extends EpisodeOfCare {
 export interface AppointmentWithRelations extends Appointment {
   patient?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
   episode?: Pick<EpisodeOfCare, 'id' | 'episode_identifier' | 'title' | 'status'> | null;
+  physiotherapist?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  clinical_visit?: Pick<ClinicalVisit, 'id' | 'visit_identifier' | 'status'> | null;
+}
+
+export interface ClinicalVisitWithRelations extends ClinicalVisit {
+  patient?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
+  episode?: Pick<EpisodeOfCare, 'id' | 'episode_identifier' | 'title' | 'status'> | null;
+  appointment?: Pick<Appointment, 'id' | 'appointment_identifier' | 'status' | 'scheduled_start' | 'scheduled_end' | 'appointment_type'> | null;
   physiotherapist?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
 }
 
@@ -46,6 +60,18 @@ export interface AppointmentFilters {
   physiotherapistId?: string;
   status?: AppointmentStatus | 'all';
   appointmentType?: AppointmentType | 'all';
+  searchQuery?: string;
+}
+
+export interface ClinicalVisitFilters {
+  date?: string; // YYYY-MM-DD
+  startDate?: string;
+  endDate?: string;
+  patientId?: string;
+  episodeId?: string;
+  physiotherapistId?: string;
+  status?: ClinicalVisitStatus | 'all';
+  locationMode?: ClinicalVisitLocationMode | 'all';
   searchQuery?: string;
 }
 
@@ -77,6 +103,8 @@ export type {
   AppointmentStatus,
   AppointmentType,
   AppointmentLocationMode,
+  ClinicalVisitStatus,
+  ClinicalVisitLocationMode,
 };
 
 

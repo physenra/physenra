@@ -4,11 +4,13 @@ import {
   appointmentService,
   ALLOWED_STATUS_TRANSITIONS,
 } from '../../services/appointmentService';
+import { clinicalVisitService } from '../../services/clinicalVisitService';
 import type {
   AppointmentWithRelations,
   AppointmentStatus,
   AppointmentType,
   AppointmentLocationMode,
+  ClinicalVisit,
 } from '../../types/models';
 
 export const AppointmentDetailPage: React.FC = () => {
@@ -16,6 +18,7 @@ export const AppointmentDetailPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [appointment, setAppointment] = useState<AppointmentWithRelations | null>(null);
+  const [linkedVisit, setLinkedVisit] = useState<ClinicalVisit | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +43,8 @@ export const AppointmentDetailPage: React.FC = () => {
         setError('Appointment not found.');
       } else {
         setAppointment(data);
+        const visit = await clinicalVisitService.getClinicalVisitByAppointmentId(appointmentId);
+        setLinkedVisit(visit);
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load appointment details.');
@@ -51,6 +56,19 @@ export const AppointmentDetailPage: React.FC = () => {
   useEffect(() => {
     loadAppointment();
   }, [appointmentId]);
+
+  const handleStartClinicalVisit = async () => {
+    if (!appointment) return;
+    setIsUpdatingStatus(true);
+    setError(null);
+    try {
+      const visit = await clinicalVisitService.startClinicalVisitFromAppointment(appointment.id);
+      navigate(`/app/visits/${visit.id}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to start clinical visit.');
+      setIsUpdatingStatus(false);
+    }
+  };
 
   const handleStatusTransition = async (newStatus: AppointmentStatus, reason?: string) => {
     if (!appointment) return;
@@ -224,6 +242,17 @@ export const AppointmentDetailPage: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          {!linkedVisit && ['scheduled', 'confirmed', 'arrived', 'in_progress'].includes(appointment.status) && (
+            <button
+              type="button"
+              disabled={isUpdatingStatus}
+              onClick={handleStartClinicalVisit}
+              className="btn bg-cyan-600 hover:bg-cyan-700 text-white text-xs py-1.5 px-3 rounded-lg font-medium"
+            >
+              Start Clinical Visit
+            </button>
+          )}
+
           {!isTerminal && (
             <Link
               to={`/app/appointments/${appointment.id}/edit`}
@@ -369,6 +398,57 @@ export const AppointmentDetailPage: React.FC = () => {
                 >
                   View Original Appointment
                 </Link>
+              </div>
+            )}
+          </div>
+
+          {/* Clinical Visit (Encounter Execution) Card */}
+          <div className="card p-5 border-l-4 border-cyan-500">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wider">
+                Clinical Visit (Encounter Execution)
+              </h2>
+              {linkedVisit && (
+                <Link
+                  to={`/app/visits/${linkedVisit.id}`}
+                  className="text-xs text-cyan-600 hover:underline font-semibold"
+                >
+                  View Encounter →
+                </Link>
+              )}
+            </div>
+            {linkedVisit ? (
+              <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                <div>
+                  Linked Visit:{' '}
+                  <Link
+                    to={`/app/visits/${linkedVisit.id}`}
+                    className="font-mono font-bold text-cyan-700 dark:text-cyan-400 underline"
+                  >
+                    {linkedVisit.visit_identifier}
+                  </Link>
+                </div>
+                <div className="text-xs text-gray-500">
+                  Status: <span className="font-semibold">{linkedVisit.status}</span> &bull; Mode:{' '}
+                  {linkedVisit.location_mode}
+                </div>
+                {linkedVisit.duration_minutes && (
+                  <div className="text-xs text-gray-500">
+                    Encounter Duration: {linkedVisit.duration_minutes} minutes
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>No clinical encounter has commenced for this scheduled appointment yet.</span>
+                {!isTerminal && (
+                  <Link
+                    to={`/app/visits/new?appointment_id=${appointment.id}`}
+                    className="text-cyan-600 hover:underline font-medium ml-2"
+                  >
+                    Record Visit →
+                  </Link>
+                )}
               </div>
             )}
           </div>

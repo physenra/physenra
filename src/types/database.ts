@@ -49,6 +49,17 @@ export type AppointmentLocationMode =
   | 'home'
   | 'telehealth'
   | 'other';
+export type ClinicalVisitStatus =
+  | 'scheduled'
+  | 'in_progress'
+  | 'completed'
+  | 'incomplete'
+  | 'cancelled';
+export type ClinicalVisitLocationMode =
+  | 'clinic'
+  | 'home'
+  | 'telehealth'
+  | 'other';
 
 export interface Database {
   public: {
@@ -517,11 +528,98 @@ export interface Database {
         };
         Relationships: [];
       };
+      practice_clinical_visit_counters: {
+        Row: {
+          practice_id: string;
+          next_val: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      clinical_visits: {
+        Row: {
+          id: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id: string | null;
+          appointment_id: string | null;
+          physiotherapist_id: string;
+          visit_identifier: string;
+          status: ClinicalVisitStatus;
+          actual_start: string | null;
+          actual_end: string | null;
+          duration_minutes: number | null;
+          location_mode: ClinicalVisitLocationMode;
+          encounter_notes: string | null;
+          cancellation_reason: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id?: string | null;
+          appointment_id?: string | null;
+          physiotherapist_id: string;
+          visit_identifier?: string;
+          status?: ClinicalVisitStatus;
+          actual_start?: string | null;
+          actual_end?: string | null;
+          duration_minutes?: number | null;
+          location_mode?: ClinicalVisitLocationMode;
+          encounter_notes?: string | null;
+          cancellation_reason?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          patient_id?: string;
+          episode_id?: string | null;
+          appointment_id?: string | null;
+          physiotherapist_id?: string;
+          visit_identifier?: string;
+          status?: ClinicalVisitStatus;
+          actual_start?: string | null;
+          actual_end?: string | null;
+          duration_minutes?: number | null;
+          location_mode?: ClinicalVisitLocationMode;
+          encounter_notes?: string | null;
+          cancellation_reason?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      generate_next_clinical_visit_identifier: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
       generate_next_appointment_identifier: {
         Args: {
           p_practice_id: string;
@@ -578,6 +676,8 @@ export interface Database {
       appointment_status: AppointmentStatus;
       appointment_type: AppointmentType;
       appointment_location_mode: AppointmentLocationMode;
+      clinical_visit_status: ClinicalVisitStatus;
+      clinical_visit_location_mode: ClinicalVisitLocationMode;
     };
     CompositeTypes: {
       [_ in never]: never;

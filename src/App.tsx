@@ -17,6 +17,9 @@ import { AppointmentListPage } from './pages/appointments/AppointmentListPage';
 import { CreateAppointmentPage } from './pages/appointments/CreateAppointmentPage';
 import { AppointmentDetailPage } from './pages/appointments/AppointmentDetailPage';
 import { EditAppointmentPage } from './pages/appointments/EditAppointmentPage';
+import { ClinicalVisitListPage } from './pages/visits/ClinicalVisitListPage';
+import { CreateClinicalVisitPage } from './pages/visits/CreateClinicalVisitPage';
+import { ClinicalVisitDetailPage } from './pages/visits/ClinicalVisitDetailPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -62,6 +65,11 @@ export const App: React.FC = () => {
         <Route path="appointments/new" element={<CreateAppointmentPage />} />
         <Route path="appointments/:appointmentId" element={<AppointmentDetailPage />} />
         <Route path="appointments/:appointmentId/edit" element={<EditAppointmentPage />} />
+
+        {/* Clinical Visit Foundation V1 */}
+        <Route path="visits" element={<ClinicalVisitListPage />} />
+        <Route path="visits/new" element={<CreateClinicalVisitPage />} />
+        <Route path="visits/:visitId" element={<ClinicalVisitDetailPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}
