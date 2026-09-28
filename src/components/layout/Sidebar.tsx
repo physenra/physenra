@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Building2, ShieldCheck, Users, FolderKanban, Calendar, Activity, FileText, TrendingUp, Dumbbell, Target, ClipboardCheck, FileCheck } from 'lucide-react';
+import { LayoutDashboard, Building2, ShieldCheck, Users, FolderKanban, Calendar, Activity, FileText, TrendingUp, Dumbbell, Target, ClipboardCheck, FileCheck, Tag, Coins } from 'lucide-react';
 import { usePractice } from '../../hooks/usePractice';
 import { useRole } from '../../hooks/useRole';
 
@@ -121,6 +121,26 @@ export const Sidebar: React.FC = () => {
           >
             <FileCheck size={18} />
             <span>Discharge Summaries</span>
+          </NavLink>
+
+          <NavLink
+            to="/app/services"
+            className={({ isActive }) =>
+              `nav-link ${isActive ? 'nav-link-active' : ''}`
+            }
+          >
+            <Tag size={18} />
+            <span>Services</span>
+          </NavLink>
+
+          <NavLink
+            to="/app/fee-schedules"
+            className={({ isActive }) =>
+              `nav-link ${isActive ? 'nav-link-active' : ''}`
+            }
+          >
+            <Coins size={18} />
+            <span>Fee Schedules</span>
           </NavLink>
 
           <NavLink

@@ -149,6 +149,18 @@ export type DischargeDisposition =
   | 'continued_care_elsewhere'
   | 'other';
 
+export type ServiceCategory =
+  | 'consultation'
+  | 'assessment'
+  | 'treatment'
+  | 'rehabilitation'
+  | 'home_visit'
+  | 'reassessment'
+  | 'group_class'
+  | 'other';
+
+export type FeeScheduleStatus = 'draft' | 'active' | 'archived';
+
 export interface Database {
   public: {
     Tables: {
@@ -1582,11 +1594,206 @@ export interface Database {
         };
         Relationships: [];
       };
+      practice_service_counters: {
+        Row: {
+          practice_id: string;
+          last_number: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      practice_fee_schedule_counters: {
+        Row: {
+          practice_id: string;
+          last_number: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      services: {
+        Row: {
+          id: string;
+          practice_id: string;
+          service_code: string;
+          name: string;
+          category: ServiceCategory;
+          description: string | null;
+          standard_duration_minutes: number;
+          delivery_mode: string;
+          is_active: boolean;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          service_code: string;
+          name: string;
+          category: ServiceCategory;
+          description?: string | null;
+          standard_duration_minutes?: number;
+          delivery_mode?: string;
+          is_active?: boolean;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          service_code?: string;
+          name?: string;
+          category?: ServiceCategory;
+          description?: string | null;
+          standard_duration_minutes?: number;
+          delivery_mode?: string;
+          is_active?: boolean;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      fee_schedules: {
+        Row: {
+          id: string;
+          practice_id: string;
+          schedule_identifier: string;
+          name: string;
+          description: string | null;
+          effective_from: string;
+          effective_to: string | null;
+          status: FeeScheduleStatus;
+          is_default: boolean;
+          currency: string;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          schedule_identifier: string;
+          name: string;
+          description?: string | null;
+          effective_from?: string;
+          effective_to?: string | null;
+          status?: FeeScheduleStatus;
+          is_default?: boolean;
+          currency?: string;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          schedule_identifier?: string;
+          name?: string;
+          description?: string | null;
+          effective_from?: string;
+          effective_to?: string | null;
+          status?: FeeScheduleStatus;
+          is_default?: boolean;
+          currency?: string;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      fee_schedule_items: {
+        Row: {
+          id: string;
+          practice_id: string;
+          fee_schedule_id: string;
+          service_id: string;
+          unit_price: number;
+          currency: string;
+          is_taxable: boolean;
+          tax_rate_percent: number;
+          notes: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          fee_schedule_id: string;
+          service_id: string;
+          unit_price: number;
+          currency?: string;
+          is_taxable?: boolean;
+          tax_rate_percent?: number;
+          notes?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          fee_schedule_id?: string;
+          service_id?: string;
+          unit_price?: number;
+          currency?: string;
+          is_taxable?: boolean;
+          tax_rate_percent?: number;
+          notes?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      generate_next_service_code: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
+      generate_next_fee_schedule_identifier: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
       generate_next_discharge_summary_identifier: {
         Args: {
           p_practice_id: string;
@@ -1708,6 +1915,8 @@ export interface Database {
       discharge_summary_status: DischargeSummaryStatus;
       discharge_reason: DischargeReason;
       discharge_disposition: DischargeDisposition;
+      service_category: ServiceCategory;
+      fee_schedule_status: FeeScheduleStatus;
     };
     CompositeTypes: {
       [_ in never]: never;

@@ -25,6 +25,7 @@ const OUTCOME_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'outcomeMeas
 const TREATMENT_PLAN_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'treatmentPlanService.ts');
 const PROGRESS_REVIEW_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'progressReviewService.ts');
 const DISCHARGE_SUMMARY_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'dischargeSummaryService.ts');
+const SERVICE_CATALOG_PATH = path.join(ROOT_DIR, 'src', 'services', 'serviceCatalogService.ts');
 const CREATE_VISIT_PAGE_PATH = path.join(ROOT_DIR, 'src', 'pages', 'visits', 'CreateClinicalVisitPage.tsx');
 
 const SUPABASE_URL = 'https://xxknmdgneamtoahqayvl.supabase.co';
@@ -40,6 +41,7 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
   const tpServiceCode = fs.readFileSync(TREATMENT_PLAN_SERVICE_PATH, 'utf8');
   const prServiceCode = fs.readFileSync(PROGRESS_REVIEW_SERVICE_PATH, 'utf8');
   const dischargeServiceCode = fs.readFileSync(DISCHARGE_SUMMARY_SERVICE_PATH, 'utf8');
+  const catalogServiceCode = fs.readFileSync(SERVICE_CATALOG_PATH, 'utf8');
   const createVisitPageCode = fs.readFileSync(CREATE_VISIT_PAGE_PATH, 'utf8');
 
   // ----------------------------------------------------------------------------
@@ -405,9 +407,28 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
   });
 
   // ----------------------------------------------------------------------------
-  // SUITE 9: Remote PostgREST API Live Query Verification
+  // SUITE 9: Service Catalog & Fee Schedule Service PostgREST Disambiguation
   // ----------------------------------------------------------------------------
-  await t.test('--- SUITE 9: Remote PostgREST API Live Query Verification ---', async (st) => {
+  await t.test('--- SUITE 9: Service Catalog & Fee Schedule PostgREST Disambiguation ---', async (st) => {
+    await st.test('serviceCatalogService uses fk_fee_schedule_items_schedule_practice constraint hint', () => {
+      assert(
+        catalogServiceCode.includes('items:fee_schedule_items!fk_fee_schedule_items_schedule_practice'),
+        'serviceCatalogService must disambiguate schedule items using !fk_fee_schedule_items_schedule_practice'
+      );
+    });
+
+    await st.test('serviceCatalogService uses fk_fee_schedule_items_service_practice constraint hint', () => {
+      assert(
+        catalogServiceCode.includes('service:services!fk_fee_schedule_items_service_practice'),
+        'serviceCatalogService must disambiguate service using !fk_fee_schedule_items_service_practice'
+      );
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 10: Remote PostgREST API Live Query Verification
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 10: Remote PostgREST API Live Query Verification ---', async (st) => {
     const remoteQueries = [
       {
         name: 'Clinical Visits with disambiguated patient, episode, and appointment',
@@ -468,6 +489,16 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
         name: 'Discharge Summaries with disambiguated patient, episode, treatment plan, originating visit, and final review',
         table: 'discharge_summaries',
         select: '*,patient:patients!fk_discharge_summaries_patient_practice(id,patient_identifier,first_name,last_name,phone,email),episode:episodes_of_care!fk_discharge_summaries_episode_patient_practice(id,episode_identifier,title,status),treatment_plan:treatment_plans!fk_discharge_summaries_plan_patient_episode_practice(id,plan_identifier,title,status),originating_clinical_visit:clinical_visits!fk_discharge_summaries_visit_patient_practice(id,visit_identifier,status,actual_start,actual_end),final_progress_review:progress_reviews!fk_discharge_summaries_review_patient_episode_practice(id,review_identifier,review_date,overall_status)'
+      },
+      {
+        name: 'Fee Schedules with disambiguated items and services',
+        table: 'fee_schedules',
+        select: '*,items:fee_schedule_items!fk_fee_schedule_items_schedule_practice(*,service:services!fk_fee_schedule_items_service_practice(*))'
+      },
+      {
+        name: 'Fee Schedule Items with disambiguated service',
+        table: 'fee_schedule_items',
+        select: '*,service:services!fk_fee_schedule_items_service_practice(*)'
       }
     ];
 
@@ -551,6 +582,22 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
         res.status,
         300,
         `Expected HTTP 300 (Ambiguous relationship) for unhinted discharge_summaries query, got ${res.status}`
+      );
+    });
+
+    await st.test('Unhinted fee_schedule_items query reproduces PGRST201 HTTP 300 to prove disambiguation is required', async () => {
+      const url = `${SUPABASE_URL}/rest/v1/fee_schedule_items?select=*,services(id)&limit=1`;
+      const res = await fetch(url, {
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Practice-ID': PRACTICE_ID
+        }
+      });
+      assert.equal(
+        res.status,
+        300,
+        `Expected HTTP 300 (Ambiguous relationship) for unhinted fee_schedule_items query, got ${res.status}`
       );
     });
   });

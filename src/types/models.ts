@@ -32,6 +32,8 @@ import type {
   DischargeSummaryStatus,
   DischargeReason,
   DischargeDisposition,
+  ServiceCategory,
+  FeeScheduleStatus,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -97,6 +99,20 @@ export type DischargeSummary = Database['public']['Tables']['discharge_summaries
 export type DischargeSummaryInsert = Database['public']['Tables']['discharge_summaries']['Insert'];
 export type DischargeSummaryUpdate = Database['public']['Tables']['discharge_summaries']['Update'];
 export type PracticeDischargeSummaryCounter = Database['public']['Tables']['practice_discharge_summary_counters']['Row'];
+
+export type Service = Database['public']['Tables']['services']['Row'];
+export type ServiceInsert = Database['public']['Tables']['services']['Insert'];
+export type ServiceUpdate = Database['public']['Tables']['services']['Update'];
+export type PracticeServiceCounter = Database['public']['Tables']['practice_service_counters']['Row'];
+
+export type FeeSchedule = Database['public']['Tables']['fee_schedules']['Row'];
+export type FeeScheduleInsert = Database['public']['Tables']['fee_schedules']['Insert'];
+export type FeeScheduleUpdate = Database['public']['Tables']['fee_schedules']['Update'];
+export type PracticeFeeScheduleCounter = Database['public']['Tables']['practice_fee_schedule_counters']['Row'];
+
+export type FeeScheduleItem = Database['public']['Tables']['fee_schedule_items']['Row'];
+export type FeeScheduleItemInsert = Database['public']['Tables']['fee_schedule_items']['Insert'];
+export type FeeScheduleItemUpdate = Database['public']['Tables']['fee_schedule_items']['Update'];
 
 export interface EpisodeWithPatient extends EpisodeOfCare {
   patients?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
@@ -283,6 +299,28 @@ export interface DischargeSummaryFilters {
   endDate?: string;
 }
 
+export interface FeeScheduleItemWithService extends FeeScheduleItem {
+  service?: Pick<Service, 'id' | 'service_code' | 'name' | 'category' | 'standard_duration_minutes' | 'delivery_mode' | 'is_active'> | null;
+}
+
+export interface FeeScheduleWithItems extends FeeSchedule {
+  items?: FeeScheduleItemWithService[];
+  creator?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+}
+
+export interface ServiceFilters {
+  category?: ServiceCategory | 'all';
+  deliveryMode?: string;
+  isActive?: boolean | 'all';
+  searchQuery?: string;
+}
+
+export interface FeeScheduleFilters {
+  status?: FeeScheduleStatus | 'all';
+  searchQuery?: string;
+  isDefault?: boolean;
+}
+
 export interface UserPracticeMembership {
   id: string;
   practiceId: string;
@@ -334,6 +372,9 @@ export type {
   DischargeSummaryStatus,
   DischargeReason,
   DischargeDisposition,
+  ServiceCategory,
+  FeeScheduleStatus,
 };
+
 
 

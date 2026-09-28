@@ -38,6 +38,11 @@ import { ProgressReviewDetailPage } from './pages/progress-reviews/ProgressRevie
 import { DischargeSummaryListPage } from './pages/discharge-summaries/DischargeSummaryListPage';
 import { CreateDischargeSummaryPage } from './pages/discharge-summaries/CreateDischargeSummaryPage';
 import { DischargeSummaryDetailPage } from './pages/discharge-summaries/DischargeSummaryDetailPage';
+import { ServiceListPage } from './pages/services/ServiceListPage';
+import { CreateServicePage } from './pages/services/CreateServicePage';
+import { FeeScheduleListPage } from './pages/fee-schedules/FeeScheduleListPage';
+import { CreateFeeSchedulePage } from './pages/fee-schedules/CreateFeeSchedulePage';
+import { FeeScheduleDetailPage } from './pages/fee-schedules/FeeScheduleDetailPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -124,6 +129,13 @@ export const App: React.FC = () => {
         <Route path="discharge-summaries" element={<DischargeSummaryListPage />} />
         <Route path="discharge-summaries/new" element={<CreateDischargeSummaryPage />} />
         <Route path="discharge-summaries/:summaryId" element={<DischargeSummaryDetailPage />} />
+
+        {/* Fee Schedule & Service Catalog Foundation V1 */}
+        <Route path="services" element={<ServiceListPage />} />
+        <Route path="services/new" element={<CreateServicePage />} />
+        <Route path="fee-schedules" element={<FeeScheduleListPage />} />
+        <Route path="fee-schedules/new" element={<CreateFeeSchedulePage />} />
+        <Route path="fee-schedules/:scheduleId" element={<FeeScheduleDetailPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}
