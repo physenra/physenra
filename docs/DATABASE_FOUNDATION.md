@@ -98,10 +98,10 @@ Tamper-resistant append-only log capturing security, membership, and operational
 3. **`public.protect_is_platform_admin()`:** Trigger function on `public.profiles` (`BEFORE INSERT OR UPDATE`) preventing non-platform administrators from elevating `is_platform_admin` to `true`.
 4. **`public.protect_practice_owner_membership()`:** Trigger function on `public.practice_memberships` (`BEFORE INSERT OR UPDATE`) preventing unauthorized assignment of `platform_admin` and ensuring only existing practice owners can create or modify `practice_owner` records.
 5. **`public.prevent_audit_mutation()`:** Trigger function on `public.audit_events` (`BEFORE UPDATE OR DELETE`) raising an `integrity_constraint_violation` exception to enforce audit immutability.
-6. **`public.log_audit_event(...)`:** Trusted `SECURITY DEFINER` function for recording audit events. Automatically derives `actor_user_id = auth.uid()`, active practice role from `auth.current_practice_id()`, `created_at = now()`, and client network telemetry.
-7. **`auth.current_practice_id()`:** Resolves active tenant context. Reads the `x-practice-id` client request header (with fallback to `app_metadata.active_practice_id`), and **verifies that the calling user possesses an active membership in that practice**. Returns `NULL` if unauthenticated, invalid, or membership is suspended/revoked.
-8. **`auth.user_has_practice_role(target_practice_id, allowed_roles)`:** Security definer helper confirming the calling user holds an active membership with one of the specified roles.
-9. **`auth.is_platform_admin()`:** Security definer helper confirming whether the calling user has `is_platform_admin = true` in their profile.
+6. **`public.log_audit_event(...)`:** Trusted `SECURITY DEFINER` function for recording audit events. Automatically derives `actor_user_id = auth.uid()`, active practice role from `public.current_practice_id()`, `created_at = now()`, and client network telemetry.
+7. **`public.current_practice_id()`:** Resolves active tenant context. Reads the `x-practice-id` client request header (with fallback to `app_metadata.active_practice_id`), and **verifies that the calling user possesses an active membership in that practice**. Returns `NULL` if unauthenticated, invalid, or membership is suspended/revoked.
+8. **`public.user_has_practice_role(target_practice_id, allowed_roles)`:** Security definer helper confirming the calling user holds an active membership with one of the specified roles.
+9. **`public.is_platform_admin()`:** Security definer helper confirming whether the calling user has `is_platform_admin = true` in their profile.
 
 ---
 
@@ -118,8 +118,8 @@ RLS is enabled on all 5 tables (`ALTER TABLE ... ENABLE ROW LEVEL SECURITY;`).
   - `SELECT (Self)`: Allowed for self (`id = auth.uid()`).
   - `SELECT (Staff Scoped)`: Allowed for staff members in their active practice context to view colleagues and patients in that active practice. Cross-patient enumeration is strictly prevented.
   - `SELECT (Platform Admin)`: Allowed for platform administrators.
-  - `INSERT`: Enforces `id = auth.uid()` and `(is_platform_admin IS FALSE OR auth.is_platform_admin())`.
-  - `UPDATE`: Enforces `id = auth.uid()` and `(is_platform_admin IS FALSE OR auth.is_platform_admin())`.
+  - `INSERT`: Enforces `id = auth.uid()` and `(is_platform_admin IS FALSE OR public.is_platform_admin())`.
+  - `UPDATE`: Enforces `id = auth.uid()` and `(is_platform_admin IS FALSE OR public.is_platform_admin())`.
   - `DELETE`: Permanently blocked (`USING (false)`).
 - **`practice_memberships`:**
   - `SELECT`: Allowed for self (`user_id = auth.uid()`), OR practice owners/managers for their practice.
@@ -140,7 +140,7 @@ RLS is enabled on all 5 tables (`ALTER TABLE ... ENABLE ROW LEVEL SECURITY;`).
 
 ## 5. HARDENED SECURITY DECISIONS & FIXES
 
-1. **Profile Isolation (No Cross-Patient Enumeration):** Patients can ONLY view their own profile record. Staff can view other practice members ONLY within their verified active practice context (`auth.current_practice_id()`).
+1. **Profile Isolation (No Cross-Patient Enumeration):** Patients can ONLY view their own profile record. Staff can view other practice members ONLY within their verified active practice context (`public.current_practice_id()`).
 2. **Platform Admin Self-Injection Prevention:** Enforced via dual-layer protection: RLS `WITH CHECK` and `BEFORE INSERT OR UPDATE` trigger `trg_protect_is_platform_admin`.
 3. **Manager-to-Owner Privilege Escalation Prevention:** Managers are strictly prohibited at both RLS policy and trigger levels from assigning or editing `practice_owner` or `platform_admin` roles.
 4. **Lifecycle Re-Invitation via Partial Index:** Replaced rigid constraint with `uq_practice_user_role_active` (`WHERE status <> 'revoked'`), permitting staff and patient re-invitations without database collisions.

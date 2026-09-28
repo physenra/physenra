@@ -209,7 +209,7 @@ CREATE TRIGGER trg_protect_audit_events_mutation
 -- Resolves the active practice ID for the current authenticated request.
 -- CRITICAL SECURITY RULE: The client-supplied header `x-practice-id` is NEVER trusted
 -- alone; the database validates that the authenticated caller holds an active membership.
-CREATE OR REPLACE FUNCTION auth.current_practice_id()
+CREATE OR REPLACE FUNCTION public.current_practice_id()
 RETURNS uuid AS $$
 DECLARE
   v_practice_id uuid;
@@ -257,7 +257,7 @@ END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, auth, pg_temp;
 
 -- Helper to verify if caller possesses a specific role in a practice
-CREATE OR REPLACE FUNCTION auth.user_has_practice_role(target_practice_id uuid, allowed_roles text[])
+CREATE OR REPLACE FUNCTION public.user_has_practice_role(target_practice_id uuid, allowed_roles text[])
 RETURNS boolean AS $$
   SELECT EXISTS (
     SELECT 1 
@@ -270,7 +270,7 @@ RETURNS boolean AS $$
 $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, auth, pg_temp;
 
 -- Helper to check if caller is an identified platform administrator
-CREATE OR REPLACE FUNCTION auth.is_platform_admin()
+CREATE OR REPLACE FUNCTION public.is_platform_admin()
 RETURNS boolean AS $$
   SELECT EXISTS (
     SELECT 1 
@@ -319,10 +319,10 @@ CREATE POLICY practices_update_owner_or_manager ON public.practices
   FOR UPDATE
   TO authenticated
   USING (
-    auth.user_has_practice_role(id, ARRAY['practice_owner', 'practice_manager'])
+    public.user_has_practice_role(id, ARRAY['practice_owner', 'practice_manager'])
   )
   WITH CHECK (
-    auth.user_has_practice_role(id, ARRAY['practice_owner', 'practice_manager'])
+    public.user_has_practice_role(id, ARRAY['practice_owner', 'practice_manager'])
   );
 
 -- DELETE: Practice hard deletion is prohibited at database level
@@ -384,7 +384,7 @@ CREATE POLICY memberships_select ON public.practice_memberships
   TO authenticated
   USING (
     user_id = auth.uid()
-    OR auth.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager'])
+    OR public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager'])
   );
 
 -- INSERT: Only Practice Owners and Managers can invite / add members to their practice
@@ -392,7 +392,7 @@ CREATE POLICY memberships_insert_owner_manager ON public.practice_memberships
   FOR INSERT
   TO authenticated
   WITH CHECK (
-    auth.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager'])
+    public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager'])
     -- Or self-creation during initial practice creation if no members exist yet for that practice
     OR (
       user_id = auth.uid() 
@@ -408,10 +408,10 @@ CREATE POLICY memberships_update_owner_manager ON public.practice_memberships
   FOR UPDATE
   TO authenticated
   USING (
-    auth.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager'])
+    public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager'])
   )
   WITH CHECK (
-    auth.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager'])
+    public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager'])
   );
 
 -- DELETE: Hard deletion prohibited; status transitions to 'revoked'
@@ -428,7 +428,7 @@ CREATE POLICY subscriptions_select_authorized ON public.subscriptions
   FOR SELECT
   TO authenticated
   USING (
-    auth.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant'])
+    public.user_has_practice_role(practice_id, ARRAY['practice_owner', 'practice_manager', 'accountant'])
   );
 
 -- INSERT: Practice owner can create initial subscription record during practice onboarding
@@ -436,7 +436,7 @@ CREATE POLICY subscriptions_insert_owner ON public.subscriptions
   FOR INSERT
   TO authenticated
   WITH CHECK (
-    auth.user_has_practice_role(practice_id, ARRAY['practice_owner'])
+    public.user_has_practice_role(practice_id, ARRAY['practice_owner'])
   );
 
 -- UPDATE: Restricted to practice owner or service role (for webhook settlement)
@@ -444,10 +444,10 @@ CREATE POLICY subscriptions_update_owner ON public.subscriptions
   FOR UPDATE
   TO authenticated
   USING (
-    auth.user_has_practice_role(practice_id, ARRAY['practice_owner'])
+    public.user_has_practice_role(practice_id, ARRAY['practice_owner'])
   )
   WITH CHECK (
-    auth.user_has_practice_role(practice_id, ARRAY['practice_owner'])
+    public.user_has_practice_role(practice_id, ARRAY['practice_owner'])
   );
 
 -- DELETE: Prohibited
@@ -464,8 +464,8 @@ CREATE POLICY audit_events_select_owner ON public.audit_events
   FOR SELECT
   TO authenticated
   USING (
-    practice_id = auth.current_practice_id()
-    AND auth.user_has_practice_role(practice_id, ARRAY['practice_owner'])
+    practice_id = public.current_practice_id()
+    AND public.user_has_practice_role(practice_id, ARRAY['practice_owner'])
   );
 
 -- INSERT: Authenticated users can record audit events for actions they perform
@@ -476,7 +476,7 @@ CREATE POLICY audit_events_insert ON public.audit_events
     actor_user_id = auth.uid()
     AND (
       practice_id IS NULL 
-      OR practice_id = auth.current_practice_id()
+      OR practice_id = public.current_practice_id()
     )
   );
 

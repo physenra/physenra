@@ -98,7 +98,7 @@ function runTests() {
     'Dedicated self-only profile access policy is established');
   assert(hardeningSql.includes('CREATE POLICY profiles_select_staff_active_practice ON public.profiles'),
     'Staff profile access is strictly scoped to active practice context');
-  assert(hardeningSql.includes('auth.current_practice_id()') && hardeningSql.includes('profiles_select_staff_active_practice'),
+  assert(hardeningSql.includes('public.current_practice_id()') && hardeningSql.includes('profiles_select_staff_active_practice'),
     'Staff profile policy validates active practice context');
 
   // 5. HARDENING: PLATFORM ADMIN PROTECTION
@@ -107,7 +107,7 @@ function runTests() {
     'Trigger function protect_is_platform_admin() is defined');
   assert(/BEFORE\s+INSERT\s+OR\s+UPDATE\s+ON\s+public\.profiles/i.test(hardeningSql),
     'Trigger trg_protect_is_platform_admin attached to public.profiles');
-  assert(hardeningSql.includes('is_platform_admin IS FALSE OR auth.is_platform_admin()'),
+  assert(hardeningSql.includes('is_platform_admin IS FALSE OR public.is_platform_admin()'),
     'RLS policy enforces platform admin check on insert and update');
 
   // 6. HARDENING: PRACTICE MANAGER ESCALATION PREVENTION
@@ -138,14 +138,14 @@ function runTests() {
     'Direct client audit_events INSERT is blocked at policy level');
   assert(hardeningSql.includes('CREATE OR REPLACE FUNCTION public.log_audit_event'),
     'Trusted SECURITY DEFINER public.log_audit_event() function is defined');
-  assert(hardeningSql.includes('v_user_id := auth.uid()') && hardeningSql.includes('v_practice_id := auth.current_practice_id()'),
+  assert(hardeningSql.includes('v_user_id := auth.uid()') && hardeningSql.includes('v_practice_id := public.current_practice_id()'),
     'log_audit_event() automatically resolves actor identity and active practice');
 
   // 9. HARDENING: FUNCTION PRIVILEGE RESTRICTIONS
   console.log('\n--- 9. Explicit Function Privilege Restrictions ---');
   assert(hardeningSql.includes('REVOKE ALL ON FUNCTION public.log_audit_event') && hardeningSql.includes('FROM PUBLIC'),
     'Public execute privilege revoked from log_audit_event');
-  assert(hardeningSql.includes('REVOKE ALL ON FUNCTION auth.current_practice_id') && hardeningSql.includes('FROM PUBLIC'),
+  assert(hardeningSql.includes('REVOKE ALL ON FUNCTION public.current_practice_id') && hardeningSql.includes('FROM PUBLIC'),
     'Public execute privilege revoked from current_practice_id');
   assert(hardeningSql.includes('GRANT EXECUTE ON FUNCTION public.log_audit_event') && hardeningSql.includes('TO authenticated'),
     'Execute privilege on log_audit_event granted specifically to authenticated');

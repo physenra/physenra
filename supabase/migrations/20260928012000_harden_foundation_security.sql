@@ -43,14 +43,14 @@ CREATE POLICY profiles_select_staff_active_practice ON public.profiles
   FOR SELECT
   TO authenticated
   USING (
-    auth.user_has_practice_role(
-      auth.current_practice_id(),
+    public.user_has_practice_role(
+      public.current_practice_id(),
       ARRAY['practice_owner', 'practice_manager', 'physiotherapist', 'receptionist', 'accountant']
     )
     AND EXISTS (
       SELECT 1 
       FROM public.practice_memberships pm
-      WHERE pm.practice_id = auth.current_practice_id()
+      WHERE pm.practice_id = public.current_practice_id()
         AND pm.user_id = profiles.id
         AND pm.status = 'active'
     )
@@ -60,7 +60,7 @@ CREATE POLICY profiles_select_staff_active_practice ON public.profiles
 CREATE POLICY profiles_select_platform_admin ON public.profiles
   FOR SELECT
   TO authenticated
-  USING (auth.is_platform_admin());
+  USING (public.is_platform_admin());
 
 -- ------------------------------------------------------------------------------------
 -- 3. PLATFORM-ADMIN PRIVILEGE ESCALATION PROTECTION (TRIGGER + RLS)
@@ -70,12 +70,12 @@ CREATE OR REPLACE FUNCTION public.protect_is_platform_admin()
 RETURNS trigger AS $$
 BEGIN
   IF TG_OP = 'INSERT' THEN
-    IF NEW.is_platform_admin IS TRUE AND NOT COALESCE(auth.is_platform_admin(), false) THEN
+    IF NEW.is_platform_admin IS TRUE AND NOT COALESCE(public.is_platform_admin(), false) THEN
       RAISE EXCEPTION 'Privilege escalation rejected: only platform administrators can create platform admin accounts'
         USING ERRCODE = 'insufficient_privilege';
     END IF;
   ELSIF TG_OP = 'UPDATE' THEN
-    IF NEW.is_platform_admin IS DISTINCT FROM OLD.is_platform_admin AND NOT COALESCE(auth.is_platform_admin(), false) THEN
+    IF NEW.is_platform_admin IS DISTINCT FROM OLD.is_platform_admin AND NOT COALESCE(public.is_platform_admin(), false) THEN
       RAISE EXCEPTION 'Privilege escalation rejected: only platform administrators can modify platform administrator status'
         USING ERRCODE = 'insufficient_privilege';
     END IF;
@@ -97,7 +97,7 @@ CREATE POLICY profiles_insert_self ON public.profiles
   TO authenticated
   WITH CHECK (
     id = auth.uid()
-    AND (is_platform_admin IS FALSE OR auth.is_platform_admin())
+    AND (is_platform_admin IS FALSE OR public.is_platform_admin())
   );
 
 DROP POLICY IF EXISTS profiles_update_self ON public.profiles;
@@ -107,7 +107,7 @@ CREATE POLICY profiles_update_self ON public.profiles
   USING (id = auth.uid())
   WITH CHECK (
     id = auth.uid()
-    AND (is_platform_admin IS FALSE OR auth.is_platform_admin())
+    AND (is_platform_admin IS FALSE OR public.is_platform_admin())
   );
 
 -- ------------------------------------------------------------------------------------
@@ -136,12 +136,12 @@ CREATE POLICY memberships_insert_hierarchy ON public.practice_memberships
     )
     -- 2. Practice Owner: Can assign any practice role (cannot assign platform_admin)
     OR (
-      auth.user_has_practice_role(practice_id, ARRAY['practice_owner'])
+      public.user_has_practice_role(practice_id, ARRAY['practice_owner'])
       AND role <> 'platform_admin'
     )
     -- 3. Practice Manager: Can only assign staff/patient roles (NOT practice_owner or platform_admin)
     OR (
-      auth.user_has_practice_role(practice_id, ARRAY['practice_manager'])
+      public.user_has_practice_role(practice_id, ARRAY['practice_manager'])
       AND role NOT IN ('practice_owner', 'platform_admin')
     )
   );
@@ -152,22 +152,22 @@ CREATE POLICY memberships_update_hierarchy ON public.practice_memberships
   TO authenticated
   USING (
     -- Practice Owner can manage any membership in their practice
-    auth.user_has_practice_role(practice_id, ARRAY['practice_owner'])
+    public.user_has_practice_role(practice_id, ARRAY['practice_owner'])
     -- Practice Manager can ONLY manage memberships that are NOT currently practice_owner
     OR (
-      auth.user_has_practice_role(practice_id, ARRAY['practice_manager'])
+      public.user_has_practice_role(practice_id, ARRAY['practice_manager'])
       AND role <> 'practice_owner'
     )
   )
   WITH CHECK (
     -- Practice Owner can update to any practice role (cannot assign platform_admin)
     (
-      auth.user_has_practice_role(practice_id, ARRAY['practice_owner'])
+      public.user_has_practice_role(practice_id, ARRAY['practice_owner'])
       AND role <> 'platform_admin'
     )
     -- Practice Manager can only update to non-owner, non-platform_admin roles
     OR (
-      auth.user_has_practice_role(practice_id, ARRAY['practice_manager'])
+      public.user_has_practice_role(practice_id, ARRAY['practice_manager'])
       AND role NOT IN ('practice_owner', 'platform_admin')
     )
   );
@@ -195,8 +195,8 @@ BEGIN
 
     -- Otherwise, only an active practice_owner or platform admin can touch owner memberships
     IF NOT (
-      COALESCE(auth.user_has_practice_role(COALESCE(NEW.practice_id, OLD.practice_id), ARRAY['practice_owner']), false)
-      OR COALESCE(auth.is_platform_admin(), false)
+      COALESCE(public.user_has_practice_role(COALESCE(NEW.practice_id, OLD.practice_id), ARRAY['practice_owner']), false)
+      OR COALESCE(public.is_platform_admin(), false)
     ) THEN
       RAISE EXCEPTION 'Privilege escalation rejected: only practice owners can assign or modify owner memberships'
         USING ERRCODE = 'insufficient_privilege';
@@ -260,7 +260,7 @@ BEGIN
   END IF;
 
   -- Practice context is resolved through the trusted helper
-  v_practice_id := auth.current_practice_id();
+  v_practice_id := public.current_practice_id();
 
   -- Actor role is strictly derived from active membership in the resolved practice context
   IF v_practice_id IS NOT NULL THEN
@@ -280,7 +280,7 @@ BEGIN
         ELSE 7
       END
     LIMIT 1;
-  ELSIF auth.is_platform_admin() THEN
+  ELSIF public.is_platform_admin() THEN
     v_role := 'platform_admin';
   ELSE
     v_role := NULL;
@@ -357,12 +357,12 @@ REVOKE ALL ON FUNCTION public.prevent_audit_mutation() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.protect_is_platform_admin() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.protect_practice_owner_membership() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.log_audit_event(text, text, uuid, jsonb, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION auth.current_practice_id() FROM PUBLIC;
-REVOKE ALL ON FUNCTION auth.user_has_practice_role(uuid, text[]) FROM PUBLIC;
-REVOKE ALL ON FUNCTION auth.is_platform_admin() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.current_practice_id() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.user_has_practice_role(uuid, text[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.is_platform_admin() FROM PUBLIC;
 
 -- Grant execution explicitly to authenticated users for client-facing/RLS helper functions
 GRANT EXECUTE ON FUNCTION public.log_audit_event(text, text, uuid, jsonb, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION auth.current_practice_id() TO authenticated;
-GRANT EXECUTE ON FUNCTION auth.user_has_practice_role(uuid, text[]) TO authenticated;
-GRANT EXECUTE ON FUNCTION auth.is_platform_admin() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.current_practice_id() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.user_has_practice_role(uuid, text[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_platform_admin() TO authenticated;
