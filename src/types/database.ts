@@ -62,6 +62,10 @@ export type ClinicalVisitLocationMode =
   | 'other';
 export type ClinicalNoteStatus = 'draft' | 'finalized' | 'amended';
 export type ClinicalNoteType = 'soap' | 'addendum';
+export type OutcomeMeasureCategory = 'pain' | 'functional' | 'mobility' | 'quality_of_life' | 'other';
+export type OutcomeMeasureScoringType = 'numeric' | 'percentage' | 'timed_seconds' | 'points_scale' | 'categorical';
+export type OutcomeAssessmentType = 'baseline' | 'interim' | 'discharge' | 'follow_up' | 'routine';
+export type OutcomeAssessmentStatus = 'draft' | 'finalized' | 'amended';
 
 export interface Database {
   public: {
@@ -701,11 +705,176 @@ export interface Database {
         };
         Relationships: [];
       };
+      outcome_measure_definitions: {
+        Row: {
+          id: string;
+          practice_id: string | null;
+          code: string;
+          name: string;
+          description: string | null;
+          category: OutcomeMeasureCategory;
+          scoring_type: OutcomeMeasureScoringType;
+          min_score: number | null;
+          max_score: number | null;
+          score_unit: string | null;
+          interpretation_guide: string | null;
+          is_system: boolean;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id?: string | null;
+          code: string;
+          name: string;
+          description?: string | null;
+          category?: OutcomeMeasureCategory;
+          scoring_type?: OutcomeMeasureScoringType;
+          min_score?: number | null;
+          max_score?: number | null;
+          score_unit?: string | null;
+          interpretation_guide?: string | null;
+          is_system?: boolean;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string | null;
+          code?: string;
+          name?: string;
+          description?: string | null;
+          category?: OutcomeMeasureCategory;
+          scoring_type?: OutcomeMeasureScoringType;
+          min_score?: number | null;
+          max_score?: number | null;
+          score_unit?: string | null;
+          interpretation_guide?: string | null;
+          is_system?: boolean;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      practice_outcome_measure_counters: {
+        Row: {
+          practice_id: string;
+          next_val: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      outcome_measure_assessments: {
+        Row: {
+          id: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id: string | null;
+          clinical_visit_id: string | null;
+          measure_definition_id: string;
+          assessor_id: string;
+          assessment_identifier: string;
+          assessment_type: OutcomeAssessmentType;
+          status: OutcomeAssessmentStatus;
+          performed_at: string;
+          numeric_score: number | null;
+          percentage_score: number | null;
+          score_category: string | null;
+          score_interpretation: string | null;
+          clinical_notes: string | null;
+          finalized_at: string | null;
+          finalized_by: string | null;
+          amendment_reason: string | null;
+          amended_numeric_score: number | null;
+          amended_percentage_score: number | null;
+          corrected_by: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id?: string | null;
+          clinical_visit_id?: string | null;
+          measure_definition_id: string;
+          assessor_id: string;
+          assessment_identifier?: string;
+          assessment_type?: OutcomeAssessmentType;
+          status?: OutcomeAssessmentStatus;
+          performed_at?: string;
+          numeric_score?: number | null;
+          percentage_score?: number | null;
+          score_category?: string | null;
+          score_interpretation?: string | null;
+          clinical_notes?: string | null;
+          finalized_at?: string | null;
+          finalized_by?: string | null;
+          amendment_reason?: string | null;
+          amended_numeric_score?: number | null;
+          amended_percentage_score?: number | null;
+          corrected_by?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          patient_id?: string;
+          episode_id?: string | null;
+          clinical_visit_id?: string | null;
+          measure_definition_id?: string;
+          assessor_id?: string;
+          assessment_identifier?: string;
+          assessment_type?: OutcomeAssessmentType;
+          status?: OutcomeAssessmentStatus;
+          performed_at?: string;
+          numeric_score?: number | null;
+          percentage_score?: number | null;
+          score_category?: string | null;
+          score_interpretation?: string | null;
+          clinical_notes?: string | null;
+          finalized_at?: string | null;
+          finalized_by?: string | null;
+          amendment_reason?: string | null;
+          amended_numeric_score?: number | null;
+          amended_percentage_score?: number | null;
+          corrected_by?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      generate_next_outcome_measure_identifier: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
       generate_next_clinical_note_identifier: {
         Args: {
           p_practice_id: string;
@@ -778,6 +947,10 @@ export interface Database {
       clinical_visit_location_mode: ClinicalVisitLocationMode;
       clinical_note_status: ClinicalNoteStatus;
       clinical_note_type: ClinicalNoteType;
+      outcome_measure_category: OutcomeMeasureCategory;
+      outcome_measure_scoring_type: OutcomeMeasureScoringType;
+      outcome_assessment_type: OutcomeAssessmentType;
+      outcome_assessment_status: OutcomeAssessmentStatus;
     };
     CompositeTypes: {
       [_ in never]: never;

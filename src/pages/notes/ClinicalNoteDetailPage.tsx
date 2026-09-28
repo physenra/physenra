@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { clinicalNoteService } from '../../services/clinicalNoteService';
+import { outcomeMeasureService } from '../../services/outcomeMeasureService';
 import type {
   ClinicalNoteWithRelations,
   ClinicalNoteStatus,
   ClinicalNoteType,
+  OutcomeMeasureAssessmentWithRelations,
 } from '../../types/models';
 
 export const ClinicalNoteDetailPage: React.FC = () => {
@@ -34,6 +36,7 @@ export const ClinicalNoteDetailPage: React.FC = () => {
   const [addendumAssessment, setAddendumAssessment] = useState('');
   const [addendumPlan, setAddendumPlan] = useState('');
   const [isSubmittingAddendum, setIsSubmittingAddendum] = useState(false);
+  const [outcomeAssessments, setOutcomeAssessments] = useState<OutcomeMeasureAssessmentWithRelations[]>([]);
 
   const loadNote = async () => {
     if (!noteId) return;
@@ -49,6 +52,15 @@ export const ClinicalNoteDetailPage: React.FC = () => {
         setObjective(data.objective || '');
         setAssessment(data.assessment || '');
         setPlan(data.plan || '');
+
+        if (data.clinical_visit_id) {
+          try {
+            const oas = await outcomeMeasureService.getAssessmentsForVisit(data.clinical_visit_id);
+            setOutcomeAssessments(oas);
+          } catch (oaErr) {
+            console.warn('Could not load outcome assessments for note visit:', oaErr);
+          }
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load clinical note.');
@@ -682,6 +694,156 @@ export const ClinicalNoteDetailPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Linked Outcome Measures Reference Card */}
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '8px',
+          border: '1px solid #e2e8f0',
+          padding: '1.5rem',
+          marginBottom: '2rem',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '0.75rem',
+            borderBottom: '1px solid #f1f5f9',
+            paddingBottom: '0.5rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, color: '#0f172a' }}>
+              Standardized Clinical Outcome Measures
+            </h2>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '0.15rem 0.5rem',
+                borderRadius: '9999px',
+                backgroundColor: outcomeAssessments.length > 0 ? '#dcfce7' : '#f1f5f9',
+                color: outcomeAssessments.length > 0 ? '#166534' : '#475569',
+              }}
+            >
+              {outcomeAssessments.length} Available
+            </span>
+          </div>
+
+          {note.clinical_visit_id && (
+            <Link
+              to={`/app/outcome-measures/new?visitId=${note.clinical_visit_id}&patientId=${note.patient_id}&episodeId=${note.episode_id || ''}`}
+              style={{
+                backgroundColor: '#059669',
+                color: '#ffffff',
+                padding: '0.4rem 0.875rem',
+                borderRadius: '6px',
+                textDecoration: 'none',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              + Administer Outcome Measure
+            </Link>
+          )}
+        </div>
+
+        <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '1rem' }}>
+          <em>Domain Firewall Note:</em> Standardized outcome scores are tracked in the independent Outcome Measures domain. They provide objective evidence for this clinical note without violating clinical document separation.
+        </div>
+
+        {outcomeAssessments.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {outcomeAssessments.map((oa) => (
+              <div
+                key={oa.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '0.75rem 1rem',
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <Link
+                      to={`/app/outcome-measures/${oa.id}`}
+                      style={{ color: '#059669', fontWeight: 700, fontSize: '0.875rem', textDecoration: 'none' }}
+                    >
+                      {oa.assessment_identifier}
+                    </Link>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0f172a' }}>
+                      {oa.definition?.name || 'Outcome Measure'} ({oa.definition?.code})
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.6875rem',
+                        fontWeight: 600,
+                        padding: '0.1rem 0.4rem',
+                        borderRadius: '4px',
+                        textTransform: 'uppercase',
+                        backgroundColor: '#e0f2fe',
+                        color: '#0369a1',
+                      }}
+                    >
+                      {oa.assessment_type}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.6875rem',
+                        fontWeight: 600,
+                        padding: '0.1rem 0.4rem',
+                        borderRadius: '4px',
+                        textTransform: 'capitalize',
+                        backgroundColor: oa.status === 'draft' ? '#fef3c7' : '#dcfce7',
+                        color: oa.status === 'draft' ? '#92400e' : '#166534',
+                      }}
+                    >
+                      {oa.status}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                    Assessed: {new Date(oa.performed_at).toLocaleDateString()}
+                    {oa.score_interpretation && ` • ${oa.score_interpretation}`}
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>
+                    {oa.status === 'amended' && oa.amended_numeric_score !== null
+                      ? oa.amended_numeric_score
+                      : oa.numeric_score !== null
+                      ? oa.numeric_score
+                      : '—'}
+                    {oa.definition?.max_score !== null && oa.definition?.max_score !== undefined && (
+                      <span style={{ fontSize: '0.75rem', fontWeight: 400, color: '#64748b' }}>
+                        /{oa.definition.max_score}
+                      </span>
+                    )}
+                  </div>
+                  {oa.score_category && (
+                    <div style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#475569' }}>
+                      {oa.score_category}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.8125rem', fontStyle: 'italic' }}>
+            No standardized outcome measures administered during this encounter.
+          </p>
+        )}
+      </div>
 
       {/* Finalize Confirmation Modal */}
       {showFinalizeModal && (

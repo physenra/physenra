@@ -13,6 +13,10 @@ import type {
   ClinicalVisitLocationMode,
   ClinicalNoteStatus,
   ClinicalNoteType,
+  OutcomeMeasureCategory,
+  OutcomeMeasureScoringType,
+  OutcomeAssessmentType,
+  OutcomeAssessmentStatus,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -37,6 +41,14 @@ export type ClinicalVisitUpdate = Database['public']['Tables']['clinical_visits'
 export type ClinicalNote = Database['public']['Tables']['clinical_notes']['Row'];
 export type ClinicalNoteInsert = Database['public']['Tables']['clinical_notes']['Insert'];
 export type ClinicalNoteUpdate = Database['public']['Tables']['clinical_notes']['Update'];
+
+export type OutcomeMeasureDefinition = Database['public']['Tables']['outcome_measure_definitions']['Row'];
+export type OutcomeMeasureDefinitionInsert = Database['public']['Tables']['outcome_measure_definitions']['Insert'];
+export type OutcomeMeasureDefinitionUpdate = Database['public']['Tables']['outcome_measure_definitions']['Update'];
+
+export type OutcomeMeasureAssessment = Database['public']['Tables']['outcome_measure_assessments']['Row'];
+export type OutcomeMeasureAssessmentInsert = Database['public']['Tables']['outcome_measure_assessments']['Insert'];
+export type OutcomeMeasureAssessmentUpdate = Database['public']['Tables']['outcome_measure_assessments']['Update'];
 
 export interface EpisodeWithPatient extends EpisodeOfCare {
   patients?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
@@ -102,6 +114,27 @@ export interface ClinicalVisitFilters {
   searchQuery?: string;
 }
 
+export interface OutcomeMeasureAssessmentWithRelations extends OutcomeMeasureAssessment {
+  patient?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
+  episode?: Pick<EpisodeOfCare, 'id' | 'episode_identifier' | 'title' | 'status'> | null;
+  clinical_visit?: Pick<ClinicalVisit, 'id' | 'visit_identifier' | 'status' | 'actual_start' | 'actual_end'> | null;
+  definition?: OutcomeMeasureDefinition | null;
+  assessor?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  finalizer?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  corrector?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+}
+
+export interface OutcomeMeasureFilters {
+  patientId?: string;
+  episodeId?: string;
+  visitId?: string;
+  measureId?: string;
+  assessorId?: string;
+  assessmentType?: OutcomeAssessmentType | 'all';
+  status?: OutcomeAssessmentStatus | 'all';
+  searchQuery?: string;
+}
+
 export interface UserPracticeMembership {
   id: string;
   practiceId: string;
@@ -134,6 +167,10 @@ export type {
   ClinicalVisitLocationMode,
   ClinicalNoteStatus,
   ClinicalNoteType,
+  OutcomeMeasureCategory,
+  OutcomeMeasureScoringType,
+  OutcomeAssessmentType,
+  OutcomeAssessmentStatus,
 };
 
 

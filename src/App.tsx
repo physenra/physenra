@@ -23,6 +23,9 @@ import { ClinicalVisitDetailPage } from './pages/visits/ClinicalVisitDetailPage'
 import { ClinicalNoteListPage } from './pages/notes/ClinicalNoteListPage';
 import { CreateClinicalNotePage } from './pages/notes/CreateClinicalNotePage';
 import { ClinicalNoteDetailPage } from './pages/notes/ClinicalNoteDetailPage';
+import { OutcomeMeasureListPage } from './pages/outcomes/OutcomeMeasureListPage';
+import { CreateOutcomeAssessmentPage } from './pages/outcomes/CreateOutcomeAssessmentPage';
+import { OutcomeAssessmentDetailPage } from './pages/outcomes/OutcomeAssessmentDetailPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -81,6 +84,11 @@ export const App: React.FC = () => {
         <Route path="clinical-notes" element={<ClinicalNoteListPage />} />
         <Route path="clinical-notes/new" element={<CreateClinicalNotePage />} />
         <Route path="clinical-notes/:noteId" element={<ClinicalNoteDetailPage />} />
+
+        {/* Clinical Outcome Measures Foundation V1 */}
+        <Route path="outcome-measures" element={<OutcomeMeasureListPage />} />
+        <Route path="outcome-measures/new" element={<CreateOutcomeAssessmentPage />} />
+        <Route path="outcome-measures/:assessmentId" element={<OutcomeAssessmentDetailPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}
