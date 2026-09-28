@@ -47,16 +47,23 @@ Multi-tenancy isolation in Physenra is enforced at the database engine level via
 ```
 
 ### 2.1 Tenant Context Resolution
-When a user authenticates, Supabase Auth issues a JWT. Upon selecting an active practice membership, the active `practice_id` and role claims are included or dynamically resolved:
+When a user authenticates, Supabase Auth issues a JWT. Because a practitioner may belong to multiple practices (e.g. locum, multi-clinic group), active practice context is resolved dynamically without requiring token reissue on practice switching:
+
+1. **Client Context Header:** The frontend client provides the active practice ID via the `x-practice-id` HTTP request header on all tenant-scoped queries and mutations.
+2. **Database Verification:** PostgreSQL resolves the requested practice ID and verifies that the authenticated user possesses an `active` membership in `practice_memberships` for that practice.
+3. **JWT Fallback:** If the header is absent, the resolver falls back to the user's default `active_practice_id` in JWT `app_metadata`.
 
 ```sql
 -- Helper function to extract current authenticated practice context
 CREATE OR REPLACE FUNCTION auth.current_practice_id() 
 RETURNS uuid AS $$
-  SELECT nullif(current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'active_practice_id', '')::uuid;
+  SELECT COALESCE(
+    nullif(current_setting('request.headers', true)::jsonb ->> 'x-practice-id', '')::uuid,
+    nullif(current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'active_practice_id', '')::uuid
+  );
 $$ LANGUAGE sql STABLE;
 
--- Fallback helper resolving practice membership from database
+-- Security Definer helper verifying active practice membership
 CREATE OR REPLACE FUNCTION auth.user_has_practice_access(target_practice_id uuid)
 RETURNS boolean AS $$
   SELECT EXISTS (

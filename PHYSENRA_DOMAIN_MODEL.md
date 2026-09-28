@@ -16,20 +16,19 @@
          ▼                                 ▼
 [PracticeMembership]                    [Patient]
    │          │                            │
-   ▼          ▼                            ├───────────────┐
- [User]    [Role]                          │               │
-                                           ▼               ▼
-                                     [Appointment]    [Invoice]
-                                           │               │
-                                           ▼               ▼
-                                    [ClinicalVisit]    [Payment]
-                                           │
-                                           ├───────────────┐
-                                           ▼               ▼
-                                    [ClinicalNote]  [TreatmentPlan]
-                                           │
-                                           ▼
-                                 [PackageSessionLedger] <── [Package]
+   ▼          ▼           ┌────────────────┼────────────────┐
+  [User]    [Role]        ▼                ▼                ▼
+                    [Appointment]   [EpisodeOfCare]   [PatientWallet]
+                          │                │                │
+                          ▼                ▼                ▼
+                   [ClinicalVisit] ──> [TreatmentPlan] [WalletTransaction]
+                          │
+                   ┌──────┴──────┐
+                   ▼             ▼
+             [ClinicalNote]  [Invoice] <── [Payment]
+                   │             │
+                   ▼             ▼
+         [PackageSessionLedger] <── [Package]
 ```
 
 ---
@@ -93,16 +92,31 @@
 - **Important Relationships:**
   - Belong to `Practice`
   - Optionally linked to a `User` identity for patient portal access
+  - Has many `EpisodeOfCare` records
   - Has many `Appointment` records
   - Has many `ClinicalVisit` and `ClinicalNote` records
   - Has many `Invoice` and `Payment` records
+  - Has one `PatientWallet`
   - Has many `Package` entitlements
 - **Lifecycle:** `Active` ──> `Discharged` ──> `Inactive` ──> `Archived`.
 - **Security Considerations:** Sensitive Personal Health Information (PHI). Strict access controls; receptionists view demographic/booking data; accountants view billing data; clinicians view clinical histories.
 
 ---
 
-### 2.6 Appointment (Scheduling Domain)
+### 2.6 EpisodeOfCare (Clinical Case Management)
+- **Purpose:** Represents a coherent clinical episode, condition, or rehabilitation case (e.g. "Post-op ACL Reconstruction Rehab", "Chronic Cervical Radiculopathy"). Organizes visits, goals, and notes into distinct clinical tracks.
+- **Ownership:** Authored by attending `Physiotherapist`, owned by `Practice`.
+- **Tenant Relationship:** Strictly tenant-scoped (`practice_id`).
+- **Important Relationships:**
+  - References `Patient`
+  - References primary `Physiotherapist`
+  - Groups related `ClinicalVisit`, `ClinicalNote`, `TreatmentPlan`, and `OutcomeMeasure` records
+- **Lifecycle:** `Active` ──> `Under Review` ──> `Completed/Discharged` ──> `Dormant`.
+- **Security Considerations:** Clinical PHI. Accessible only to authorized clinicians and the specific patient (summary view in portal).
+
+---
+
+### 2.7 Appointment (Scheduling Domain)
 - **Purpose:** A calendar reservation of time, practitioner capacity, room/bed, and clinical service.
 - **Ownership:** Owned by the `Practice`.
 - **Tenant Relationship:** Strictly tenant-scoped (`practice_id`).
@@ -117,13 +131,14 @@
 
 ---
 
-### 2.7 ClinicalVisit (EMR Domain)
+### 2.8 ClinicalVisit (EMR Domain)
 - **Purpose:** The formal clinical encounter between a patient and a physiotherapist.
 - **Ownership:** Owned by the attending `Physiotherapist` and `Practice`.
 - **Tenant Relationship:** Strictly tenant-scoped (`practice_id`).
 - **Important Relationships:**
   - References `Practice`
   - References `Patient`
+  - Optionally links to `EpisodeOfCare`
   - References attending `User` (Physiotherapist)
   - Linked 1:1 or 1:Many with `Appointment`
   - Parent of `ClinicalNote` records and `TreatmentPlan` milestones
@@ -132,7 +147,7 @@
 
 ---
 
-### 2.8 ClinicalNote (Medical Documentation)
+### 2.9 ClinicalNote (Medical Documentation)
 - **Purpose:** The legal medical record of subjective reporting, objective findings, clinical assessment, and treatment plan (SOAP).
 - **Ownership:** Authored by the treating `Physiotherapist`.
 - **Tenant Relationship:** Strictly tenant-scoped (`practice_id`).
@@ -145,12 +160,13 @@
 
 ---
 
-### 2.9 TreatmentPlan (Clinical Rehabilitation Pathway)
+### 2.10 TreatmentPlan (Clinical Rehabilitation Pathway)
 - **Purpose:** Long-term clinical rehabilitation roadmap detailing patient goals, target outcomes, prescribed exercise regimens, and scheduled evaluation intervals.
 - **Ownership:** Authored by `Physiotherapist`, shared with `Patient`.
 - **Tenant Relationship:** Strictly tenant-scoped (`practice_id`).
 - **Important Relationships:**
   - References `Patient`
+  - References `EpisodeOfCare`
   - References treating `Physiotherapist`
   - Associated with multiple `ClinicalVisit` milestones
 - **Lifecycle:** `Active` ──> `Review Pending` ──> `Achieved` ──> `Discontinued`.
@@ -158,7 +174,7 @@
 
 ---
 
-### 2.10 Invoice (Billing Domain)
+### 2.11 Invoice (Billing Domain)
 - **Purpose:** The formal, legal accounting document requesting payment for clinical consultations, treatments, products, or prepaid packages.
 - **Ownership:** Issued by the `Practice` to the `Patient` or Third-Party Payer (Insurer / Medical Aid).
 - **Tenant Relationship:** Strictly tenant-scoped (`practice_id`).
@@ -172,7 +188,7 @@
 
 ---
 
-### 2.11 Payment (Financial Transaction)
+### 2.12 Payment (Financial Transaction)
 - **Purpose:** A captured monetary settlement against one or more invoices or patient account credit.
 - **Ownership:** Received by the `Practice`.
 - **Tenant Relationship:** Strictly tenant-scoped (`practice_id`).
@@ -182,11 +198,38 @@
   - References target `Invoice` (or unallocated patient wallet balance)
   - Records gateway reference, method (`cash`, `card`, `bank_transfer`, `pos`), and collector `User`
 - **Lifecycle:** `Pending` ──> `Successful` ──> `Failed` ──> `Refunded`.
-- **Security Considerations:** Double-entry accounting integrity. Immutable once settled. Partial or full refunds create explicit child transaction records.
+- **Security Considerations:** Financial integrity. Immutable once settled. Partial or full refunds create explicit child transaction records.
 
 ---
 
-### 2.12 Package (Prepaid Treatment Offer)
+### 2.13 PatientWallet (Pre-Funded Patient Credit)
+- **Purpose:** Represents a practice-specific account holding pre-funded credit, unallocated cash deposits, or overpayment balances on behalf of a patient.
+- **Ownership:** Owned by `Patient` within the `Practice`.
+- **Tenant Relationship:** Strictly tenant-scoped (`practice_id`).
+- **Important Relationships:**
+  - References `Practice`
+  - References `Patient` (1:1 per patient per practice)
+  - Parent of `WalletTransaction` records
+- **Lifecycle:** `Active` ──> `Suspended` ──> `Closed`.
+- **Security Considerations:** Denominated in real currency (strictly separated from non-monetary package session counts). Balance derived from verified transaction history.
+
+---
+
+### 2.14 WalletTransaction (Wallet Ledger)
+- **Purpose:** Immutable ledger transaction tracking funds credited to, debited from, or refunded through the patient wallet.
+- **Ownership:** Maintained by the practice billing subsystem.
+- **Tenant Relationship:** Strictly tenant-scoped (`practice_id`).
+- **Important Relationships:**
+  - References `PatientWallet`
+  - References `Invoice` (when applied toward paying an invoice)
+  - References `Payment` (when funded by an external payment)
+  - Records `actor_id` (`User`)
+- **Lifecycle:** Immutable append-only (`deposit`, `payment_application`, `refund`, `manual_adjustment`).
+- **Security Considerations:** Zero in-place edits. Audit reason required for manual adjustments.
+
+---
+
+### 2.15 Package (Prepaid Treatment Offer)
 - **Purpose:** Product definition representing a prepaid block of rehabilitation sessions (e.g. "6-Session Knee Rehabilitation Protocol").
 - **Ownership:** Configured by `Practice Owner`.
 - **Tenant Relationship:** Strictly tenant-scoped (`practice_id`).
@@ -199,8 +242,8 @@
 
 ---
 
-### 2.13 PackageSessionLedger (Entitlement Ledger)
-- **Purpose:** Double-entry ledger tracking the creation, consumption, reversal, and expiration of treatment sessions for prepaid packages.
+### 2.16 PackageSessionLedger (Entitlement Ledger)
+- **Purpose:** Ledger tracking the creation, consumption, reversal, and expiration of treatment session units for prepaid packages.
 - **Ownership:** Maintained by the system under practice audit rules.
 - **Tenant Relationship:** Strictly tenant-scoped (`practice_id`).
 - **Important Relationships:**
@@ -209,11 +252,11 @@
   - References `Appointment` (on debit/consumption)
   - References `Physiotherapist` (delivering practitioner)
 - **Lifecycle:** Immutable ledger append-only transactions (`credit_purchase`, `debit_consumption`, `reversal_cancellation`, `expiry_adjustment`).
-- **Security Considerations:** Remaining session balance is derived by summing verified ledger transactions. Never directly editable; mutations require compensatory ledger entries.
+- **Security Considerations:** Session entitlement is strictly service units, NOT currency. Balance is derived by summing verified ledger transactions.
 
 ---
 
-### 2.14 AuditEvent (Security & Governance Trail)
+### 2.17 AuditEvent (Security & Governance Trail)
 - **Purpose:** Permanent, tamper-evident log capturing critical security, clinical, and financial actions across the tenant.
 - **Ownership:** Platform security subsystem.
 - **Tenant Relationship:** Tenant-scoped (`practice_id`) or Platform-scoped (null `practice_id` for system-wide administrative actions).
@@ -225,8 +268,8 @@
 
 ---
 
-### 2.15 Subscription (SaaS Account Status)
-- **Purpose:** Governs the commercial relationship between the `Practice` tenant and the Physenra SaaS platform.
+### 2.18 Subscription (SaaS Account Status)
+- **Purpose:** Governs the commercial B2B relationship between the `Practice` tenant and the Physenra SaaS platform. Completely decoupled from patient treatment packages.
 - **Ownership:** Platform Administrator / Physenra Billing.
 - **Tenant Relationship:** 1:1 relationship with `Practice`.
 - **Important Relationships:**

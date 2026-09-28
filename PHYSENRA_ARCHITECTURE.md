@@ -76,11 +76,13 @@ Physenra
 │   ├── Patients (Demographic Profiles, Next of Kin, Referrers, Medical Histories)
 │   ├── Staff & Workforce (Clinician Credentials, Work Schedules, Commission Rates)
 │   ├── Billing Engine (Fee Schedules, Invoices, Itemized Treatments, Discounts, Taxes)
-│   ├── Financial Ledger (Double-Entry Payments, Refunds, Overpayments, Credit Notes)
+│   ├── Financial Ledger (Controlled Transaction Ledger, Payments, Refunds, Credit Notes)
+│   ├── Patient Wallets (Pre-Funded Deposits & Account Credit Management)
 │   ├── Package Ledgers (Prepaid Session Entitlement & Atomic Consumption)
 │   └── Practice Reporting (KPI Analytics, Practitioner Occupancy, Financial Parity)
 │
 ├── Clinical EMR
+│   ├── Episodes of Care (Condition/Case Grouping & Clinical Tracks)
 │   ├── Assessment (Intake Evaluation, Range of Motion, Pain Diagrams, Functional Tests)
 │   ├── SOAP Documentation (Subjective, Objective, Assessment, Plan)
 │   ├── Treatment Plans (Clinical Goals, Milestone Tracking, Frequency Cadence)

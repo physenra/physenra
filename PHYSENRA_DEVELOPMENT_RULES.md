@@ -113,14 +113,19 @@ Appointments must transition through an explicit, validated finite state machine
 ```text
 [Scheduled] ──> [Confirmed] ──> [Arrived] ──> [In Progress] ──> [Completed] ──> [Documentation Completed]
       │               │              │               │
-      └───[Cancelled] ┴──[Cancelled] ┴──[No Show]    └──[Incomplete/Interrupted]
+      ├──[Cancelled]  ├──[Cancelled] ├──[No Show]    └──[Incomplete]
+      └──[Rescheduled]└──[Rescheduled]
 ```
 
-1. **Server-Side Enforcement:** State transitions must be validated in database triggers, RPCs, or backend services. The frontend must never directly overwrite appointment status columns arbitrarily.
-2. **Transition Rules:**
-   - Cannot jump from `Scheduled` directly to `Completed` without passing through arrival or in-progress validation.
-   - An appointment cannot reach `Documentation Completed` unless an associated clinical visit or clinical note has been linked and authored.
-   - Transitions to `Cancelled` or `No Show` require an explicit reason and cancel author attribution.
+1. **Active vs Terminal States:**
+   - **Active States:** `scheduled`, `confirmed`, `arrived`, `in_progress`, `completed`, `documentation_completed`.
+   - **Terminal Exceptional States:** `cancelled`, `no_show`, `rescheduled`, `incomplete`.
+2. **Server-Side Enforcement:** State transitions must be validated in database triggers, RPCs, or backend services. The frontend must never directly overwrite appointment status columns arbitrarily.
+3. **Transition Rules:**
+   - Cannot jump from `scheduled` directly to `completed` without passing through arrival or in-progress validation.
+   - An appointment cannot reach `documentation_completed` unless an associated clinical visit or clinical note has been linked and authored.
+   - Transitions to `cancelled` or `no_show` require an explicit reason and cancel author attribution.
+   - When an appointment is `rescheduled`, the original record is archived with a foreign key pointer to the newly scheduled appointment to preserve historical scheduling audits.
 
 ---
 
@@ -131,9 +136,11 @@ Do NOT create an overloaded monolithic table that combines appointments, clinica
 1. **Independent Concepts:**
    - **Appointment:** A reservation of time, room/facility, and clinician resource.
    - **Clinical Visit:** An actual healthcare encounter delivered to a patient.
+   - **Episode of Care:** A clinical grouping of visits, notes, and treatment plans for a specific condition/diagnosis.
    - **Invoice:** A legal bill for goods, consultations, or packages issued to a patient or third-party payer.
-   - **Financial Ledger:** Immutable records of debits, credits, payments, and refunds.
+   - **Financial Transaction Ledger:** Controlled, immutable records of debits, credits, payments, and refunds.
    - **Package Session Ledger:** Entitlement units and consumption tracking for prepaid care.
+   - **Patient Wallet:** Pre-funded monetary balances strictly separated from session units.
 2. **Non-Equivalence Rules:**
    - A booked appointment is NOT automatically a completed visit.
    - A completed visit is NOT automatically paid.
@@ -160,16 +167,17 @@ When a patient purchases a treatment package (e.g. "6 Post-Operative Rehabilitat
 
 ---
 
-## 11. FINANCIAL ARCHITECTURE & AUDIT TRAILS
+## 11. FINANCIAL ARCHITECTURE (CONTROLLED TRANSACTION LEDGER)
 
-1. **Strict Accounting Integrity:** Financial records must follow double-entry ledger principles.
-2. **Separation of Concerns:**
-   - `invoices`: Billable items, taxes, discounts, totals, and due dates.
-   - `payments`: Actual transaction events with payment method, external reference, and settlement timestamp.
-   - `refunds`: Reversals referencing specific payment transactions.
-   - `credit_notes`: Adjustments reducing invoice liability.
-   - `patient_wallets`: Pre-funded balances tracked via deposit and withdrawal ledger entries.
-3. **Zero In-Place Balance Overwriting:** Account balances must always be verifiable by aggregating ledger line items. Never mutate historical financial transaction amounts after settlement.
+Physenra V1 adopts a **Controlled Financial Transaction Ledger** (Option B) designed to guarantee strict accounting integrity while remaining maintainable for private practices, with forward-compatibility for full double-entry general ledgers in V2.
+
+1. **Separation of Concerns:**
+   - `invoices`: Billable consultation items, products, taxes, discounts, totals, and due dates.
+   - `payments`: Immutable settlement events with payment method (`cash`, `card`, `bank_transfer`, `pos`), external transaction references, and collector attribution.
+   - `refunds`: Explicit negative settlement records referencing original payment IDs.
+   - `credit_notes`: Legal adjustments reducing invoice liability.
+   - `patient_wallets` & `wallet_transactions`: Pre-funded patient credit deposits and applications strictly denominated in currency.
+2. **Zero In-Place Balance Overwriting:** Account balances and invoice statuses are derived from the sum of settled ledger entries. Historical financial records are strictly append-only and cannot be mutated after settlement.
 
 ---
 
