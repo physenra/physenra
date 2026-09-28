@@ -29,6 +29,9 @@ import { OutcomeAssessmentDetailPage } from './pages/outcomes/OutcomeAssessmentD
 import { HEPListPage } from './pages/hep/HEPListPage';
 import { CreateHEPPage } from './pages/hep/CreateHEPPage';
 import { HEPDetailPage } from './pages/hep/HEPDetailPage';
+import { TreatmentPlanListPage } from './pages/treatment-plans/TreatmentPlanListPage';
+import { CreateTreatmentPlanPage } from './pages/treatment-plans/CreateTreatmentPlanPage';
+import { TreatmentPlanDetailPage } from './pages/treatment-plans/TreatmentPlanDetailPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -100,6 +103,11 @@ export const App: React.FC = () => {
         <Route path="home-exercises" element={<HEPListPage />} />
         <Route path="home-exercises/new" element={<CreateHEPPage />} />
         <Route path="home-exercises/:programId" element={<HEPDetailPage />} />
+
+        {/* Treatment Plan & Clinical Goals Foundation V1 */}
+        <Route path="treatment-plans" element={<TreatmentPlanListPage />} />
+        <Route path="treatment-plans/new" element={<CreateTreatmentPlanPage />} />
+        <Route path="treatment-plans/:planId" element={<TreatmentPlanDetailPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}

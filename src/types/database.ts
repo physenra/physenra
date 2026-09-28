@@ -89,6 +89,23 @@ export type ExerciseBodyRegion =
   | 'full_body'
   | 'other';
 export type ExerciseLaterality = 'bilateral' | 'left' | 'right' | 'unilateral' | 'na';
+export type TreatmentPlanStatus = 'draft' | 'active' | 'paused' | 'completed' | 'discontinued';
+export type TreatmentGoalCategory =
+  | 'range_of_motion'
+  | 'strength'
+  | 'pain_reduction'
+  | 'functional'
+  | 'balance'
+  | 'mobility'
+  | 'other';
+export type TreatmentGoalPriority = 'low' | 'medium' | 'high';
+export type TreatmentGoalStatus =
+  | 'draft'
+  | 'active'
+  | 'achieved'
+  | 'partially_achieved'
+  | 'not_achieved'
+  | 'discontinued';
 
 export interface Database {
   public: {
@@ -1091,11 +1108,179 @@ export interface Database {
         };
         Relationships: [];
       };
+      practice_treatment_plan_counters: {
+        Row: {
+          practice_id: string;
+          last_number: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      treatment_plans: {
+        Row: {
+          id: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id: string;
+          originating_clinical_visit_id: string | null;
+          prescribing_clinician_id: string;
+          plan_identifier: string;
+          title: string;
+          diagnosis_summary: string | null;
+          clinical_rationale: string | null;
+          overall_goals_summary: string | null;
+          treatment_frequency: string | null;
+          expected_duration_weeks: number | null;
+          start_date: string;
+          target_review_date: string | null;
+          status: TreatmentPlanStatus;
+          finalized_at: string | null;
+          finalized_by: string | null;
+          discontinued_reason: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id: string;
+          originating_clinical_visit_id?: string | null;
+          prescribing_clinician_id: string;
+          plan_identifier: string;
+          title: string;
+          diagnosis_summary?: string | null;
+          clinical_rationale?: string | null;
+          overall_goals_summary?: string | null;
+          treatment_frequency?: string | null;
+          expected_duration_weeks?: number | null;
+          start_date?: string;
+          target_review_date?: string | null;
+          status?: TreatmentPlanStatus;
+          finalized_at?: string | null;
+          finalized_by?: string | null;
+          discontinued_reason?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          patient_id?: string;
+          episode_id?: string;
+          originating_clinical_visit_id?: string | null;
+          prescribing_clinician_id?: string;
+          plan_identifier?: string;
+          title?: string;
+          diagnosis_summary?: string | null;
+          clinical_rationale?: string | null;
+          overall_goals_summary?: string | null;
+          treatment_frequency?: string | null;
+          expected_duration_weeks?: number | null;
+          start_date?: string;
+          target_review_date?: string | null;
+          status?: TreatmentPlanStatus;
+          finalized_at?: string | null;
+          finalized_by?: string | null;
+          discontinued_reason?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      treatment_plan_goals: {
+        Row: {
+          id: string;
+          practice_id: string;
+          treatment_plan_id: string;
+          order_index: number;
+          goal_statement: string;
+          category: TreatmentGoalCategory;
+          baseline_description: string | null;
+          target_description: string | null;
+          measurement_method: string | null;
+          target_timeframe_weeks: number | null;
+          priority: TreatmentGoalPriority;
+          status: TreatmentGoalStatus;
+          review_date: string | null;
+          achieved_date: string | null;
+          notes: string | null;
+          baseline_outcome_assessment_id: string | null;
+          target_outcome_assessment_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          treatment_plan_id: string;
+          order_index?: number;
+          goal_statement: string;
+          category?: TreatmentGoalCategory;
+          baseline_description?: string | null;
+          target_description?: string | null;
+          measurement_method?: string | null;
+          target_timeframe_weeks?: number | null;
+          priority?: TreatmentGoalPriority;
+          status?: TreatmentGoalStatus;
+          review_date?: string | null;
+          achieved_date?: string | null;
+          notes?: string | null;
+          baseline_outcome_assessment_id?: string | null;
+          target_outcome_assessment_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          treatment_plan_id?: string;
+          order_index?: number;
+          goal_statement?: string;
+          category?: TreatmentGoalCategory;
+          baseline_description?: string | null;
+          target_description?: string | null;
+          measurement_method?: string | null;
+          target_timeframe_weeks?: number | null;
+          priority?: TreatmentGoalPriority;
+          status?: TreatmentGoalStatus;
+          review_date?: string | null;
+          achieved_date?: string | null;
+          notes?: string | null;
+          baseline_outcome_assessment_id?: string | null;
+          target_outcome_assessment_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      generate_next_treatment_plan_identifier: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
       generate_next_hep_identifier: {
         Args: {
           p_practice_id: string;
@@ -1188,6 +1373,10 @@ export interface Database {
       exercise_category: ExerciseCategory;
       exercise_body_region: ExerciseBodyRegion;
       exercise_laterality: ExerciseLaterality;
+      treatment_plan_status: TreatmentPlanStatus;
+      treatment_goal_category: TreatmentGoalCategory;
+      treatment_goal_priority: TreatmentGoalPriority;
+      treatment_goal_status: TreatmentGoalStatus;
     };
     CompositeTypes: {
       [_ in never]: never;

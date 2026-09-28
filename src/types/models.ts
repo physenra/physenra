@@ -21,6 +21,10 @@ import type {
   ExerciseCategory,
   ExerciseBodyRegion,
   ExerciseLaterality,
+  TreatmentPlanStatus,
+  TreatmentGoalCategory,
+  TreatmentGoalPriority,
+  TreatmentGoalStatus,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -65,6 +69,14 @@ export type HomeExerciseProgramUpdate = Database['public']['Tables']['home_exerc
 export type HomeExerciseProgramItem = Database['public']['Tables']['home_exercise_program_items']['Row'];
 export type HomeExerciseProgramItemInsert = Database['public']['Tables']['home_exercise_program_items']['Insert'];
 export type HomeExerciseProgramItemUpdate = Database['public']['Tables']['home_exercise_program_items']['Update'];
+
+export type TreatmentPlan = Database['public']['Tables']['treatment_plans']['Row'];
+export type TreatmentPlanInsert = Database['public']['Tables']['treatment_plans']['Insert'];
+export type TreatmentPlanUpdate = Database['public']['Tables']['treatment_plans']['Update'];
+
+export type TreatmentPlanGoal = Database['public']['Tables']['treatment_plan_goals']['Row'];
+export type TreatmentPlanGoalInsert = Database['public']['Tables']['treatment_plan_goals']['Insert'];
+export type TreatmentPlanGoalUpdate = Database['public']['Tables']['treatment_plan_goals']['Update'];
 
 export interface EpisodeWithPatient extends EpisodeOfCare {
   patients?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
@@ -175,6 +187,31 @@ export interface HEPFilters {
   endDate?: string;
 }
 
+export interface TreatmentPlanGoalWithOutcome extends TreatmentPlanGoal {
+  baseline_outcome_assessment?: OutcomeMeasureAssessmentWithRelations | null;
+  target_outcome_assessment?: OutcomeMeasureAssessmentWithRelations | null;
+}
+
+export interface TreatmentPlanWithRelations extends TreatmentPlan {
+  patient?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
+  episode?: Pick<EpisodeOfCare, 'id' | 'episode_identifier' | 'title' | 'status'> | null;
+  originating_clinical_visit?: Pick<ClinicalVisit, 'id' | 'visit_identifier' | 'status' | 'actual_start' | 'actual_end'> | null;
+  prescribing_clinician?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  finalizer?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  goals?: TreatmentPlanGoalWithOutcome[];
+}
+
+export interface TreatmentPlanFilters {
+  patientId?: string;
+  episodeId?: string;
+  visitId?: string;
+  clinicianId?: string;
+  status?: TreatmentPlanStatus | 'all';
+  searchQuery?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface UserPracticeMembership {
   id: string;
   practiceId: string;
@@ -215,6 +252,10 @@ export type {
   ExerciseCategory,
   ExerciseBodyRegion,
   ExerciseLaterality,
+  TreatmentPlanStatus,
+  TreatmentGoalCategory,
+  TreatmentGoalPriority,
+  TreatmentGoalStatus,
 };
 
 

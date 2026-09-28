@@ -22,6 +22,7 @@ const CLINICAL_NOTE_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'clini
 const EPISODE_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'episodeService.ts');
 const APPOINTMENT_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'appointmentService.ts');
 const OUTCOME_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'outcomeMeasureService.ts');
+const TREATMENT_PLAN_SERVICE_PATH = path.join(ROOT_DIR, 'src', 'services', 'treatmentPlanService.ts');
 const CREATE_VISIT_PAGE_PATH = path.join(ROOT_DIR, 'src', 'pages', 'visits', 'CreateClinicalVisitPage.tsx');
 
 const SUPABASE_URL = 'https://xxknmdgneamtoahqayvl.supabase.co';
@@ -34,6 +35,7 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
   const episodeServiceCode = fs.readFileSync(EPISODE_SERVICE_PATH, 'utf8');
   const apptServiceCode = fs.readFileSync(APPOINTMENT_SERVICE_PATH, 'utf8');
   const outcomeServiceCode = fs.readFileSync(OUTCOME_SERVICE_PATH, 'utf8');
+  const tpServiceCode = fs.readFileSync(TREATMENT_PLAN_SERVICE_PATH, 'utf8');
   const createVisitPageCode = fs.readFileSync(CREATE_VISIT_PAGE_PATH, 'utf8');
 
   // ----------------------------------------------------------------------------
@@ -229,9 +231,61 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
   });
 
   // ----------------------------------------------------------------------------
-  // SUITE 7: Remote PostgREST API Live Query Verification
+  // SUITE 7: Treatment Plan Service PostgREST Disambiguation
   // ----------------------------------------------------------------------------
-  await t.test('--- SUITE 7: Remote PostgREST API Live Query Verification ---', async (st) => {
+  await t.test('--- SUITE 7: Treatment Plan Service PostgREST Disambiguation ---', async (st) => {
+    await st.test('treatmentPlanService uses fk_treatment_plans_patient_practice constraint hint', () => {
+      assert(
+        tpServiceCode.includes('patient:patients!fk_treatment_plans_patient_practice'),
+        'treatmentPlanService must disambiguate patient relation using !fk_treatment_plans_patient_practice'
+      );
+    });
+
+    await st.test('treatmentPlanService uses fk_treatment_plans_episode_patient_practice constraint hint', () => {
+      assert(
+        tpServiceCode.includes('episode:episodes_of_care!fk_treatment_plans_episode_patient_practice'),
+        'treatmentPlanService must disambiguate episode relation using !fk_treatment_plans_episode_patient_practice'
+      );
+    });
+
+    await st.test('treatmentPlanService uses fk_treatment_plans_visit_patient_practice constraint hint', () => {
+      assert(
+        tpServiceCode.includes('originating_clinical_visit:clinical_visits!fk_treatment_plans_visit_patient_practice'),
+        'treatmentPlanService must disambiguate visit relation using !fk_treatment_plans_visit_patient_practice'
+      );
+    });
+
+    await st.test('treatmentPlanService uses fk_tp_goals_baseline_oa and target_oa constraint hints', () => {
+      assert(
+        tpServiceCode.includes('baseline_outcome_assessment:outcome_measure_assessments!fk_tp_goals_baseline_oa'),
+        'treatmentPlanService must disambiguate baseline outcome assessment using !fk_tp_goals_baseline_oa'
+      );
+      assert(
+        tpServiceCode.includes('target_outcome_assessment:outcome_measure_assessments!fk_tp_goals_target_oa'),
+        'treatmentPlanService must disambiguate target outcome assessment using !fk_tp_goals_target_oa'
+      );
+    });
+
+    await st.test('treatmentPlanService contains zero unhinted embeds for patient, episode, or visit', () => {
+      assert(
+        !tpServiceCode.includes('patient:patients ('),
+        'treatmentPlanService must not contain unhinted patient:patients ('
+      );
+      assert(
+        !tpServiceCode.includes('episode:episodes_of_care ('),
+        'treatmentPlanService must not contain unhinted episode:episodes_of_care ('
+      );
+      assert(
+        !tpServiceCode.includes('clinical_visit:clinical_visits ('),
+        'treatmentPlanService must not contain unhinted clinical_visit:clinical_visits ('
+      );
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 8: Remote PostgREST API Live Query Verification
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 8: Remote PostgREST API Live Query Verification ---', async (st) => {
     const remoteQueries = [
       {
         name: 'Clinical Visits with disambiguated patient, episode, and appointment',
@@ -267,6 +321,16 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
         name: 'Home Exercise Program Items with exercise details',
         table: 'home_exercise_program_items',
         select: '*,exercise:exercises!fk_hep_items_exercise(*)'
+      },
+      {
+        name: 'Treatment Plans with disambiguated patient, episode, and originating clinical visit',
+        table: 'treatment_plans',
+        select: '*,patient:patients!fk_treatment_plans_patient_practice(id,patient_identifier,first_name,last_name,phone,email),episode:episodes_of_care!fk_treatment_plans_episode_patient_practice(id,episode_identifier,title,status),originating_clinical_visit:clinical_visits!fk_treatment_plans_visit_patient_practice(id,visit_identifier,status,actual_start,actual_end)'
+      },
+      {
+        name: 'Treatment Plan Goals with disambiguated baseline and target outcome assessments',
+        table: 'treatment_plan_goals',
+        select: '*,baseline_outcome_assessment:outcome_measure_assessments!fk_tp_goals_baseline_oa(id,assessment_identifier,status,numeric_score),target_outcome_assessment:outcome_measure_assessments!fk_tp_goals_target_oa(id,assessment_identifier,status,numeric_score)'
       }
     ];
 
@@ -302,6 +366,22 @@ test('PHYSENRA POSTGREST RELATIONSHIP AMBIGUITY REGRESSION SUITE', async (t) => 
         res.status,
         300,
         `Expected HTTP 300 (Ambiguous relationship) for unhinted query, got ${res.status}`
+      );
+    });
+
+    await st.test('Unhinted treatment_plans query reproduces PGRST201 HTTP 300 to prove disambiguation is required', async () => {
+      const url = `${SUPABASE_URL}/rest/v1/treatment_plans?select=*,patients(id)&limit=1`;
+      const res = await fetch(url, {
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Practice-ID': PRACTICE_ID
+        }
+      });
+      assert.equal(
+        res.status,
+        300,
+        `Expected HTTP 300 (Ambiguous relationship) for unhinted treatment_plans query, got ${res.status}`
       );
     });
   });

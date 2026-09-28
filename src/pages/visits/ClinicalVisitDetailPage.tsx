@@ -4,6 +4,7 @@ import { clinicalVisitService } from '../../services/clinicalVisitService';
 import { clinicalNoteService } from '../../services/clinicalNoteService';
 import { outcomeMeasureService } from '../../services/outcomeMeasureService';
 import { hepService } from '../../services/hepService';
+import { treatmentPlanService } from '../../services/treatmentPlanService';
 import type {
   ClinicalVisitWithRelations,
   ClinicalVisitStatus,
@@ -11,6 +12,7 @@ import type {
   ClinicalNoteWithRelations,
   OutcomeMeasureAssessmentWithRelations,
   HomeExerciseProgramWithRelations,
+  TreatmentPlanWithRelations,
 } from '../../types/models';
 
 export const ClinicalVisitDetailPage: React.FC = () => {
@@ -31,6 +33,7 @@ export const ClinicalVisitDetailPage: React.FC = () => {
   const [clinicalNote, setClinicalNote] = useState<ClinicalNoteWithRelations | null>(null);
   const [outcomeAssessments, setOutcomeAssessments] = useState<OutcomeMeasureAssessmentWithRelations[]>([]);
   const [homeExercisePrograms, setHomeExercisePrograms] = useState<HomeExerciseProgramWithRelations[]>([]);
+  const [treatmentPlans, setTreatmentPlans] = useState<TreatmentPlanWithRelations[]>([]);
 
   const loadVisit = async () => {
     if (!visitId) return;
@@ -64,6 +67,13 @@ export const ClinicalVisitDetailPage: React.FC = () => {
           setHomeExercisePrograms(programs);
         } catch (hepErr) {
           console.warn('Could not load exercise programs for visit:', hepErr);
+        }
+
+        try {
+          const plans = await treatmentPlanService.getPlansForVisit(visitId);
+          setTreatmentPlans(plans);
+        } catch (planErr) {
+          console.warn('Could not load treatment plans for visit:', planErr);
         }
       }
     } catch (err: any) {
@@ -1001,6 +1011,148 @@ export const ClinicalVisitDetailPage: React.FC = () => {
         ) : (
           <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
             No home exercise program prescribed during this clinical visit.
+          </p>
+        )}
+      </div>
+
+      {/* Treatment Plans Card */}
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          padding: '1.5rem',
+          borderRadius: '8px',
+          border: '1px solid #e2e8f0',
+          marginTop: '1.5rem',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '0.75rem',
+            borderBottom: '1px solid #f1f5f9',
+            paddingBottom: '0.5rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, color: '#0f172a' }}>
+              Formulated Treatment Plans
+            </h2>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '0.15rem 0.5rem',
+                borderRadius: '9999px',
+                backgroundColor: treatmentPlans.length > 0 ? '#ecfdf5' : '#f1f5f9',
+                color: treatmentPlans.length > 0 ? '#059669' : '#475569',
+              }}
+            >
+              {treatmentPlans.length} Formulated
+            </span>
+          </div>
+
+          {visit.status !== 'cancelled' && (
+            <Link
+              to={`/app/treatment-plans/new?visitId=${visit.id}&patientId=${visit.patient_id}&episodeId=${visit.episode_id || ''}`}
+              style={{
+                backgroundColor: '#059669',
+                color: '#ffffff',
+                padding: '0.4rem 0.875rem',
+                borderRadius: '6px',
+                textDecoration: 'none',
+                fontSize: '0.8125rem',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              + Formulate Treatment Plan
+            </Link>
+          )}
+        </div>
+
+        {treatmentPlans.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {treatmentPlans.map((tpl) => (
+              <div
+                key={tpl.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '0.75rem 1rem',
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <Link
+                      to={`/app/treatment-plans/${tpl.id}`}
+                      style={{ color: '#059669', fontWeight: 700, fontSize: '0.875rem', textDecoration: 'none' }}
+                    >
+                      {tpl.plan_identifier}
+                    </Link>
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0f172a' }}>
+                      {tpl.title}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.6875rem',
+                        fontWeight: 600,
+                        padding: '0.1rem 0.4rem',
+                        borderRadius: '4px',
+                        textTransform: 'capitalize',
+                        backgroundColor:
+                          tpl.status === 'active'
+                            ? '#dcfce7'
+                            : tpl.status === 'draft'
+                            ? '#fef3c7'
+                            : tpl.status === 'paused'
+                            ? '#ffedd5'
+                            : '#f1f5f9',
+                        color:
+                          tpl.status === 'active'
+                            ? '#166534'
+                            : tpl.status === 'draft'
+                            ? '#92400e'
+                            : tpl.status === 'paused'
+                            ? '#9a3412'
+                            : '#475569',
+                      }}
+                    >
+                      {tpl.status}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                    Start Date: {formatDate(tpl.start_date)}
+                    {tpl.target_review_date && ` • Review Due: ${formatDate(tpl.target_review_date)}`}
+                    {tpl.treatment_frequency && ` • Cadence: ${tpl.treatment_frequency}`}
+                  </div>
+                </div>
+
+                <div>
+                  <Link
+                    to={`/app/treatment-plans/${tpl.id}`}
+                    style={{
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      color: '#059669',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    View Plan →
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
+            No treatment plan originated from this clinical visit.
           </p>
         )}
       </div>
