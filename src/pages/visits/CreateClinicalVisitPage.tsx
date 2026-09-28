@@ -4,7 +4,6 @@ import { clinicalVisitService } from '../../services/clinicalVisitService';
 import { patientService } from '../../services/patientService';
 import { episodeService } from '../../services/episodeService';
 import { appointmentService } from '../../services/appointmentService';
-import { supabase } from '../../lib/supabase';
 import { usePractice } from '../../hooks/usePractice';
 import type { Patient, EpisodeOfCare, AppointmentWithRelations } from '../../types/models';
 
@@ -46,29 +45,20 @@ export const CreateClinicalVisitPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        // Load patients
-        const patientRes = await patientService.getPatients({ limit: 100 });
+        // Load patients and clinicians in parallel
+        const [patientRes, clinicianList] = await Promise.all([
+          patientService.getPatients({ limit: 100 }),
+          appointmentService.getClinicians(),
+        ]);
         setPatients(patientRes.patients);
 
-        // Load clinicians (practice members with clinical roles)
-        const { data: members } = await supabase
-          .from('practice_memberships')
-          .select('user_id, role, profiles(id, display_name, first_name, last_name)')
-          .eq('practice_id', activePractice.id)
-          .eq('status', 'active')
-          .in('role', ['practice_owner', 'practice_manager', 'physiotherapist']);
-
-        if (members) {
-          const clinicianList = members.map((m: any) => ({
-            id: m.user_id,
-            name:
-              m.profiles?.display_name ||
-              (m.profiles?.first_name ? `${m.profiles.first_name} ${m.profiles.last_name || ''}` : 'Clinician'),
-          }));
-          setClinicians(clinicianList);
-          if (clinicianList.length > 0 && !selectedClinicianId) {
-            setSelectedClinicianId(clinicianList[0].id);
-          }
+        const clinicianOptions = clinicianList.map((c) => ({
+          id: c.userId,
+          name: c.name,
+        }));
+        setClinicians(clinicianOptions);
+        if (clinicianOptions.length > 0 && !selectedClinicianId) {
+          setSelectedClinicianId(clinicianOptions[0].id);
         }
 
         // If pre-filled appointment, load its details

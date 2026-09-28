@@ -86,7 +86,7 @@ export const clinicalNoteService = {
       .select(
         `
         *,
-        patient:patients (
+        patient:patients!fk_clinical_notes_patient_practice (
           id,
           patient_identifier,
           first_name,
@@ -94,13 +94,13 @@ export const clinicalNoteService = {
           phone,
           email
         ),
-        episode:episodes_of_care (
+        episode:episodes_of_care!fk_clinical_notes_episode_patient_practice (
           id,
           episode_identifier,
           title,
           status
         ),
-        clinical_visit:clinical_visits (
+        clinical_visit:clinical_visits!fk_clinical_notes_visit_patient_practice (
           id,
           visit_identifier,
           status,
@@ -199,7 +199,7 @@ export const clinicalNoteService = {
       .select(
         `
         *,
-        patient:patients (
+        patient:patients!fk_clinical_notes_patient_practice (
           id,
           patient_identifier,
           first_name,
@@ -207,13 +207,13 @@ export const clinicalNoteService = {
           phone,
           email
         ),
-        episode:episodes_of_care (
+        episode:episodes_of_care!fk_clinical_notes_episode_patient_practice (
           id,
           episode_identifier,
           title,
           status
         ),
-        clinical_visit:clinical_visits (
+        clinical_visit:clinical_visits!fk_clinical_notes_visit_patient_practice (
           id,
           visit_identifier,
           status,

@@ -52,7 +52,7 @@ export const episodeService = {
       .select(
         `
         *,
-        patients (
+        patients!fk_episodes_patient_practice (
           id,
           patient_identifier,
           first_name,
@@ -124,7 +124,7 @@ export const episodeService = {
       .select(
         `
         *,
-        patients (
+        patients!fk_episodes_patient_practice (
           id,
           patient_identifier,
           first_name,

@@ -84,7 +84,7 @@ export const appointmentService = {
       .select(
         `
         *,
-        patient:patients (
+        patient:patients!fk_appointments_patient_practice (
           id,
           patient_identifier,
           first_name,
@@ -92,7 +92,7 @@ export const appointmentService = {
           phone,
           email
         ),
-        episode:episodes_of_care (
+        episode:episodes_of_care!fk_appointments_episode_patient_practice (
           id,
           episode_identifier,
           title,
@@ -188,7 +188,7 @@ export const appointmentService = {
       .select(
         `
         *,
-        patient:patients (
+        patient:patients!fk_appointments_patient_practice (
           id,
           patient_identifier,
           first_name,
@@ -196,7 +196,7 @@ export const appointmentService = {
           phone,
           email
         ),
-        episode:episodes_of_care (
+        episode:episodes_of_care!fk_appointments_episode_patient_practice (
           id,
           episode_identifier,
           title,
@@ -241,7 +241,7 @@ export const appointmentService = {
         appointment_identifier,
         scheduled_start,
         scheduled_end,
-        patients (
+        patients!fk_appointments_patient_practice (
           first_name,
           last_name
         )

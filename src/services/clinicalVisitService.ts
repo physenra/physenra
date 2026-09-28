@@ -69,7 +69,7 @@ export const clinicalVisitService = {
       .select(
         `
         *,
-        patient:patients (
+        patient:patients!fk_clinical_visits_patient_practice (
           id,
           patient_identifier,
           first_name,
@@ -77,13 +77,13 @@ export const clinicalVisitService = {
           phone,
           email
         ),
-        episode:episodes_of_care (
+        episode:episodes_of_care!fk_clinical_visits_episode_patient_practice (
           id,
           episode_identifier,
           title,
           status
         ),
-        appointment:appointments (
+        appointment:appointments!fk_clinical_visits_appointment_patient_practice (
           id,
           appointment_identifier,
           status,
@@ -185,7 +185,7 @@ export const clinicalVisitService = {
       .select(
         `
         *,
-        patient:patients (
+        patient:patients!fk_clinical_visits_patient_practice (
           id,
           patient_identifier,
           first_name,
@@ -193,13 +193,13 @@ export const clinicalVisitService = {
           phone,
           email
         ),
-        episode:episodes_of_care (
+        episode:episodes_of_care!fk_clinical_visits_episode_patient_practice (
           id,
           episode_identifier,
           title,
           status
         ),
-        appointment:appointments (
+        appointment:appointments!fk_clinical_visits_appointment_patient_practice (
           id,
           appointment_identifier,
           status,

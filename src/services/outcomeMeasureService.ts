@@ -125,7 +125,7 @@ export const outcomeMeasureService = {
       .select(
         `
         *,
-        patient:patients (
+        patient:patients!fk_outcome_assessments_patient_practice (
           id,
           patient_identifier,
           first_name,
@@ -133,13 +133,13 @@ export const outcomeMeasureService = {
           phone,
           email
         ),
-        episode:episodes_of_care (
+        episode:episodes_of_care!fk_outcome_assessments_episode_patient_practice (
           id,
           episode_identifier,
           title,
           status
         ),
-        clinical_visit:clinical_visits (
+        clinical_visit:clinical_visits!fk_outcome_assessments_visit_patient_practice (
           id,
           visit_identifier,
           status,
@@ -245,7 +245,7 @@ export const outcomeMeasureService = {
       .select(
         `
         *,
-        patient:patients (
+        patient:patients!fk_outcome_assessments_patient_practice (
           id,
           patient_identifier,
           first_name,
@@ -253,13 +253,13 @@ export const outcomeMeasureService = {
           phone,
           email
         ),
-        episode:episodes_of_care (
+        episode:episodes_of_care!fk_outcome_assessments_episode_patient_practice (
           id,
           episode_identifier,
           title,
           status
         ),
-        clinical_visit:clinical_visits (
+        clinical_visit:clinical_visits!fk_outcome_assessments_visit_patient_practice (
           id,
           visit_identifier,
           status,
@@ -362,7 +362,7 @@ export const outcomeMeasureService = {
         `
         *,
         definition:outcome_measure_definitions (*),
-        episode:episodes_of_care (id, episode_identifier, title)
+        episode:episodes_of_care!fk_outcome_assessments_episode_patient_practice (id, episode_identifier, title)
       `
       )
       .eq('practice_id', activePracticeId)
