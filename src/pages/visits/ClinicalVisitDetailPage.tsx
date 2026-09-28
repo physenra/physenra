@@ -5,6 +5,9 @@ import { clinicalNoteService } from '../../services/clinicalNoteService';
 import { outcomeMeasureService } from '../../services/outcomeMeasureService';
 import { hepService } from '../../services/hepService';
 import { treatmentPlanService } from '../../services/treatmentPlanService';
+import { packageService } from '../../services/packageService';
+import { supabase } from '../../lib/supabase';
+import { Ticket } from 'lucide-react';
 import type {
   ClinicalVisitWithRelations,
   ClinicalVisitStatus,
@@ -13,6 +16,7 @@ import type {
   OutcomeMeasureAssessmentWithRelations,
   HomeExerciseProgramWithRelations,
   TreatmentPlanWithRelations,
+  PackageEntitlementWithRelations,
 } from '../../types/models';
 
 export const ClinicalVisitDetailPage: React.FC = () => {
@@ -34,6 +38,14 @@ export const ClinicalVisitDetailPage: React.FC = () => {
   const [outcomeAssessments, setOutcomeAssessments] = useState<OutcomeMeasureAssessmentWithRelations[]>([]);
   const [homeExercisePrograms, setHomeExercisePrograms] = useState<HomeExerciseProgramWithRelations[]>([]);
   const [treatmentPlans, setTreatmentPlans] = useState<TreatmentPlanWithRelations[]>([]);
+
+  // Package Settlement State
+  const [consumedPackage, setConsumedPackage] = useState<any | null>(null);
+  const [activePackages, setActivePackages] = useState<PackageEntitlementWithRelations[]>([]);
+  const [selectedEntitlementId, setSelectedEntitlementId] = useState('');
+  const [consumptionNotes, setConsumptionNotes] = useState('');
+  const [isConsuming, setIsConsuming] = useState(false);
+  const [packageMessage, setPackageMessage] = useState<string | null>(null);
 
   const loadVisit = async () => {
     if (!visitId) return;
@@ -74,6 +86,41 @@ export const ClinicalVisitDetailPage: React.FC = () => {
           setTreatmentPlans(plans);
         } catch (planErr) {
           console.warn('Could not load treatment plans for visit:', planErr);
+        }
+
+        try {
+          // Check if this visit has already consumed a package session
+          const { data: consumptionData } = await supabase
+            .from('package_consumption_ledger')
+            .select(`
+              *,
+              entitlement:package_entitlements!fk_consumption_entitlement_practice (
+                id,
+                package_number,
+                definition:package_definitions!fk_entitlements_definition_practice (
+                  name
+                )
+              )
+            `)
+            .eq('clinical_visit_id', visitId)
+            .maybeSingle();
+
+          setConsumedPackage(consumptionData || null);
+
+          // If not consumed, load active packages for patient
+          if (!consumptionData && data.patient_id) {
+            const pkgs = await packageService.getPackageEntitlements(undefined, {
+              patientId: data.patient_id,
+              status: 'active',
+            });
+            const available = pkgs.filter((p) => (p.remaining_sessions || 0) > 0);
+            setActivePackages(available);
+            if (available.length > 0) {
+              setSelectedEntitlementId(available[0].id);
+            }
+          }
+        } catch (pkgErr) {
+          console.warn('Could not load package info for visit:', pkgErr);
         }
       }
     } catch (err: any) {
@@ -153,6 +200,26 @@ export const ClinicalVisitDetailPage: React.FC = () => {
       setError(err.message || 'Failed to cancel clinical visit.');
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const handleConsumePackage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEntitlementId || !visit) return;
+    setIsConsuming(true);
+    setPackageMessage(null);
+    try {
+      const res = await packageService.consumePackageSession({
+        entitlement_id: selectedEntitlementId,
+        clinical_visit_id: visit.id,
+        notes: consumptionNotes.trim() || undefined,
+      });
+      setPackageMessage(`Session consumed from package ${res.package_number}. Remaining: ${res.remaining_sessions}.`);
+      await loadVisit();
+    } catch (err: any) {
+      setPackageMessage(`Consumption failed: ${err.message}`);
+    } finally {
+      setIsConsuming(false);
     }
   };
 
@@ -1165,6 +1232,103 @@ export const ClinicalVisitDetailPage: React.FC = () => {
         <p style={{ color: '#334155', fontSize: '0.875rem', whiteSpace: 'pre-wrap', margin: 0 }}>
           {visit.encounter_notes || 'No operational encounter notes recorded.'}
         </p>
+      </div>
+
+      {/* Package Settlement Card */}
+      <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Ticket size={18} color="#0284c7" /> Treatment Package Settlement
+          </h2>
+          {consumedPackage && (
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0.15rem 0.5rem', borderRadius: '9999px', backgroundColor: '#dcfce7', color: '#166534' }}>
+              Settled via Package
+            </span>
+          )}
+        </div>
+
+        {packageMessage && (
+          <div style={{ backgroundColor: packageMessage.includes('failed') ? '#fee2e2' : '#dcfce7', color: packageMessage.includes('failed') ? '#991b1b' : '#166534', padding: '0.75rem', borderRadius: '6px', fontSize: '0.875rem', marginBottom: '1rem' }}>
+            {packageMessage}
+          </div>
+        )}
+
+        {consumedPackage ? (
+          <div style={{ backgroundColor: '#f0fdf4', padding: '1rem', borderRadius: '6px', border: '1px solid #bbf7d0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div>
+                <span style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 600, display: 'block' }}>CONSUMED PACKAGE SESSION</span>
+                <strong style={{ fontSize: '1rem', color: '#14532d' }}>
+                  {consumedPackage.entitlement?.package_number} — {consumedPackage.entitlement?.definition?.name || 'Package'}
+                </strong>
+                <span style={{ display: 'block', fontSize: '0.75rem', color: '#15803d', marginTop: '0.25rem' }}>
+                  Consumed on {formatDate(consumedPackage.consumed_at)}
+                </span>
+              </div>
+              <Link
+                to={`/app/package-entitlements/${consumedPackage.entitlement_id}`}
+                style={{ fontSize: '0.8125rem', color: '#0284c7', textDecoration: 'none', fontWeight: 600 }}
+              >
+                View Package Entitlement &rarr;
+              </Link>
+            </div>
+          </div>
+        ) : visit.status === 'completed' ? (
+          activePackages.length > 0 ? (
+            <form onSubmit={handleConsumePackage} style={{ backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+              <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.875rem', color: '#334155' }}>
+                This completed encounter can be settled against an active package held by the patient:
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', alignItems: 'flex-end' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '0.25rem' }}>
+                    Select Active Package
+                  </label>
+                  <select
+                    value={selectedEntitlementId}
+                    onChange={(e) => setSelectedEntitlementId(e.target.value)}
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem', backgroundColor: '#fff' }}
+                  >
+                    {activePackages.map((pkg) => (
+                      <option key={pkg.id} value={pkg.id}>
+                        {pkg.package_number} — {pkg.definition?.name} ({pkg.remaining_sessions} remaining)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '0.25rem' }}>
+                    Encounter Notes (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Routine session checkout"
+                    value={consumptionNotes}
+                    onChange={(e) => setConsumptionNotes(e.target.value)}
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem' }}
+                  />
+                </div>
+                <div>
+                  <button
+                    type="submit"
+                    disabled={isConsuming || !selectedEntitlementId}
+                    style={{ width: '100%', backgroundColor: '#0284c7', color: '#fff', border: 'none', padding: '0.5rem', borderRadius: '6px', fontWeight: 600, fontSize: '0.875rem', cursor: isConsuming ? 'not-allowed' : 'pointer' }}
+                  >
+                    {isConsuming ? 'Processing...' : 'Consume Session'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          ) : (
+            <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
+              Patient has no active packages available for this encounter. Standard invoice billing applies.
+            </p>
+          )
+        ) : (
+          <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
+            Package sessions can be settled once this encounter is completed.
+          </p>
+        )}
       </div>
 
       {/* Complete Encounter Modal */}

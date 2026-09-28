@@ -164,6 +164,14 @@ export type InvoiceStatus = 'draft' | 'issued' | 'partially_paid' | 'paid' | 'vo
 export type PaymentMethod = 'cash' | 'bank_transfer' | 'pos' | 'card' | 'other';
 export type PaymentStatus = 'confirmed' | 'voided';
 export type ReceiptStatus = 'issued' | 'voided';
+export type PackageStatus =
+  | 'pending_payment'
+  | 'active'
+  | 'completed'
+  | 'expired'
+  | 'cancelled'
+  | 'suspended'
+  | 'void';
 
 export interface Database {
   public: {
@@ -2158,6 +2166,174 @@ export interface Database {
         };
         Relationships: [];
       };
+      practice_package_counters: {
+        Row: {
+          practice_id: string;
+          last_number: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      package_definitions: {
+        Row: {
+          id: string;
+          practice_id: string;
+          code: string;
+          name: string;
+          description: string | null;
+          service_id: string;
+          total_sessions: number;
+          validity_days: number;
+          package_price: number;
+          currency: string;
+          is_active: boolean;
+          created_by: string;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          code: string;
+          name: string;
+          description?: string | null;
+          service_id: string;
+          total_sessions: number;
+          validity_days: number;
+          package_price: number;
+          currency?: string;
+          is_active?: boolean;
+          created_by: string;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          code?: string;
+          name?: string;
+          description?: string | null;
+          service_id?: string;
+          total_sessions?: number;
+          validity_days?: number;
+          package_price?: number;
+          currency?: string;
+          is_active?: boolean;
+          created_by?: string;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      package_entitlements: {
+        Row: {
+          id: string;
+          practice_id: string;
+          package_number: string;
+          patient_id: string;
+          package_definition_id: string;
+          invoice_id: string;
+          total_sessions: number;
+          validity_days: number;
+          status: PackageStatus;
+          activated_at: string | null;
+          expires_at: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          cancellation_reason: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          package_number: string;
+          patient_id: string;
+          package_definition_id: string;
+          invoice_id: string;
+          total_sessions: number;
+          validity_days: number;
+          status?: PackageStatus;
+          activated_at?: string | null;
+          expires_at?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancellation_reason?: string | null;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          package_number?: string;
+          patient_id?: string;
+          package_definition_id?: string;
+          invoice_id?: string;
+          total_sessions?: number;
+          validity_days?: number;
+          status?: PackageStatus;
+          activated_at?: string | null;
+          expires_at?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancellation_reason?: string | null;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      package_consumption_ledger: {
+        Row: {
+          id: string;
+          practice_id: string;
+          entitlement_id: string;
+          clinical_visit_id: string;
+          patient_id: string;
+          consumed_at: string;
+          consumed_by: string;
+          notes: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          entitlement_id: string;
+          clinical_visit_id: string;
+          patient_id: string;
+          consumed_at?: string;
+          consumed_by: string;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          entitlement_id?: string;
+          clinical_visit_id?: string;
+          patient_id?: string;
+          consumed_at?: string;
+          consumed_by?: string;
+          notes?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -2291,6 +2467,54 @@ export interface Database {
         };
         Returns: Json;
       };
+      generate_next_package_number: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
+      purchase_package: {
+        Args: {
+          p_practice_id: string;
+          p_patient_id: string;
+          p_package_definition_id: string;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      activate_package: {
+        Args: {
+          p_practice_id: string;
+          p_entitlement_id: string;
+        };
+        Returns: Json;
+      };
+      consume_package_session: {
+        Args: {
+          p_practice_id: string;
+          p_entitlement_id: string;
+          p_clinical_visit_id: string;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      extend_package_validity: {
+        Args: {
+          p_practice_id: string;
+          p_entitlement_id: string;
+          p_new_expires_at: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      cancel_package: {
+        Args: {
+          p_practice_id: string;
+          p_entitlement_id: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       log_audit_event: {
         Args: {
           p_action: string;
@@ -2343,6 +2567,7 @@ export interface Database {
       payment_method: PaymentMethod;
       payment_status: PaymentStatus;
       receipt_status: ReceiptStatus;
+      package_status: PackageStatus;
     };
     CompositeTypes: {
       [_ in never]: never;

@@ -38,6 +38,7 @@ import type {
   PaymentMethod,
   PaymentStatus,
   ReceiptStatus,
+  PackageStatus,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -452,6 +453,163 @@ export interface ReceiptFilters {
   searchQuery?: string;
 }
 
+// ----------------------------------------------------------------------------
+// PACKAGES FOUNDATION V1 MODELS
+// ----------------------------------------------------------------------------
+
+export interface PackageDefinition {
+  id: string;
+  practice_id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  service_id: string;
+  total_sessions: number;
+  validity_days: number;
+  package_price: number;
+  currency: string;
+  is_active: boolean;
+  created_by: string;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PackageDefinitionWithRelations extends PackageDefinition {
+  service?: {
+    id: string;
+    code: string;
+    name: string;
+    category: string;
+  };
+}
+
+export interface PackageEntitlement {
+  id: string;
+  practice_id: string;
+  package_number: string;
+  patient_id: string;
+  package_definition_id: string;
+  invoice_id: string;
+  total_sessions: number;
+  validity_days: number;
+  status: PackageStatus;
+  activated_at: string | null;
+  expires_at: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  cancellation_reason: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PackageConsumption {
+  id: string;
+  practice_id: string;
+  entitlement_id: string;
+  clinical_visit_id: string;
+  patient_id: string;
+  consumed_at: string;
+  consumed_by: string;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface PackageEntitlementWithRelations extends PackageEntitlement {
+  patient?: {
+    id: string;
+    patient_identifier: string;
+    first_name: string;
+    last_name: string;
+    date_of_birth?: string | null;
+    gender?: string | null;
+  };
+  definition?: {
+    id: string;
+    code: string;
+    name: string;
+    service_id: string;
+    total_sessions: number;
+    validity_days: number;
+    package_price: number;
+    currency: string;
+    service?: {
+      id: string;
+      code: string;
+      name: string;
+    };
+  };
+  invoice?: {
+    id: string;
+    invoice_number: string;
+    status: InvoiceStatus;
+    grand_total: number;
+    amount_paid: number;
+    balance_due: number;
+  };
+  consumptions?: PackageConsumption[];
+  consumed_sessions?: number;
+  remaining_sessions?: number;
+}
+
+export interface CreatePackageDefinitionPayload {
+  code: string;
+  name: string;
+  description?: string;
+  service_id: string;
+  total_sessions: number;
+  validity_days: number;
+  package_price: number;
+  currency?: string;
+  is_active?: boolean;
+}
+
+export interface UpdatePackageDefinitionPayload {
+  name?: string;
+  description?: string;
+  total_sessions?: number;
+  validity_days?: number;
+  package_price?: number;
+  is_active?: boolean;
+}
+
+export interface PurchasePackagePayload {
+  patient_id: string;
+  package_definition_id: string;
+  notes?: string;
+}
+
+export interface ConsumePackageSessionPayload {
+  entitlement_id: string;
+  clinical_visit_id: string;
+  notes?: string;
+}
+
+export interface ExtendPackageValidityPayload {
+  entitlement_id: string;
+  new_expires_at: string;
+  reason: string;
+}
+
+export interface CancelPackagePayload {
+  entitlement_id: string;
+  reason: string;
+}
+
+export interface PackageDefinitionFilters {
+  serviceId?: string;
+  isActive?: boolean | 'all';
+  searchQuery?: string;
+}
+
+export interface PackageEntitlementFilters {
+  status?: PackageStatus | 'all';
+  patientId?: string;
+  definitionId?: string;
+  searchQuery?: string;
+}
+
 export type {
   MembershipRole,
   MembershipStatus,
@@ -491,6 +649,7 @@ export type {
   PaymentMethod,
   PaymentStatus,
   ReceiptStatus,
+  PackageStatus,
 };
 
 

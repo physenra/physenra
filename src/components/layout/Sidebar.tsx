@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Building2, ShieldCheck, Users, FolderKanban, Calendar, Activity, FileText, TrendingUp, Dumbbell, Target, ClipboardCheck, FileCheck, Tag, Coins, Receipt, CreditCard } from 'lucide-react';
+import { LayoutDashboard, Building2, ShieldCheck, Users, FolderKanban, Calendar, Activity, FileText, TrendingUp, Dumbbell, Target, ClipboardCheck, FileCheck, Tag, Coins, Receipt, CreditCard, Package, Ticket } from 'lucide-react';
 import { usePractice } from '../../hooks/usePractice';
 import { useRole } from '../../hooks/useRole';
 
@@ -171,6 +171,26 @@ export const Sidebar: React.FC = () => {
           >
             <FileText size={18} />
             <span>Receipts</span>
+          </NavLink>
+
+          <NavLink
+            to="/app/packages"
+            className={({ isActive }) =>
+              `nav-link ${isActive ? 'nav-link-active' : ''}`
+            }
+          >
+            <Package size={18} />
+            <span>Packages</span>
+          </NavLink>
+
+          <NavLink
+            to="/app/package-entitlements"
+            className={({ isActive }) =>
+              `nav-link ${isActive ? 'nav-link-active' : ''}`
+            }
+          >
+            <Ticket size={18} />
+            <span>Entitlements</span>
           </NavLink>
 
           <NavLink

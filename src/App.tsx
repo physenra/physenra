@@ -51,6 +51,11 @@ import { CreatePaymentPage } from './pages/payments/CreatePaymentPage';
 import { PaymentDetailPage } from './pages/payments/PaymentDetailPage';
 import { ReceiptListPage } from './pages/receipts/ReceiptListPage';
 import { ReceiptDetailPage } from './pages/receipts/ReceiptDetailPage';
+import { PackageListPage } from './pages/packages/PackageListPage';
+import { CreatePackagePage } from './pages/packages/CreatePackagePage';
+import { PurchasePackagePage } from './pages/packages/PurchasePackagePage';
+import { PackageEntitlementListPage } from './pages/packages/PackageEntitlementListPage';
+import { PackageEntitlementDetailPage } from './pages/packages/PackageEntitlementDetailPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -156,6 +161,13 @@ export const App: React.FC = () => {
         <Route path="payments/:paymentId" element={<PaymentDetailPage />} />
         <Route path="receipts" element={<ReceiptListPage />} />
         <Route path="receipts/:receiptId" element={<ReceiptDetailPage />} />
+
+        {/* Packages & Memberships Foundation V1 */}
+        <Route path="packages" element={<PackageListPage />} />
+        <Route path="packages/new" element={<CreatePackagePage />} />
+        <Route path="packages/purchase" element={<PurchasePackagePage />} />
+        <Route path="package-entitlements" element={<PackageEntitlementListPage />} />
+        <Route path="package-entitlements/:entitlementId" element={<PackageEntitlementDetailPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}
