@@ -123,7 +123,8 @@ test('No patient or clinical database structures exist in application foundation
 
   // Verify that subsequent financial and communication modules are not defined prematurely
   const forbiddenModules = [
-    'wallets',
+    'recurring_memberships',
+    'insurance_claims',
     'whatsapp_messages',
   ];
 

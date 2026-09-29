@@ -39,6 +39,8 @@ import type {
   PaymentStatus,
   ReceiptStatus,
   PackageStatus,
+  WalletStatus,
+  WalletLedgerEntryType,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -142,6 +144,16 @@ export type ReceiptUpdate = Database['public']['Tables']['receipts']['Update'];
 export type PaymentAllocation = Database['public']['Tables']['payment_allocations']['Row'];
 export type PaymentAllocationInsert = Database['public']['Tables']['payment_allocations']['Insert'];
 export type PaymentAllocationUpdate = Database['public']['Tables']['payment_allocations']['Update'];
+
+export type PracticeWalletCounter = Database['public']['Tables']['practice_wallet_counters']['Row'];
+export type PatientWallet = Database['public']['Tables']['patient_wallets']['Row'];
+export type PatientWalletInsert = Database['public']['Tables']['patient_wallets']['Insert'];
+export type PatientWalletUpdate = Database['public']['Tables']['patient_wallets']['Update'];
+
+export type PatientWalletLedgerEntry = Database['public']['Tables']['patient_wallet_ledger']['Row'];
+export type PatientWalletLedgerEntryInsert = Database['public']['Tables']['patient_wallet_ledger']['Insert'];
+export type PatientWalletLedgerEntryUpdate = Database['public']['Tables']['patient_wallet_ledger']['Update'];
+
 
 export interface EpisodeWithPatient extends EpisodeOfCare {
   patients?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
@@ -610,6 +622,92 @@ export interface PackageEntitlementFilters {
   searchQuery?: string;
 }
 
+export interface PatientWalletLedgerEntryWithRelations extends PatientWalletLedgerEntry {
+  payment?: {
+    id: string;
+    payment_number: string;
+    payment_method: PaymentMethod;
+    status: PaymentStatus;
+    amount: number;
+    payment_date: string;
+  } | null;
+  invoice?: {
+    id: string;
+    invoice_number: string;
+    status: InvoiceStatus;
+    grand_total: number;
+    balance_due: number;
+  } | null;
+  creator?: {
+    id: string;
+    display_name: string;
+    first_name: string;
+    last_name: string;
+  } | null;
+}
+
+export interface PatientWalletWithBalance extends PatientWallet {
+  balance: number;
+  patient?: {
+    id: string;
+    patient_identifier: string;
+    first_name: string;
+    last_name: string;
+    email?: string | null;
+    phone?: string | null;
+  } | null;
+  ledger_entries?: PatientWalletLedgerEntryWithRelations[];
+}
+
+export interface DepositToWalletPayload {
+  patient_id: string;
+  amount: number;
+  payment_method: PaymentMethod;
+  reference_number?: string | null;
+  idempotency_key?: string | null;
+  notes?: string | null;
+}
+
+export interface ConvertOverpaymentPayload {
+  payment_id: string;
+  amount: number;
+  idempotency_key?: string | null;
+  notes?: string | null;
+}
+
+export interface SettleInvoiceFromWalletPayload {
+  wallet_id: string;
+  invoice_id: string;
+  amount: number;
+  idempotency_key?: string | null;
+  notes?: string | null;
+}
+
+export interface AdjustWalletBalancePayload {
+  wallet_id: string;
+  amount: number;
+  reason: string;
+  idempotency_key?: string | null;
+}
+
+export interface UpdateWalletStatusPayload {
+  wallet_id: string;
+  status: WalletStatus;
+  reason: string;
+}
+
+export interface WalletFilters {
+  status?: WalletStatus | 'all';
+  patientId?: string;
+  searchQuery?: string;
+}
+
+export interface WalletLedgerFilters {
+  walletId?: string;
+  patientId?: string;
+  entryType?: WalletLedgerEntryType | 'all';
+}
+
 export type {
   MembershipRole,
   MembershipStatus,
@@ -650,7 +748,10 @@ export type {
   PaymentStatus,
   ReceiptStatus,
   PackageStatus,
+  WalletStatus,
+  WalletLedgerEntryType,
 };
+
 
 
 

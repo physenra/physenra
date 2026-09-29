@@ -16,15 +16,18 @@ import {
   FolderKanban,
   Activity,
   Coins,
+  Wallet,
 } from 'lucide-react';
 import { billingService } from '../../services/billingService';
 import { serviceCatalogService } from '../../services/serviceCatalogService';
+import { walletService } from '../../services/walletService';
 import { usePractice } from '../../hooks/usePractice';
 import { useRole } from '../../hooks/useRole';
 import type {
   InvoiceWithRelations,
   InvoiceStatus,
   Service,
+  PatientWalletWithBalance,
 } from '../../types/models';
 
 export const InvoiceDetailPage: React.FC = () => {
@@ -55,6 +58,12 @@ export const InvoiceDetailPage: React.FC = () => {
   const [lineIsTaxable, setLineIsTaxable] = useState(false);
   const [lineTaxRate, setLineTaxRate] = useState(0);
 
+  // Wallet settlement state
+  const [patientWallet, setPatientWallet] = useState<PatientWalletWithBalance | null>(null);
+  const [showWalletSettleModal, setShowWalletSettleModal] = useState(false);
+  const [walletSettleAmount, setWalletSettleAmount] = useState<number | ''>('');
+  const [walletSettleNotes, setWalletSettleNotes] = useState('');
+
   const loadInvoice = async () => {
     if (!activePractice || !invoiceId) return;
     setIsLoading(true);
@@ -65,6 +74,12 @@ export const InvoiceDetailPage: React.FC = () => {
         setError('Invoice not found.');
       } else {
         setInvoice(data);
+        if (data.patient_id) {
+          walletService
+            .getWalletByPatientId(data.patient_id, activePractice.id)
+            .then(setPatientWallet)
+            .catch(() => setPatientWallet(null));
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load invoice.');
@@ -218,6 +233,38 @@ export const InvoiceDetailPage: React.FC = () => {
     }
   };
 
+  const handleWalletSettleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activePractice || !invoice || !patientWallet) return;
+    if (!walletSettleAmount || Number(walletSettleAmount) <= 0) {
+      setError('Please enter a valid settlement amount.');
+      return;
+    }
+
+    setActionLoading(true);
+    setError(null);
+    try {
+      await walletService.settleInvoiceFromWallet(
+        {
+          wallet_id: patientWallet.id,
+          invoice_id: invoice.id,
+          amount: Number(walletSettleAmount),
+          notes: walletSettleNotes.trim() || null,
+        },
+        activePractice.id
+      );
+
+      setShowWalletSettleModal(false);
+      setWalletSettleAmount('');
+      setWalletSettleNotes('');
+      await loadInvoice();
+    } catch (err: any) {
+      setError(err.message || 'Wallet settlement failed.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const getStatusBadge = (status: InvoiceStatus) => {
     switch (status) {
       case 'issued':
@@ -332,6 +379,25 @@ export const InvoiceDetailPage: React.FC = () => {
               <span>Void Invoice</span>
             </button>
           )}
+
+          {(invoice.status === 'issued' || invoice.status === 'partially_paid') &&
+            canIssueOrVoid &&
+            Number(invoice.balance_due) > 0 &&
+            patientWallet &&
+            patientWallet.status === 'active' &&
+            patientWallet.balance > 0 && (
+              <button
+                onClick={() => {
+                  setWalletSettleAmount(Math.min(Number(invoice.balance_due), Number(patientWallet.balance)));
+                  setShowWalletSettleModal(true);
+                }}
+                disabled={actionLoading}
+                className="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"
+              >
+                <Wallet size={16} />
+                <span>Pay with Wallet ({formatCurrency(Number(patientWallet.balance), patientWallet.currency)})</span>
+              </button>
+            )}
         </div>
       </div>
 
@@ -755,6 +821,76 @@ export const InvoiceDetailPage: React.FC = () => {
                   className="btn btn-primary"
                 >
                   {actionLoading ? 'Adding...' : 'Add Line Item'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Settle from Patient Wallet Modal */}
+      {showWalletSettleModal && patientWallet && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="card max-w-md w-full p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
+              <Wallet className="text-emerald-600" size={20} />
+              Settle Invoice with Patient Wallet
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Apply available credit from {patientWallet.wallet_number} to invoice {invoice.invoice_number}.
+            </p>
+
+            <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 mb-4 text-xs text-emerald-800 space-y-1">
+              <div className="flex justify-between">
+                <span>Available Wallet Balance:</span>
+                <strong className="text-emerald-900">{formatCurrency(Number(patientWallet.balance), patientWallet.currency)}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>Invoice Outstanding Due:</span>
+                <strong className="text-emerald-900">{formatCurrency(Number(invoice.balance_due), invoice.currency)}</strong>
+              </div>
+            </div>
+
+            <form onSubmit={handleWalletSettleSubmit} className="space-y-4">
+              <div>
+                <label className="label font-medium">Settlement Amount ({invoice.currency}) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  max={Math.min(Number(invoice.balance_due), Number(patientWallet.balance))}
+                  value={walletSettleAmount}
+                  onChange={(e) => setWalletSettleAmount(e.target.value ? parseFloat(e.target.value) : '')}
+                  required
+                  className="input w-full"
+                />
+              </div>
+
+              <div>
+                <label className="label font-medium">Audit Notes (Optional)</label>
+                <textarea
+                  rows={2}
+                  value={walletSettleNotes}
+                  onChange={(e) => setWalletSettleNotes(e.target.value)}
+                  placeholder="e.g. In-clinic settlement using advance wallet deposit"
+                  className="input w-full text-sm"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowWalletSettleModal(false)}
+                  className="btn btn-ghost"
+                  disabled={actionLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading || !walletSettleAmount || Number(walletSettleAmount) <= 0}
+                  className="btn btn-primary bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {actionLoading ? 'Settling...' : 'Confirm Wallet Payment'}
                 </button>
               </div>
             </form>

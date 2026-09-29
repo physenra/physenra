@@ -3,9 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import { patientService } from '../../services/patientService';
 import { episodeService } from '../../services/episodeService';
 import { appointmentService } from '../../services/appointmentService';
+import { walletService } from '../../services/walletService';
 import { useRole } from '../../hooks/useRole';
 import { usePractice } from '../../hooks/usePractice';
-import type { Patient, EpisodeWithPatient, AppointmentWithRelations } from '../../types/models';
+import type { Patient, EpisodeWithPatient, AppointmentWithRelations, PatientWalletWithBalance } from '../../types/models';
 import {
   ArrowLeft,
   Edit,
@@ -26,6 +27,7 @@ import {
   CheckCircle,
   PauseCircle,
   PlayCircle,
+  Wallet,
 } from 'lucide-react';
 
 export const PatientProfilePage: React.FC = () => {
@@ -36,6 +38,7 @@ export const PatientProfilePage: React.FC = () => {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [episodes, setEpisodes] = useState<EpisodeWithPatient[]>([]);
   const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
+  const [wallet, setWallet] = useState<PatientWalletWithBalance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -47,10 +50,13 @@ export const PatientProfilePage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [patientData, episodeResult, appointmentResult] = await Promise.all([
+      const [patientData, episodeResult, appointmentResult, walletData] = await Promise.all([
         patientService.getPatientById(patientId),
         episodeService.getEpisodes({ patientId, status: 'all', limit: 100 }),
         appointmentService.getAppointments({ patientId, limit: 100 }),
+        activePractice
+          ? walletService.getWalletByPatientId(patientId, activePractice.id).catch(() => null)
+          : Promise.resolve(null),
       ]);
 
       if (!patientData) {
@@ -59,6 +65,7 @@ export const PatientProfilePage: React.FC = () => {
         setPatient(patientData);
         setEpisodes(episodeResult.episodes);
         setAppointments(appointmentResult.appointments);
+        setWallet(walletData);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load patient record.';
@@ -66,7 +73,7 @@ export const PatientProfilePage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [patientId]);
+  }, [patientId, activePractice]);
 
   useEffect(() => {
     fetchPatient();
@@ -383,6 +390,60 @@ export const PatientProfilePage: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Patient Wallet & Credit Card */}
+        <div className="dashboard-card">
+          <div className="card-header">
+            <div className="card-icon icon-blue">
+              <Wallet size={18} />
+            </div>
+            <h3 className="card-title">Patient Wallet &amp; Credit</h3>
+          </div>
+          <div className="card-content">
+            {wallet ? (
+              <div className="metadata-list">
+                <div className="metadata-row">
+                  <span className="metadata-label">Wallet Number:</span>
+                  <span className="metadata-value font-mono">
+                    <Link to={`/app/wallets/${wallet.id}`} className="text-primary-600 hover:underline">
+                      {wallet.wallet_number}
+                    </Link>
+                  </span>
+                </div>
+                <div className="metadata-row">
+                  <span className="metadata-label">Available Balance:</span>
+                  <span className="metadata-value font-bold text-emerald-600 text-lg">
+                    {wallet.currency} {Number(wallet.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="metadata-row">
+                  <span className="metadata-label">Account Status:</span>
+                  <span className="metadata-value capitalize font-medium">
+                    {wallet.status}
+                  </span>
+                </div>
+                <div className="mt-3 pt-3 border-top flex justify-between items-center">
+                  <Link
+                    to={`/app/wallets/${wallet.id}`}
+                    className="btn-secondary text-xs"
+                  >
+                    View Wallet Ledger &rarr;
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-3">
+                <p className="text-sm text-gray-500 mb-3">No active wallet provisioned yet for this patient.</p>
+                <Link
+                  to="/app/wallets"
+                  className="btn-primary text-xs inline-flex items-center gap-1"
+                >
+                  <Wallet size={14} /> Provision Wallet
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>

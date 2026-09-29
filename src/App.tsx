@@ -56,6 +56,8 @@ import { CreatePackagePage } from './pages/packages/CreatePackagePage';
 import { PurchasePackagePage } from './pages/packages/PurchasePackagePage';
 import { PackageEntitlementListPage } from './pages/packages/PackageEntitlementListPage';
 import { PackageEntitlementDetailPage } from './pages/packages/PackageEntitlementDetailPage';
+import { WalletListPage } from './pages/wallets/WalletListPage';
+import { WalletDetailPage } from './pages/wallets/WalletDetailPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -168,6 +170,10 @@ export const App: React.FC = () => {
         <Route path="packages/purchase" element={<PurchasePackagePage />} />
         <Route path="package-entitlements" element={<PackageEntitlementListPage />} />
         <Route path="package-entitlements/:entitlementId" element={<PackageEntitlementDetailPage />} />
+
+        {/* Patient Wallets Foundation V1 */}
+        <Route path="wallets" element={<WalletListPage />} />
+        <Route path="wallets/:walletId" element={<WalletDetailPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}

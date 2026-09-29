@@ -173,6 +173,15 @@ export type PackageStatus =
   | 'suspended'
   | 'void';
 
+export type WalletStatus = 'active' | 'suspended' | 'closed';
+export type WalletLedgerEntryType =
+  | 'deposit'
+  | 'overpayment_conversion'
+  | 'invoice_settlement'
+  | 'manual_adjustment'
+  | 'void_reversal';
+
+
 export interface Database {
   public: {
     Tables: {
@@ -2334,6 +2343,105 @@ export interface Database {
         };
         Relationships: [];
       };
+      practice_wallet_counters: {
+        Row: {
+          practice_id: string;
+          last_number: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      patient_wallets: {
+        Row: {
+          id: string;
+          practice_id: string;
+          patient_id: string;
+          wallet_number: string;
+          currency: string;
+          status: WalletStatus;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          patient_id: string;
+          wallet_number: string;
+          currency?: string;
+          status?: WalletStatus;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          patient_id?: string;
+          wallet_number?: string;
+          currency?: string;
+          status?: WalletStatus;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      patient_wallet_ledger: {
+        Row: {
+          id: string;
+          practice_id: string;
+          wallet_id: string;
+          patient_id: string;
+          entry_type: WalletLedgerEntryType;
+          amount: number;
+          payment_id: string | null;
+          invoice_id: string | null;
+          idempotency_key: string | null;
+          notes: string | null;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          wallet_id: string;
+          patient_id: string;
+          entry_type: WalletLedgerEntryType;
+          amount: number;
+          payment_id?: string | null;
+          invoice_id?: string | null;
+          idempotency_key?: string | null;
+          notes?: string | null;
+          created_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          wallet_id?: string;
+          patient_id?: string;
+          entry_type?: WalletLedgerEntryType;
+          amount?: number;
+          payment_id?: string | null;
+          invoice_id?: string | null;
+          idempotency_key?: string | null;
+          notes?: string | null;
+          created_by?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -2515,6 +2623,72 @@ export interface Database {
         };
         Returns: Json;
       };
+      generate_next_wallet_number: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
+      get_or_create_patient_wallet: {
+        Args: {
+          p_practice_id: string;
+          p_patient_id: string;
+          p_currency?: string;
+        };
+        Returns: Json;
+      };
+      deposit_to_wallet: {
+        Args: {
+          p_practice_id: string;
+          p_patient_id: string;
+          p_amount: number;
+          p_payment_method: PaymentMethod;
+          p_reference_number?: string | null;
+          p_idempotency_key?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      convert_overpayment_to_wallet: {
+        Args: {
+          p_practice_id: string;
+          p_payment_id: string;
+          p_amount: number;
+          p_idempotency_key?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      settle_invoice_from_wallet: {
+        Args: {
+          p_practice_id: string;
+          p_wallet_id: string;
+          p_invoice_id: string;
+          p_amount: number;
+          p_idempotency_key?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      adjust_wallet_balance: {
+        Args: {
+          p_practice_id: string;
+          p_wallet_id: string;
+          p_amount: number;
+          p_reason: string;
+          p_idempotency_key?: string | null;
+        };
+        Returns: Json;
+      };
+      update_wallet_status: {
+        Args: {
+          p_practice_id: string;
+          p_wallet_id: string;
+          p_status: WalletStatus;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
       log_audit_event: {
         Args: {
           p_action: string;
@@ -2568,6 +2742,8 @@ export interface Database {
       payment_status: PaymentStatus;
       receipt_status: ReceiptStatus;
       package_status: PackageStatus;
+      wallet_status: WalletStatus;
+      wallet_ledger_entry_type: WalletLedgerEntryType;
     };
     CompositeTypes: {
       [_ in never]: never;
