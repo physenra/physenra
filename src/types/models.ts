@@ -41,6 +41,9 @@ import type {
   PackageStatus,
   WalletStatus,
   WalletLedgerEntryType,
+  MembershipFrequency,
+  PatientMembershipStatus,
+  MembershipCycleStatus,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -153,6 +156,25 @@ export type PatientWalletUpdate = Database['public']['Tables']['patient_wallets'
 export type PatientWalletLedgerEntry = Database['public']['Tables']['patient_wallet_ledger']['Row'];
 export type PatientWalletLedgerEntryInsert = Database['public']['Tables']['patient_wallet_ledger']['Insert'];
 export type PatientWalletLedgerEntryUpdate = Database['public']['Tables']['patient_wallet_ledger']['Update'];
+
+export type PracticeMembershipCounter = Database['public']['Tables']['practice_membership_counters']['Row'];
+
+export type MembershipPlan = Database['public']['Tables']['membership_plans']['Row'];
+export type MembershipPlanInsert = Database['public']['Tables']['membership_plans']['Insert'];
+export type MembershipPlanUpdate = Database['public']['Tables']['membership_plans']['Update'];
+
+export type PatientMembership = Database['public']['Tables']['patient_memberships']['Row'];
+export type PatientMembershipInsert = Database['public']['Tables']['patient_memberships']['Insert'];
+export type PatientMembershipUpdate = Database['public']['Tables']['patient_memberships']['Update'];
+
+export type MembershipBillingCycle = Database['public']['Tables']['membership_billing_cycles']['Row'];
+export type MembershipBillingCycleInsert = Database['public']['Tables']['membership_billing_cycles']['Insert'];
+export type MembershipBillingCycleUpdate = Database['public']['Tables']['membership_billing_cycles']['Update'];
+
+export type MembershipUsageLedgerEntry = Database['public']['Tables']['membership_usage_ledger']['Row'];
+export type MembershipUsageLedgerEntryInsert = Database['public']['Tables']['membership_usage_ledger']['Insert'];
+export type MembershipUsageLedgerEntryUpdate = Database['public']['Tables']['membership_usage_ledger']['Update'];
+
 
 
 export interface EpisodeWithPatient extends EpisodeOfCare {
@@ -708,6 +730,143 @@ export interface WalletLedgerFilters {
   entryType?: WalletLedgerEntryType | 'all';
 }
 
+// ----------------------------------------------------------------------------
+// RECURRING MEMBERSHIPS FOUNDATION V1 MODELS
+// ----------------------------------------------------------------------------
+
+export interface MembershipPlanWithService extends MembershipPlan {
+  service?: {
+    id: string;
+    service_code: string;
+    name: string;
+    category: string;
+    standard_duration_minutes?: number;
+  } | null;
+}
+
+export interface MembershipUsageLedgerEntryWithRelations extends MembershipUsageLedgerEntry {
+  visit?: {
+    id: string;
+    visit_identifier: string;
+    status: ClinicalVisitStatus;
+    actual_start: string | null;
+    actual_end: string | null;
+  } | null;
+  service?: {
+    id: string;
+    service_code: string;
+    name: string;
+  } | null;
+  recorder?: {
+    id: string;
+    display_name: string;
+    first_name: string;
+    last_name: string;
+  } | null;
+}
+
+export interface MembershipBillingCycleWithRelations extends MembershipBillingCycle {
+  invoice?: {
+    id: string;
+    invoice_number: string;
+    status: InvoiceStatus;
+    grand_total: number;
+    amount_paid: number;
+    balance_due: number;
+  } | null;
+  usage_entries?: MembershipUsageLedgerEntryWithRelations[];
+  remaining_quota?: number;
+  used_quota?: number;
+}
+
+export interface MembershipBillingCycleWithQuota extends MembershipBillingCycleWithRelations {
+  remaining_quota: number;
+  used_quota: number;
+}
+
+export interface PatientMembershipWithRelations extends PatientMembership {
+  patient?: {
+    id: string;
+    patient_identifier: string;
+    first_name: string;
+    last_name: string;
+    date_of_birth?: string | null;
+    gender?: string | null;
+    email?: string | null;
+    phone?: string | null;
+  } | null;
+  plan?: MembershipPlanWithService | null;
+  cycles?: MembershipBillingCycleWithRelations[];
+  active_cycle?: MembershipBillingCycleWithQuota | null;
+}
+
+export interface CreateMembershipPlanPayload {
+  plan_code: string;
+  name: string;
+  description?: string;
+  included_service_id: string;
+  billing_frequency?: MembershipFrequency;
+  cycle_price: number;
+  currency?: string;
+  cycle_session_quota: number;
+  status?: 'active' | 'archived';
+}
+
+export interface UpdateMembershipPlanPayload {
+  name?: string;
+  description?: string;
+  cycle_price?: number;
+  cycle_session_quota?: number;
+  status?: 'active' | 'archived';
+}
+
+export interface EnrollMembershipPayload {
+  patient_id: string;
+  plan_id: string;
+  start_date?: string;
+  auto_renew?: boolean;
+  notes?: string;
+}
+
+export interface RecordMembershipUsagePayload {
+  cycle_id: string;
+  clinical_visit_id: string;
+  notes?: string;
+}
+
+export interface PauseMembershipPayload {
+  membership_id: string;
+  reason: string;
+}
+
+export interface ResumeMembershipPayload {
+  membership_id: string;
+  reason?: string;
+}
+
+export interface CancelMembershipPayload {
+  membership_id: string;
+  reason: string;
+}
+
+export interface MembershipPlanFilters {
+  status?: 'active' | 'archived' | 'all';
+  billingFrequency?: MembershipFrequency | 'all';
+  searchQuery?: string;
+}
+
+export interface MembershipFilters {
+  status?: PatientMembershipStatus | 'all';
+  patientId?: string;
+  planId?: string;
+  searchQuery?: string;
+}
+
+export interface MembershipCycleFilters {
+  membershipId?: string;
+  status?: MembershipCycleStatus | 'all';
+}
+
 export type {
   MembershipRole,
   MembershipStatus,
@@ -750,6 +909,9 @@ export type {
   PackageStatus,
   WalletStatus,
   WalletLedgerEntryType,
+  MembershipFrequency,
+  PatientMembershipStatus,
+  MembershipCycleStatus,
 };
 
 

@@ -181,6 +181,22 @@ export type WalletLedgerEntryType =
   | 'manual_adjustment'
   | 'void_reversal';
 
+export type MembershipFrequency = 'monthly' | 'quarterly' | 'annually';
+export type PatientMembershipStatus =
+  | 'pending_payment'
+  | 'active'
+  | 'paused'
+  | 'suspended'
+  | 'cancelled'
+  | 'completed';
+export type MembershipCycleStatus =
+  | 'pending_invoice'
+  | 'invoiced'
+  | 'active'
+  | 'past_due'
+  | 'completed'
+  | 'cancelled';
+
 
 export interface Database {
   public: {
@@ -2442,6 +2458,231 @@ export interface Database {
         };
         Relationships: [];
       };
+      practice_membership_counters: {
+        Row: {
+          practice_id: string;
+          last_number: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      membership_plans: {
+        Row: {
+          id: string;
+          practice_id: string;
+          plan_code: string;
+          name: string;
+          description: string | null;
+          included_service_id: string;
+          billing_frequency: MembershipFrequency;
+          cycle_price: number;
+          currency: string;
+          cycle_session_quota: number;
+          status: 'active' | 'archived';
+          created_by: string;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          plan_code: string;
+          name: string;
+          description?: string | null;
+          included_service_id: string;
+          billing_frequency?: MembershipFrequency;
+          cycle_price: number;
+          currency?: string;
+          cycle_session_quota: number;
+          status?: 'active' | 'archived';
+          created_by: string;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          plan_code?: string;
+          name?: string;
+          description?: string | null;
+          included_service_id?: string;
+          billing_frequency?: MembershipFrequency;
+          cycle_price?: number;
+          currency?: string;
+          cycle_session_quota?: number;
+          status?: 'active' | 'archived';
+          created_by?: string;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      patient_memberships: {
+        Row: {
+          id: string;
+          practice_id: string;
+          membership_number: string;
+          patient_id: string;
+          plan_id: string;
+          start_date: string;
+          billing_anchor_day: number;
+          status: PatientMembershipStatus;
+          auto_renew: boolean;
+          paused_at: string | null;
+          resumed_at: string | null;
+          cancelled_at: string | null;
+          cancelled_by: string | null;
+          cancellation_reason: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          membership_number: string;
+          patient_id: string;
+          plan_id: string;
+          start_date: string;
+          billing_anchor_day: number;
+          status?: PatientMembershipStatus;
+          auto_renew?: boolean;
+          paused_at?: string | null;
+          resumed_at?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancellation_reason?: string | null;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          membership_number?: string;
+          patient_id?: string;
+          plan_id?: string;
+          start_date?: string;
+          billing_anchor_day?: number;
+          status?: PatientMembershipStatus;
+          auto_renew?: boolean;
+          paused_at?: string | null;
+          resumed_at?: string | null;
+          cancelled_at?: string | null;
+          cancelled_by?: string | null;
+          cancellation_reason?: string | null;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      membership_billing_cycles: {
+        Row: {
+          id: string;
+          practice_id: string;
+          membership_id: string;
+          cycle_number: number;
+          cycle_start_date: string;
+          cycle_end_date: string;
+          billing_date: string;
+          invoice_id: string | null;
+          cycle_price: number;
+          currency: string;
+          session_quota: number;
+          status: MembershipCycleStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          membership_id: string;
+          cycle_number: number;
+          cycle_start_date: string;
+          cycle_end_date: string;
+          billing_date: string;
+          invoice_id?: string | null;
+          cycle_price: number;
+          currency?: string;
+          session_quota: number;
+          status?: MembershipCycleStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          membership_id?: string;
+          cycle_number?: number;
+          cycle_start_date?: string;
+          cycle_end_date?: string;
+          billing_date?: string;
+          invoice_id?: string | null;
+          cycle_price?: number;
+          currency?: string;
+          session_quota?: number;
+          status?: MembershipCycleStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      membership_usage_ledger: {
+        Row: {
+          id: string;
+          practice_id: string;
+          cycle_id: string;
+          membership_id: string;
+          patient_id: string;
+          clinical_visit_id: string;
+          service_id: string;
+          sessions_consumed: number;
+          notes: string | null;
+          recorded_by: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          cycle_id: string;
+          membership_id: string;
+          patient_id: string;
+          clinical_visit_id: string;
+          service_id: string;
+          sessions_consumed?: number;
+          notes?: string | null;
+          recorded_by: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          cycle_id?: string;
+          membership_id?: string;
+          patient_id?: string;
+          clinical_visit_id?: string;
+          service_id?: string;
+          sessions_consumed?: number;
+          notes?: string | null;
+          recorded_by?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -2699,6 +2940,70 @@ export interface Database {
         };
         Returns: string;
       };
+      generate_next_membership_number: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
+      enroll_patient_in_membership: {
+        Args: {
+          p_practice_id: string;
+          p_patient_id: string;
+          p_plan_id: string;
+          p_start_date?: string;
+          p_auto_renew?: boolean;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      generate_membership_cycle_invoice: {
+        Args: {
+          p_practice_id: string;
+          p_membership_id: string;
+          p_cycle_number: number;
+        };
+        Returns: Json;
+      };
+      generate_membership_renewal_cycles: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: Json;
+      };
+      record_membership_visit_usage: {
+        Args: {
+          p_practice_id: string;
+          p_cycle_id: string;
+          p_clinical_visit_id: string;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      pause_patient_membership: {
+        Args: {
+          p_practice_id: string;
+          p_membership_id: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      resume_patient_membership: {
+        Args: {
+          p_practice_id: string;
+          p_membership_id: string;
+          p_reason?: string | null;
+        };
+        Returns: Json;
+      };
+      cancel_patient_membership: {
+        Args: {
+          p_practice_id: string;
+          p_membership_id: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       membership_role: MembershipRole;
@@ -2744,6 +3049,9 @@ export interface Database {
       package_status: PackageStatus;
       wallet_status: WalletStatus;
       wallet_ledger_entry_type: WalletLedgerEntryType;
+      membership_frequency: MembershipFrequency;
+      patient_membership_status: PatientMembershipStatus;
+      membership_cycle_status: MembershipCycleStatus;
     };
     CompositeTypes: {
       [_ in never]: never;

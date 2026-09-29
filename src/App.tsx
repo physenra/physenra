@@ -58,6 +58,9 @@ import { PackageEntitlementListPage } from './pages/packages/PackageEntitlementL
 import { PackageEntitlementDetailPage } from './pages/packages/PackageEntitlementDetailPage';
 import { WalletListPage } from './pages/wallets/WalletListPage';
 import { WalletDetailPage } from './pages/wallets/WalletDetailPage';
+import { MembershipPlanListPage } from './pages/memberships/MembershipPlanListPage';
+import { MembershipListPage } from './pages/memberships/MembershipListPage';
+import { MembershipDetailPage } from './pages/memberships/MembershipDetailPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -174,6 +177,11 @@ export const App: React.FC = () => {
         {/* Patient Wallets Foundation V1 */}
         <Route path="wallets" element={<WalletListPage />} />
         <Route path="wallets/:walletId" element={<WalletDetailPage />} />
+
+        {/* Recurring Memberships & Subscriptions Foundation V1 */}
+        <Route path="membership-plans" element={<MembershipPlanListPage />} />
+        <Route path="memberships" element={<MembershipListPage />} />
+        <Route path="memberships/:membershipId" element={<MembershipDetailPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}

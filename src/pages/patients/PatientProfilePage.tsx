@@ -4,9 +4,10 @@ import { patientService } from '../../services/patientService';
 import { episodeService } from '../../services/episodeService';
 import { appointmentService } from '../../services/appointmentService';
 import { walletService } from '../../services/walletService';
+import { membershipService } from '../../services/membershipService';
 import { useRole } from '../../hooks/useRole';
 import { usePractice } from '../../hooks/usePractice';
-import type { Patient, EpisodeWithPatient, AppointmentWithRelations, PatientWalletWithBalance } from '../../types/models';
+import type { Patient, EpisodeWithPatient, AppointmentWithRelations, PatientWalletWithBalance, PatientMembershipWithRelations } from '../../types/models';
 import {
   ArrowLeft,
   Edit,
@@ -28,6 +29,7 @@ import {
   PauseCircle,
   PlayCircle,
   Wallet,
+  Repeat,
 } from 'lucide-react';
 
 export const PatientProfilePage: React.FC = () => {
@@ -39,6 +41,7 @@ export const PatientProfilePage: React.FC = () => {
   const [episodes, setEpisodes] = useState<EpisodeWithPatient[]>([]);
   const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
   const [wallet, setWallet] = useState<PatientWalletWithBalance | null>(null);
+  const [memberships, setMemberships] = useState<PatientMembershipWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -50,13 +53,16 @@ export const PatientProfilePage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [patientData, episodeResult, appointmentResult, walletData] = await Promise.all([
+      const [patientData, episodeResult, appointmentResult, walletData, membershipsData] = await Promise.all([
         patientService.getPatientById(patientId),
         episodeService.getEpisodes({ patientId, status: 'all', limit: 100 }),
         appointmentService.getAppointments({ patientId, limit: 100 }),
         activePractice
           ? walletService.getWalletByPatientId(patientId, activePractice.id).catch(() => null)
           : Promise.resolve(null),
+        activePractice
+          ? membershipService.getMemberships(activePractice.id, { patientId }).catch(() => [])
+          : Promise.resolve([]),
       ]);
 
       if (!patientData) {
@@ -66,6 +72,7 @@ export const PatientProfilePage: React.FC = () => {
         setEpisodes(episodeResult.episodes);
         setAppointments(appointmentResult.appointments);
         setWallet(walletData);
+        setMemberships(membershipsData);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load patient record.';
@@ -441,6 +448,57 @@ export const PatientProfilePage: React.FC = () => {
                   className="btn-primary text-xs inline-flex items-center gap-1"
                 >
                   <Wallet size={14} /> Provision Wallet
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Patient Memberships & Recurring Subscriptions Card */}
+        <div className="dashboard-card">
+          <div className="card-header">
+            <div className="card-icon icon-teal">
+              <Repeat size={18} />
+            </div>
+            <h3 className="card-title">Memberships &amp; Subscriptions</h3>
+          </div>
+          <div className="card-content">
+            {memberships.length > 0 ? (
+              <div className="metadata-list">
+                {memberships.map((mbr) => (
+                  <div key={mbr.id} style={{ paddingBottom: '0.75rem', marginBottom: '0.75rem', borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+                      <Link to={`/app/memberships/${mbr.id}`} style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0284c7', textDecoration: 'none' }}>
+                        {mbr.membership_number}
+                      </Link>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'capitalize', color: mbr.status === 'active' ? '#16a34a' : '#b45309' }}>
+                        {mbr.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#334155' }}>
+                      {mbr.plan?.name || 'Care Agreement'}
+                    </div>
+                    {mbr.active_cycle && (
+                      <div style={{ fontSize: '0.75rem', color: '#0284c7', fontWeight: 600, marginTop: '0.125rem' }}>
+                        {mbr.active_cycle.remaining_quota} of {mbr.active_cycle.session_quota} sessions left
+                      </div>
+                    )}
+                  </div>
+                ))}
+                <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Link to="/app/memberships" className="btn-secondary text-xs">
+                    View All Memberships &rarr;
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-3">
+                <p className="text-sm text-gray-500 mb-3">No active recurring care agreements enrolled.</p>
+                <Link
+                  to="/app/memberships"
+                  className="btn-primary text-xs inline-flex items-center gap-1"
+                >
+                  <Repeat size={14} /> Enroll in Membership
                 </Link>
               </div>
             )}
