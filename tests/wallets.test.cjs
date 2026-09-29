@@ -26,6 +26,13 @@ const MIGRATION_PATH = path.join(
   'migrations',
   '20260929010000_patient_wallets_foundation.sql'
 );
+const HARDENING_MIGRATION_PATH = path.join(
+  __dirname,
+  '..',
+  'supabase',
+  'migrations',
+  '20260929011000_harden_wallet_financial_invariants.sql'
+);
 const WALLET_SERVICE_PATH = path.join(
   __dirname,
   '..',
@@ -49,6 +56,7 @@ const TYPES_MODELS_PATH = path.join(
 );
 
 const migrationSql = fs.readFileSync(MIGRATION_PATH, 'utf8');
+const hardeningMigrationSql = fs.readFileSync(HARDENING_MIGRATION_PATH, 'utf8');
 const walletServiceCode = fs.readFileSync(WALLET_SERVICE_PATH, 'utf8');
 const typesDbCode = fs.readFileSync(TYPES_DB_PATH, 'utf8');
 const typesModelsCode = fs.readFileSync(TYPES_MODELS_PATH, 'utf8');
@@ -501,4 +509,59 @@ test('PHYSENRA PATIENT WALLETS FOUNDATION V1 VERIFICATION', async (t) => {
       );
     });
   });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 10: Reversal Semantics & Financial Invariant Hardening (Phase 6 & 7)
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 10: Reversal Semantics & Financial Invariant Hardening ---', async (st) => {
+    await st.test('void_payment validates available wallet balance before voiding deposit', () => {
+      assert(
+        hardeningMigrationSql.includes('v_current_wallet_balance < v_wallet_dep.credited_amount') &&
+        hardeningMigrationSql.includes('Wallet credit of % has already been partially or fully consumed'),
+        'Must block voiding deposit if funds were already consumed'
+      );
+    });
+
+    await st.test('void_payment appends immutable payment_void_reversal when deposit is voided', () => {
+      assert(
+        hardeningMigrationSql.includes("'payment_void_reversal'") &&
+        hardeningMigrationSql.includes('-v_wallet_dep.credited_amount') &&
+        hardeningMigrationSql.includes("'wallet.payment_void_reversed'"),
+        'Must append payment_void_reversal with negative amount and log audit event'
+      );
+    });
+
+    await st.test('void_payment appends immutable reversal_credit when wallet settlement is voided', () => {
+      assert(
+        hardeningMigrationSql.includes("'reversal_credit'") &&
+        hardeningMigrationSql.includes('v_wallet_settle.settle_amount') &&
+        hardeningMigrationSql.includes("'wallet.restoration_credited'"),
+        'Must restore wallet funds via reversal_credit and log audit event'
+      );
+    });
+
+    await st.test('Invoice voiding trigger automatically restores wallet credit on invoice void', () => {
+      assert(
+        hardeningMigrationSql.includes('sync_wallet_restoration_on_invoice_void') &&
+        hardeningMigrationSql.includes('trg_sync_wallet_restoration_on_invoice_void') &&
+        hardeningMigrationSql.includes('AFTER UPDATE OF status ON public.invoices') &&
+        hardeningMigrationSql.includes('FOR EACH ROW EXECUTE FUNCTION public.sync_wallet_restoration_on_invoice_void'),
+        'Must define trigger trg_sync_wallet_restoration_on_invoice_void on invoices'
+      );
+      assert(
+        hardeningMigrationSql.includes("NEW.status <> 'void' OR OLD.status = 'void'") &&
+        hardeningMigrationSql.includes('v_to_restore > 0.00'),
+        'Must only trigger on transition to void and restore unreversed settlement balance'
+      );
+    });
+
+    await st.test('log_audit_event provides explicit practice_id overload', () => {
+      assert(
+        hardeningMigrationSql.includes('CREATE OR REPLACE FUNCTION public.log_audit_event(') &&
+        hardeningMigrationSql.includes('p_practice_id UUID'),
+        'Must define overloaded log_audit_event accepting p_practice_id UUID'
+      );
+    });
+  });
 });
+

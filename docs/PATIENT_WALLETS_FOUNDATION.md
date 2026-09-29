@@ -173,6 +173,14 @@ CREATE TYPE public.wallet_ledger_entry_type AS ENUM (
 6. `update_wallet_status(p_practice_id, p_wallet_id, p_status, p_reason)`:
    - Transitions wallet between `active`, `suspended`, and `closed`.
    - Enforces closure metadata (`closed_at`, `closed_by`, `closure_reason`).
+7. `void_payment(p_practice_id, p_payment_id, p_void_reason)` (Hardened Integration):
+   - Handles reversal of payments associated with patient wallets:
+     - **Deposit / Overpayment conversion**: Checks that current wallet balance $\ge$ deposit amount. If funds were consumed, safely blocks voiding with explicit administrative intervention error. If intact, appends immutable `payment_void_reversal` (-amount).
+     - **Invoice settlement payment**: Automatically restores patient's wallet balance by appending immutable `reversal_credit` (+amount).
+
+8. `sync_wallet_restoration_on_invoice_void()` (Invoice Void Trigger):
+   - Attached as `AFTER UPDATE OF status ON public.invoices FOR EACH ROW WHEN (NEW.status = 'void' AND OLD.status <> 'void')`.
+   - Automatically detects any wallet settlements for the voided invoice and restores the unreversed settlement balance via an immutable `reversal_credit` (+amount) entry, while voiding the linked internal settlement payment and receipt.
 
 ---
 
@@ -211,7 +219,8 @@ Patient Wallets Foundation V1 strictly respects the commercial roadmap and isola
 ## 9. Verification & Gate Clearance
 
 - **Total Test Suites**: 19 test suites
-- **Total Tests**: 595 tests passing (0 failures)
-- **Wallets Test Suite (`tests/wallets.test.cjs`)**: 39 / 39 tests passing
+- **Total Tests**: 601 tests passing (0 failures)
+- **Wallets Test Suite (`tests/wallets.test.cjs`)**: 45 / 45 tests passing
 - **Live Remote Supabase Verification**: HTTP 200 OK on all disambiguated live queries against project `xxknmdgneamtoahqayvl`.
 - **Production Build (`npm.cmd run build`)**: 0 TypeScript errors, 0 Rollup errors.
+
