@@ -85,6 +85,10 @@ const typesModelsCode = fs.readFileSync(TYPES_MODELS_PATH, 'utf8');
 const appCode = fs.readFileSync(APP_PATH, 'utf8');
 const sidebarCode = fs.readFileSync(SIDEBAR_PATH, 'utf8');
 
+const SUPABASE_URL = 'https://xxknmdgneamtoahqayvl.supabase.co';
+const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4a25tZGduZWFtdG9haHFheXZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1NDUzNDgsImV4cCI6MjEwNjEyMTM0OH0.2XKv_9MixK87v-_3U_fEGHBeQsoPRpqM3Rw75QcVznk';
+const PRACTICE_ID = '464c128a-f7a1-4efa-9e0b-485b14ae5ff4';
+
 test('PHYSENRA INVENTORY & CONSUMABLES FOUNDATION V1 VERIFICATION', async (t) => {
   // ----------------------------------------------------------------------------
   // SUITE 1: Database Schema & Relational Tenancy
@@ -602,4 +606,160 @@ test('PHYSENRA INVENTORY & CONSUMABLES FOUNDATION V1 VERIFICATION', async (t) =>
       );
     });
   });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 9: Remote Supabase Live Verification via REST API
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 9: Remote Supabase Live Verification ---', async (st) => {
+    await st.test('Remote query returns HTTP 200 OK: practice_inventory_counters', async () => {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/practice_inventory_counters?select=*&limit=1`, {
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Practice-ID': PRACTICE_ID
+        }
+      });
+      assert.equal(res.status, 200, 'practice_inventory_counters must return HTTP 200');
+    });
+
+    await st.test('Remote query returns HTTP 200 OK: inventory_locations', async () => {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/inventory_locations?select=*&limit=1`, {
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Practice-ID': PRACTICE_ID
+        }
+      });
+      assert.equal(res.status, 200, 'inventory_locations must return HTTP 200');
+    });
+
+    await st.test('Remote query returns HTTP 200 OK: inventory_suppliers', async () => {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/inventory_suppliers?select=*&limit=1`, {
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Practice-ID': PRACTICE_ID
+        }
+      });
+      assert.equal(res.status, 200, 'inventory_suppliers must return HTTP 200');
+    });
+
+    await st.test('Remote query returns HTTP 200 OK: inventory_items with disambiguated services link', async () => {
+      const select = `
+        id,sku,name,category,base_unit,reorder_level,minimum_stock,
+        service:services!fk_inventory_items_service_practice(id,service_code,name)
+      `.replace(/\s+/g, '');
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/inventory_items?select=${encodeURIComponent(select)}&limit=1`, {
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Practice-ID': PRACTICE_ID
+        }
+      });
+      assert.equal(res.status, 200, 'inventory_items with service hint must return HTTP 200');
+    });
+
+    await st.test('Remote query returns HTTP 200 OK: inventory_item_batches with disambiguated item link', async () => {
+      const select = `
+        id,batch_number,expiry_date,
+        item:inventory_items!fk_inventory_batches_item_practice(id,sku,name)
+      `.replace(/\s+/g, '');
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/inventory_item_batches?select=${encodeURIComponent(select)}&limit=1`, {
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Practice-ID': PRACTICE_ID
+        }
+      });
+      assert.equal(res.status, 200, 'inventory_item_batches with item hint must return HTTP 200');
+    });
+
+    await st.test('Remote query returns HTTP 200 OK: inventory_stock_movements with disambiguated relations', async () => {
+      const select = `
+        id,movement_type,quantity_delta,
+        location:inventory_locations!fk_movement_location_practice(id,name,code),
+        item:inventory_items!fk_movement_item_practice(id,sku,name),
+        batch:inventory_item_batches!fk_movement_batch_practice(id,batch_number,expiry_date)
+      `.replace(/\s+/g, '');
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/inventory_stock_movements?select=${encodeURIComponent(select)}&limit=1`, {
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Practice-ID': PRACTICE_ID
+        }
+      });
+      assert.equal(res.status, 200, 'inventory_stock_movements with hints must return HTTP 200');
+    });
+
+    await st.test('Remote database proves absence of cost_price and tax_rate on inventory_items', async () => {
+      for (const badCol of ['cost_price', 'tax_rate', 'price', 'fee_schedule_item_id']) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/inventory_items?select=${badCol}&limit=1`, {
+          headers: {
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Practice-ID': PRACTICE_ID
+          }
+        });
+        assert.equal(res.status, 400, `Querying non-existent column ${badCol} must fail with HTTP 400`);
+      }
+    });
+
+    await st.test('Remote database proves absence of movement counters on practice_inventory_counters', async () => {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/practice_inventory_counters?select=last_movement_number&limit=1`, {
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'X-Practice-ID': PRACTICE_ID
+        }
+      });
+      assert.equal(res.status, 400, 'Querying non-existent last_movement_number must fail with HTTP 400');
+    });
+
+    await st.test('Remote database confirms all 5 approved enum types live', async () => {
+      const probes = [
+        { table: 'inventory_locations', col: 'location_type', enumName: 'inventory_location_type' },
+        { table: 'inventory_items', col: 'category', enumName: 'inventory_item_category' },
+        { table: 'inventory_items', col: 'base_unit', enumName: 'inventory_base_unit' },
+        { table: 'inventory_stock_movements', col: 'movement_type', enumName: 'inventory_movement_type' },
+        { table: 'inventory_stock_movements', col: 'adjustment_reason', enumName: 'inventory_adjustment_reason' },
+      ];
+
+      for (const p of probes) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${p.table}?${p.col}=eq.invalid_probe_val&limit=1`, {
+          headers: {
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Practice-ID': PRACTICE_ID
+          }
+        });
+        const err = await res.json();
+        assert(
+          err.message && err.message.includes(`enum ${p.enumName}`),
+          `Error must reference enum ${p.enumName}: ${err.message}`
+        );
+      }
+    });
+
+    await st.test('Remote database validates approved enum values live', async () => {
+      const checks = [
+        { table: 'inventory_locations', col: 'location_type', val: 'central_store' },
+        { table: 'inventory_items', col: 'category', val: 'clinical_consumable' },
+        { table: 'inventory_items', col: 'base_unit', val: 'meter' },
+        { table: 'inventory_stock_movements', col: 'movement_type', val: 'clinical_consumption' },
+        { table: 'inventory_stock_movements', col: 'adjustment_reason', val: 'stocktake_discrepancy' },
+      ];
+
+      for (const c of checks) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/${c.table}?${c.col}=eq.${c.val}&limit=1`, {
+          headers: {
+            'apikey': ANON_KEY,
+            'Authorization': `Bearer ${ANON_KEY}`,
+            'X-Practice-ID': PRACTICE_ID
+          }
+        });
+        assert.equal(res.status, 200, `Enum value ${c.val} must be accepted with HTTP 200`);
+      }
+    });
+  });
 });
+
