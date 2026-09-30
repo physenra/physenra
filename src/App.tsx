@@ -61,6 +61,14 @@ import { WalletDetailPage } from './pages/wallets/WalletDetailPage';
 import { MembershipPlanListPage } from './pages/memberships/MembershipPlanListPage';
 import { MembershipListPage } from './pages/memberships/MembershipListPage';
 import { MembershipDetailPage } from './pages/memberships/MembershipDetailPage';
+import { InventoryListPage } from './pages/inventory/InventoryListPage';
+import { CreateInventoryItemPage } from './pages/inventory/CreateInventoryItemPage';
+import { InventoryItemDetailPage } from './pages/inventory/InventoryItemDetailPage';
+import { StockMovementsPage } from './pages/inventory/StockMovementsPage';
+import { ReceiveStockPage } from './pages/inventory/ReceiveStockPage';
+import { TransferStockPage } from './pages/inventory/TransferStockPage';
+import { AdjustStockPage } from './pages/inventory/AdjustStockPage';
+import { InventoryLocationsPage } from './pages/inventory/InventoryLocationsPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -182,6 +190,16 @@ export const App: React.FC = () => {
         <Route path="membership-plans" element={<MembershipPlanListPage />} />
         <Route path="memberships" element={<MembershipListPage />} />
         <Route path="memberships/:membershipId" element={<MembershipDetailPage />} />
+
+        {/* Inventory & Consumables Foundation V1 */}
+        <Route path="inventory" element={<InventoryListPage />} />
+        <Route path="inventory/new" element={<CreateInventoryItemPage />} />
+        <Route path="inventory/movements" element={<StockMovementsPage />} />
+        <Route path="inventory/receipt" element={<ReceiveStockPage />} />
+        <Route path="inventory/transfer" element={<TransferStockPage />} />
+        <Route path="inventory/adjust" element={<AdjustStockPage />} />
+        <Route path="inventory/locations" element={<InventoryLocationsPage />} />
+        <Route path="inventory/:itemId" element={<InventoryItemDetailPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}

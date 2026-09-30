@@ -197,10 +197,323 @@ export type MembershipCycleStatus =
   | 'completed'
   | 'cancelled';
 
+export type InventoryLocationType =
+  | 'central_store'
+  | 'treatment_room'
+  | 'mobile_kit'
+  | 'reception';
+export type InventoryItemCategory =
+  | 'clinical_consumable'
+  | 'rehabilitation_supply'
+  | 'disposable_sanitation'
+  | 'retail_product';
+export type InventoryBaseUnit =
+  | 'piece'
+  | 'roll'
+  | 'bottle'
+  | 'pair'
+  | 'pack'
+  | 'meter'
+  | 'tube';
+export type InventoryMovementType =
+  | 'opening_balance'
+  | 'purchase_receipt'
+  | 'clinical_consumption'
+  | 'retail_sale'
+  | 'transfer_out'
+  | 'transfer_in'
+  | 'adjustment_in'
+  | 'adjustment_out'
+  | 'wastage'
+  | 'expired'
+  | 'reversal';
+export type InventoryAdjustmentReason =
+  | 'stocktake_discrepancy'
+  | 'damaged_in_storage'
+  | 'expired_on_shelf'
+  | 'clerical_error'
+  | 'theft_or_loss';
+
 
 export interface Database {
   public: {
     Tables: {
+      practice_inventory_counters: {
+        Row: {
+          practice_id: string;
+          last_number: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          last_number?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      inventory_locations: {
+        Row: {
+          id: string;
+          practice_id: string;
+          name: string;
+          code: string;
+          location_type: InventoryLocationType;
+          description: string | null;
+          is_default: boolean;
+          is_active: boolean;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          name: string;
+          code: string;
+          location_type?: InventoryLocationType;
+          description?: string | null;
+          is_default?: boolean;
+          is_active?: boolean;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          name?: string;
+          code?: string;
+          location_type?: InventoryLocationType;
+          description?: string | null;
+          is_default?: boolean;
+          is_active?: boolean;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      inventory_suppliers: {
+        Row: {
+          id: string;
+          practice_id: string;
+          supplier_name: string;
+          supplier_code: string | null;
+          contact_person: string | null;
+          phone: string | null;
+          email: string | null;
+          address: string | null;
+          lead_time_days: number;
+          is_active: boolean;
+          notes: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          supplier_name: string;
+          supplier_code?: string | null;
+          contact_person?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          address?: string | null;
+          lead_time_days?: number;
+          is_active?: boolean;
+          notes?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          supplier_name?: string;
+          supplier_code?: string | null;
+          contact_person?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          address?: string | null;
+          lead_time_days?: number;
+          is_active?: boolean;
+          notes?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      inventory_items: {
+        Row: {
+          id: string;
+          practice_id: string;
+          sku: string;
+          name: string;
+          category: InventoryItemCategory;
+          description: string | null;
+          base_unit: InventoryBaseUnit;
+          reorder_level: number;
+          minimum_stock: number;
+          maximum_stock: number | null;
+          is_sterile: boolean;
+          requires_batch: boolean;
+          linked_service_id: string | null;
+          is_active: boolean;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          sku?: string;
+          name: string;
+          category?: InventoryItemCategory;
+          description?: string | null;
+          base_unit?: InventoryBaseUnit;
+          reorder_level?: number;
+          minimum_stock?: number;
+          maximum_stock?: number | null;
+          is_sterile?: boolean;
+          requires_batch?: boolean;
+          linked_service_id?: string | null;
+          is_active?: boolean;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          sku?: string;
+          name?: string;
+          category?: InventoryItemCategory;
+          description?: string | null;
+          base_unit?: InventoryBaseUnit;
+          reorder_level?: number;
+          minimum_stock?: number;
+          maximum_stock?: number | null;
+          is_sterile?: boolean;
+          requires_batch?: boolean;
+          linked_service_id?: string | null;
+          is_active?: boolean;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      inventory_item_batches: {
+        Row: {
+          id: string;
+          practice_id: string;
+          item_id: string;
+          batch_number: string;
+          expiry_date: string;
+          manufacture_date: string | null;
+          is_active: boolean;
+          notes: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          item_id: string;
+          batch_number: string;
+          expiry_date: string;
+          manufacture_date?: string | null;
+          is_active?: boolean;
+          notes?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          item_id?: string;
+          batch_number?: string;
+          expiry_date?: string;
+          manufacture_date?: string | null;
+          is_active?: boolean;
+          notes?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      inventory_stock_movements: {
+        Row: {
+          id: string;
+          practice_id: string;
+          item_id: string;
+          location_id: string;
+          batch_id: string | null;
+          movement_type: InventoryMovementType;
+          quantity_delta: number;
+          unit_cost_snapshot: number | null;
+          reference_type: string | null;
+          reference_id: string | null;
+          adjustment_reason: InventoryAdjustmentReason | null;
+          reversal_of_movement_id: string | null;
+          idempotency_key: string;
+          notes: string | null;
+          actor_user_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          item_id: string;
+          location_id: string;
+          batch_id?: string | null;
+          movement_type: InventoryMovementType;
+          quantity_delta: number;
+          unit_cost_snapshot?: number | null;
+          reference_type?: string | null;
+          reference_id?: string | null;
+          adjustment_reason?: InventoryAdjustmentReason | null;
+          reversal_of_movement_id?: string | null;
+          idempotency_key: string;
+          notes?: string | null;
+          actor_user_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          item_id?: string;
+          location_id?: string;
+          batch_id?: string | null;
+          movement_type?: InventoryMovementType;
+          quantity_delta?: number;
+          unit_cost_snapshot?: number | null;
+          reference_type?: string | null;
+          reference_id?: string | null;
+          adjustment_reason?: InventoryAdjustmentReason | null;
+          reversal_of_movement_id?: string | null;
+          idempotency_key?: string;
+          notes?: string | null;
+          actor_user_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       practices: {
         Row: {
           id: string;
@@ -2691,6 +3004,133 @@ export interface Database {
       [_ in never]: never;
     };
     Functions: {
+      generate_next_inventory_item_sku: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
+      get_inventory_stock_on_hand: {
+        Args: {
+          p_practice_id: string;
+          p_item_id?: string | null;
+          p_location_id?: string | null;
+        };
+        Returns: {
+          item_id: string;
+          location_id: string;
+          derived_stock: number;
+        }[];
+      };
+      create_inventory_item: {
+        Args: {
+          p_practice_id: string;
+          p_name: string;
+          p_category: InventoryItemCategory;
+          p_base_unit: InventoryBaseUnit;
+          p_reorder_level?: number;
+          p_minimum_stock?: number;
+          p_maximum_stock?: number | null;
+          p_is_sterile?: boolean;
+          p_requires_batch?: boolean;
+          p_linked_service_id?: string | null;
+          p_custom_sku?: string | null;
+          p_description?: string | null;
+        };
+        Returns: Database['public']['Tables']['inventory_items']['Row'];
+      };
+      record_stock_receipt: {
+        Args: {
+          p_practice_id: string;
+          p_item_id: string;
+          p_location_id: string;
+          p_quantity: number;
+          p_unit_cost?: number | null;
+          p_supplier_id?: string | null;
+          p_supplier_invoice_ref?: string | null;
+          p_batch_number?: string | null;
+          p_expiry_date?: string | null;
+          p_idempotency_key?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Database['public']['Tables']['inventory_stock_movements']['Row'];
+      };
+      record_stock_issue: {
+        Args: {
+          p_practice_id: string;
+          p_item_id: string;
+          p_location_id: string;
+          p_batch_id?: string | null;
+          p_quantity?: number;
+          p_issue_type?: InventoryMovementType;
+          p_reason?: InventoryAdjustmentReason;
+          p_idempotency_key?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Database['public']['Tables']['inventory_stock_movements']['Row'];
+      };
+      record_clinical_consumption: {
+        Args: {
+          p_practice_id: string;
+          p_visit_id: string;
+          p_patient_id: string;
+          p_item_id: string;
+          p_location_id: string;
+          p_batch_id?: string | null;
+          p_quantity?: number;
+          p_idempotency_key?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Database['public']['Tables']['inventory_stock_movements']['Row'];
+      };
+      record_retail_sale: {
+        Args: {
+          p_practice_id: string;
+          p_invoice_line_id: string;
+          p_item_id: string;
+          p_location_id: string;
+          p_batch_id?: string | null;
+          p_quantity?: number;
+          p_idempotency_key?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Database['public']['Tables']['inventory_stock_movements']['Row'];
+      };
+      transfer_stock_between_locations: {
+        Args: {
+          p_practice_id: string;
+          p_item_id: string;
+          p_source_location_id: string;
+          p_dest_location_id: string;
+          p_batch_id?: string | null;
+          p_quantity?: number;
+          p_idempotency_key?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      adjust_stock_balance: {
+        Args: {
+          p_practice_id: string;
+          p_item_id: string;
+          p_location_id: string;
+          p_batch_id?: string | null;
+          p_actual_physical_count?: number;
+          p_reason?: InventoryAdjustmentReason;
+          p_idempotency_key?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Database['public']['Tables']['inventory_stock_movements']['Row'] | null;
+      };
+      reverse_stock_movement: {
+        Args: {
+          p_practice_id: string;
+          p_movement_id_to_reverse: string;
+          p_reason: string;
+          p_idempotency_key?: string | null;
+        };
+        Returns: Database['public']['Tables']['inventory_stock_movements']['Row'];
+      };
       generate_next_service_code: {
         Args: {
           p_practice_id: string;
@@ -3055,6 +3495,11 @@ export interface Database {
       membership_frequency: MembershipFrequency;
       patient_membership_status: PatientMembershipStatus;
       membership_cycle_status: MembershipCycleStatus;
+      inventory_location_type: InventoryLocationType;
+      inventory_item_category: InventoryItemCategory;
+      inventory_base_unit: InventoryBaseUnit;
+      inventory_movement_type: InventoryMovementType;
+      inventory_adjustment_reason: InventoryAdjustmentReason;
     };
     CompositeTypes: {
       [_ in never]: never;

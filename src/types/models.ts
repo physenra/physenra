@@ -44,6 +44,11 @@ import type {
   MembershipFrequency,
   PatientMembershipStatus,
   MembershipCycleStatus,
+  InventoryLocationType,
+  InventoryItemCategory,
+  InventoryBaseUnit,
+  InventoryMovementType,
+  InventoryAdjustmentReason,
 } from './database';
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -912,7 +917,211 @@ export type {
   MembershipFrequency,
   PatientMembershipStatus,
   MembershipCycleStatus,
+  InventoryLocationType,
+  InventoryItemCategory,
+  InventoryBaseUnit,
+  InventoryMovementType,
+  InventoryAdjustmentReason,
 };
+
+export type PracticeInventoryCounter = Database['public']['Tables']['practice_inventory_counters']['Row'];
+export type InventoryLocation = Database['public']['Tables']['inventory_locations']['Row'];
+export type InventoryLocationInsert = Database['public']['Tables']['inventory_locations']['Insert'];
+export type InventoryLocationUpdate = Database['public']['Tables']['inventory_locations']['Update'];
+
+export type InventorySupplier = Database['public']['Tables']['inventory_suppliers']['Row'];
+export type InventorySupplierInsert = Database['public']['Tables']['inventory_suppliers']['Insert'];
+export type InventorySupplierUpdate = Database['public']['Tables']['inventory_suppliers']['Update'];
+
+export type InventoryItem = Database['public']['Tables']['inventory_items']['Row'];
+export type InventoryItemInsert = Database['public']['Tables']['inventory_items']['Insert'];
+export type InventoryItemUpdate = Database['public']['Tables']['inventory_items']['Update'];
+
+export type InventoryItemBatch = Database['public']['Tables']['inventory_item_batches']['Row'];
+export type InventoryItemBatchInsert = Database['public']['Tables']['inventory_item_batches']['Insert'];
+export type InventoryItemBatchUpdate = Database['public']['Tables']['inventory_item_batches']['Update'];
+
+export type InventoryStockMovement = Database['public']['Tables']['inventory_stock_movements']['Row'];
+export type InventoryStockMovementInsert = Database['public']['Tables']['inventory_stock_movements']['Insert'];
+
+export interface InventoryItemWithRelations extends InventoryItem {
+  linked_service?: {
+    id: string;
+    service_code: string;
+    name: string;
+    category: ServiceCategory;
+  } | null;
+  batches?: InventoryItemBatch[];
+  total_stock?: number;
+  stock_by_location?: {
+    location_id: string;
+    location_name: string;
+    quantity: number;
+  }[];
+}
+
+export interface InventoryStockMovementWithRelations extends InventoryStockMovement {
+  item?: {
+    id: string;
+    sku: string;
+    name: string;
+    category: InventoryItemCategory;
+    base_unit: InventoryBaseUnit;
+  } | null;
+  location?: {
+    id: string;
+    name: string;
+    code: string;
+    location_type: InventoryLocationType;
+  } | null;
+  batch?: {
+    id: string;
+    batch_number: string;
+    expiry_date: string;
+  } | null;
+  actor?: {
+    id: string;
+    display_name: string;
+    first_name: string;
+    last_name: string;
+  } | null;
+}
+
+export interface InventoryLocationWithStock extends InventoryLocation {
+  item_count?: number;
+  total_units?: number;
+}
+
+export interface CreateInventoryItemPayload {
+  name: string;
+  category: InventoryItemCategory;
+  base_unit: InventoryBaseUnit;
+  reorder_level?: number;
+  minimum_stock?: number;
+  maximum_stock?: number | null;
+  is_sterile?: boolean;
+  requires_batch?: boolean;
+  linked_service_id?: string | null;
+  custom_sku?: string | null;
+  description?: string | null;
+}
+
+export interface UpdateInventoryItemPayload {
+  name?: string;
+  category?: InventoryItemCategory;
+  base_unit?: InventoryBaseUnit;
+  reorder_level?: number;
+  minimum_stock?: number;
+  maximum_stock?: number | null;
+  is_sterile?: boolean;
+  requires_batch?: boolean;
+  linked_service_id?: string | null;
+  description?: string | null;
+  is_active?: boolean;
+}
+
+export interface CreateInventoryLocationPayload {
+  name: string;
+  code: string;
+  location_type: InventoryLocationType;
+  description?: string | null;
+  is_default?: boolean;
+  is_active?: boolean;
+}
+
+export interface CreateInventorySupplierPayload {
+  supplier_name: string;
+  supplier_code?: string | null;
+  contact_person?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  lead_time_days?: number;
+  notes?: string | null;
+  is_active?: boolean;
+}
+
+export interface ReceiveStockPayload {
+  item_id: string;
+  location_id: string;
+  quantity: number;
+  unit_cost?: number | null;
+  supplier_id?: string | null;
+  supplier_invoice_ref?: string | null;
+  batch_number?: string | null;
+  expiry_date?: string | null;
+  idempotency_key?: string | null;
+  notes?: string | null;
+}
+
+export interface IssueStockPayload {
+  item_id: string;
+  location_id: string;
+  batch_id?: string | null;
+  quantity: number;
+  issue_type?: 'wastage' | 'expired';
+  reason?: InventoryAdjustmentReason;
+  idempotency_key?: string | null;
+  notes?: string | null;
+}
+
+export interface ClinicalConsumptionPayload {
+  visit_id: string;
+  patient_id: string;
+  item_id: string;
+  location_id: string;
+  batch_id?: string | null;
+  quantity: number;
+  idempotency_key?: string | null;
+  notes?: string | null;
+}
+
+export interface RetailSaleStockPayload {
+  invoice_line_id: string;
+  item_id: string;
+  location_id: string;
+  batch_id?: string | null;
+  quantity: number;
+  idempotency_key?: string | null;
+  notes?: string | null;
+}
+
+export interface TransferStockPayload {
+  item_id: string;
+  source_location_id: string;
+  dest_location_id: string;
+  batch_id?: string | null;
+  quantity: number;
+  idempotency_key?: string | null;
+  notes?: string | null;
+}
+
+export interface AdjustStockPayload {
+  item_id: string;
+  location_id: string;
+  batch_id?: string | null;
+  actual_physical_count: number;
+  reason?: InventoryAdjustmentReason;
+  idempotency_key?: string | null;
+  notes?: string | null;
+}
+
+export interface InventoryItemFilters {
+  category?: InventoryItemCategory | 'all';
+  isActive?: boolean | 'all';
+  searchQuery?: string;
+  lowStockOnly?: boolean;
+}
+
+export interface StockMovementFilters {
+  itemId?: string;
+  locationId?: string;
+  movementType?: InventoryMovementType | 'all';
+  searchQuery?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 
 
 
