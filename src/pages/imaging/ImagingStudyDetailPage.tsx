@@ -83,9 +83,9 @@ export const ImagingStudyDetailPage: React.FC = () => {
     }
   };
 
-  const handleViewAttachment = async (storagePath: string) => {
+  const handleViewAttachment = async (attachmentId: string) => {
     try {
-      const signedUrl = await imagingService.getAttachmentSignedUrl(storagePath);
+      const signedUrl = await imagingService.getAttachmentSignedUrl(attachmentId);
       window.open(signedUrl, '_blank', 'noopener,noreferrer');
     } catch (err: any) {
       alert(err.message || 'Could not access attachment securely.');
@@ -324,6 +324,14 @@ export const ImagingStudyDetailPage: React.FC = () => {
                           </span>
                         )}
                       </div>
+                      {isStaff && (
+                        <Link
+                          to={`/app/imaging/studies/${study.id}/attach-report?amend=${report.id}`}
+                          className="text-xs font-medium text-amber-600 hover:text-amber-700 hover:underline"
+                        >
+                          Amend Report
+                        </Link>
+                      )}
                     </div>
 
                     <p className="text-xs text-gray-500">
@@ -476,7 +484,7 @@ export const ImagingStudyDetailPage: React.FC = () => {
                       </p>
                     </div>
                     <button
-                      onClick={() => handleViewAttachment(att.storage_path)}
+                      onClick={() => handleViewAttachment(att.id)}
                       className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded"
                       title="View file securely"
                     >

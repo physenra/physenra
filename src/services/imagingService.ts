@@ -20,6 +20,7 @@ import type {
   CreateImagingOrderPayload,
   IngestImagingStudyPayload,
   AttachImagingReportPayload,
+  AmendImagingReportPayload,
   RegisterImagingAttachmentPayload,
   FinalizeImagingStudyReviewPayload,
   AmendImagingStudyReviewPayload,
@@ -468,6 +469,31 @@ export const imagingService = {
     return { success: true, report_id: data as string };
   },
 
+  /**
+   * Amends a diagnostic radiology report via SECURITY DEFINER RPC.
+   */
+  async amendReport(
+    payload: AmendImagingReportPayload
+  ): Promise<{ success: boolean; report_id: string }> {
+    const { data, error } = await supabase.rpc('amend_imaging_report', {
+      p_original_report_id: payload.original_report_id,
+      p_author_name: payload.author_name,
+      p_findings: payload.findings,
+      p_impression: payload.impression,
+      p_amendment_reason: payload.amendment_reason,
+      p_source: payload.source || 'external_facility',
+      p_author_credentials: payload.author_credentials || null,
+      p_authoring_organization: payload.authoring_organization || null,
+      p_recommendations: payload.recommendations || null,
+      p_critical_findings_identified: payload.critical_findings_identified ?? false,
+      p_critical_findings_communicated: payload.critical_findings_communicated ?? false,
+      p_communication_details: payload.communication_details || null,
+    });
+
+    if (error) throw error;
+    return { success: true, report_id: data as string };
+  },
+
   // ----------------------------------------------------------------------------
   // 4. CLINICAL REVIEW
   // ----------------------------------------------------------------------------
@@ -553,6 +579,14 @@ export const imagingService = {
 
   /**
    * Uploads an imaging attachment file to Supabase storage and registers it.
+   * Hardened flow:
+   * 1. Validates file size (25MB PDF, 15MB images)
+   * 2. Pre-fetches study to verify tenant boundary and retrieve patient_id
+   * 3. Constructs sanitized storage path: <practice_id>/<patient_id>/<study_id>/<attachment_uuid>.<extension>
+   *    (Zero client-provided filenames, zero patient PII)
+   * 4. Uploads to bucket 'patient-medical-imaging'
+   * 5. Invokes register_imaging_attachment RPC
+   * 6. Compensating rollback: deletes uploaded object if database registration fails
    */
   async uploadAttachmentFile(
     practiceId: string,
@@ -581,13 +615,31 @@ export const imagingService = {
       ? 'image/png'
       : 'image/jpeg';
 
-    // Path pattern: {practice_id}/{study_id}/{timestamp}_{filename}
-    const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const storagePath = `${activePracticeId}/${studyId}/${Date.now()}_${cleanFileName}`;
+    // Verify study exists in active practice and retrieve patient_id
+    const { data: study, error: studyError } = await supabase
+      .from('imaging_studies')
+      .select('id, practice_id, patient_id')
+      .eq('id', studyId)
+      .eq('practice_id', activePracticeId)
+      .single();
+
+    if (studyError || !study) {
+      throw new Error('Target imaging study not found in active practice.');
+    }
+
+    const patientId = study.patient_id;
+
+    // Path pattern: {practice_id}/{patient_id}/{study_id}/{attachment_uuid}.{ext}
+    const attachmentUuid = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : '00000000-0000-4000-8000-000000000000';
+    const fileExt = isPdf ? 'pdf' : file.type === 'image/png' ? 'png' : 'jpg';
+    const storagePath = `${activePracticeId}/${patientId}/${studyId}/${attachmentUuid}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
-      .from('imaging-attachments')
+      .from('patient-medical-imaging')
       .upload(storagePath, file, {
+        contentType: mimeType,
         cacheControl: '3600',
         upsert: false,
       });
@@ -597,17 +649,28 @@ export const imagingService = {
     // Hash calculation: fallback SHA-256 placeholder or array buffer hash
     const sha256Hash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
-    // Register via RPC
-    const regResult = await this.registerAttachment({
-      study_id: studyId,
-      report_id: reportId || null,
-      attachment_type: attachmentType,
-      storage_path: storagePath,
-      file_name: file.name,
-      file_size_bytes: file.size,
-      mime_type: mimeType,
-      sha256_hash: sha256Hash,
-    });
+    // Register via RPC with compensating rollback on failure
+    let regResult: { success: boolean; attachment_id: string };
+    try {
+      regResult = await this.registerAttachment({
+        study_id: studyId,
+        report_id: reportId || null,
+        attachment_type: attachmentType,
+        storage_path: storagePath,
+        file_name: file.name,
+        file_size_bytes: file.size,
+        mime_type: mimeType,
+        sha256_hash: sha256Hash,
+      });
+    } catch (regError) {
+      // Compensating cleanup: delete orphaned storage object if registration failed
+      try {
+        await supabase.storage.from('patient-medical-imaging').remove([storagePath]);
+      } catch (cleanupError) {
+        console.error('Failed to cleanup orphaned storage file:', cleanupError);
+      }
+      throw regError;
+    }
 
     // Retrieve registered record
     const { data: attachmentRecord, error: fetchError } = await supabase
@@ -622,14 +685,48 @@ export const imagingService = {
 
   /**
    * Generates a signed URL for secure viewing/downloading of an imaging attachment.
+   * Authoritative flow:
+   * 1. Resolves target attachment ID
+   * 2. Invokes get_imaging_attachment_download_url SECURITY DEFINER RPC
+   * 3. Validates access permissions and records imaging.attachment.downloaded audit event
+   * 4. Issues short-lived signed URL (max 300 seconds) from patient-medical-imaging bucket
    */
   async getAttachmentSignedUrl(
-    storagePath: string,
-    expiresInSeconds: number = 3600
+    attachmentIdOrStoragePath: string,
+    expiresInSeconds: number = 300
   ): Promise<string> {
+    const validExpiry = Math.min(Math.max(expiresInSeconds, 1), 300);
+
+    let targetAttachmentId = attachmentIdOrStoragePath;
+    if (attachmentIdOrStoragePath.includes('/')) {
+      const { data: att } = await supabase
+        .from('imaging_attachments')
+        .select('id')
+        .eq('storage_path', attachmentIdOrStoragePath)
+        .maybeSingle();
+      if (att) {
+        targetAttachmentId = att.id;
+      }
+    }
+
+    const { data: authData, error: rpcError } = await supabase.rpc('get_imaging_attachment_download_url', {
+      p_attachment_id: targetAttachmentId,
+    });
+
+    if (rpcError) throw rpcError;
+    const downloadMeta = authData as {
+      storage_path: string;
+      bucket?: string;
+      expires_in_seconds?: number;
+    };
+
+    const bucketName = downloadMeta.bucket || 'patient-medical-imaging';
+    const filePath = downloadMeta.storage_path || attachmentIdOrStoragePath;
+    const expiry = Math.min(validExpiry, downloadMeta.expires_in_seconds || 300);
+
     const { data, error } = await supabase.storage
-      .from('imaging-attachments')
-      .createSignedUrl(storagePath, expiresInSeconds);
+      .from(bucketName)
+      .createSignedUrl(filePath, expiry);
 
     if (error) throw error;
     return data.signedUrl;
@@ -639,9 +736,9 @@ export const imagingService = {
    * Alias for getAttachmentSignedUrl for compatibility.
    */
   async getSignedAttachmentUrl(
-    storagePath: string,
-    expiresInSeconds: number = 3600
+    attachmentIdOrStoragePath: string,
+    expiresInSeconds: number = 300
   ): Promise<string> {
-    return this.getAttachmentSignedUrl(storagePath, expiresInSeconds);
+    return this.getAttachmentSignedUrl(attachmentIdOrStoragePath, expiresInSeconds);
   },
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   FileText,
   ArrowLeft,
@@ -17,6 +17,8 @@ import type {
 
 export const AttachImagingReportPage: React.FC = () => {
   const { studyId } = useParams<{ studyId: string }>();
+  const [searchParams] = useSearchParams();
+  const amendReportId = searchParams.get('amend');
   const navigate = useNavigate();
   const { activePractice } = usePractice();
 
@@ -29,6 +31,7 @@ export const AttachImagingReportPage: React.FC = () => {
   const [impression, setImpression] = useState('');
   const [findings, setFindings] = useState('');
   const [recommendations, setRecommendations] = useState('');
+  const [amendmentReason, setAmendmentReason] = useState('');
   const [criticalFindingsIdentified, setCriticalFindingsIdentified] = useState(false);
   const [criticalFindingsCommunicated, setCriticalFindingsCommunicated] = useState(false);
   const [communicationDetails, setCommunicationDetails] = useState('');
@@ -43,7 +46,23 @@ export const AttachImagingReportPage: React.FC = () => {
       try {
         const data = await imagingService.getStudyById(studyId, activePractice.id);
         setStudy(data);
-        if (data?.performing_facility) {
+
+        if (amendReportId && data?.reports) {
+          const original = data.reports.find((r) => r.id === amendReportId);
+          if (original) {
+            setAuthorName(original.author_name);
+            setAuthorCredentials(original.author_credentials || '');
+            setAuthoringOrganization(original.authoring_organization || '');
+            setFindings(original.findings);
+            setImpression(original.impression);
+            setRecommendations(original.recommendations || '');
+            setReportType('amendment');
+            setSource(original.source);
+            setCriticalFindingsIdentified(original.critical_findings_identified);
+            setCriticalFindingsCommunicated(original.critical_findings_communicated);
+            setCommunicationDetails(original.communication_details || '');
+          }
+        } else if (data?.performing_facility) {
           setAuthoringOrganization(data.performing_facility);
         }
       } catch (err: any) {
@@ -53,7 +72,7 @@ export const AttachImagingReportPage: React.FC = () => {
       }
     };
     fetchStudy();
-  }, [studyId, activePractice]);
+  }, [studyId, activePractice, amendReportId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,24 +96,47 @@ export const AttachImagingReportPage: React.FC = () => {
     setError(null);
 
     try {
-      await imagingService.attachReport({
-        study_id: studyId,
-        author_name: authorName.trim(),
-        author_credentials: authorCredentials.trim() || null,
-        authoring_organization: authoringOrganization.trim() || null,
-        report_type: reportType,
-        source: source,
-        findings: findings.trim(),
-        impression: impression.trim(),
-        recommendations: recommendations.trim() || null,
-        critical_findings_identified: criticalFindingsIdentified,
-        critical_findings_communicated: criticalFindingsCommunicated,
-        communication_details: criticalFindingsIdentified ? communicationDetails.trim() : null,
-      });
+      if (amendReportId) {
+        if (!amendmentReason.trim() || amendmentReason.trim().length < 5) {
+          setError('A clinical justification (at least 5 characters) is required for report amendments.');
+          setIsSubmitting(false);
+          return;
+        }
+
+        await imagingService.amendReport({
+          original_report_id: amendReportId,
+          author_name: authorName.trim(),
+          author_credentials: authorCredentials.trim() || null,
+          authoring_organization: authoringOrganization.trim() || null,
+          source: source,
+          findings: findings.trim(),
+          impression: impression.trim(),
+          recommendations: recommendations.trim() || null,
+          amendment_reason: amendmentReason.trim(),
+          critical_findings_identified: criticalFindingsIdentified,
+          critical_findings_communicated: criticalFindingsCommunicated,
+          communication_details: criticalFindingsIdentified ? communicationDetails.trim() : null,
+        });
+      } else {
+        await imagingService.attachReport({
+          study_id: studyId,
+          author_name: authorName.trim(),
+          author_credentials: authorCredentials.trim() || null,
+          authoring_organization: authoringOrganization.trim() || null,
+          report_type: reportType,
+          source: source,
+          findings: findings.trim(),
+          impression: impression.trim(),
+          recommendations: recommendations.trim() || null,
+          critical_findings_identified: criticalFindingsIdentified,
+          critical_findings_communicated: criticalFindingsCommunicated,
+          communication_details: criticalFindingsIdentified ? communicationDetails.trim() : null,
+        });
+      }
 
       navigate(`/app/imaging/studies/${studyId}`);
     } catch (err: any) {
-      setError(err.message || 'Failed to attach radiology report.');
+      setError(err.message || 'Failed to submit radiology report.');
       setIsSubmitting(false);
     }
   };
@@ -124,10 +166,12 @@ export const AttachImagingReportPage: React.FC = () => {
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 mt-2 flex items-center gap-2">
           <FileText className="h-7 w-7 text-indigo-600" />
-          Attach Diagnostic Radiology Report
+          {amendReportId ? 'Amend Diagnostic Radiology Report' : 'Attach Diagnostic Radiology Report'}
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Record the authoritative diagnostic report issued by the reporting radiologist.
+          {amendReportId
+            ? 'Issue a formal, immutable amendment linked to the prior diagnostic report.'
+            : 'Record the authoritative diagnostic report issued by the reporting radiologist.'}
         </p>
       </div>
 
@@ -162,6 +206,24 @@ export const AttachImagingReportPage: React.FC = () => {
 
       {/* Report Entry Form */}
       <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 space-y-6">
+        {amendReportId && (
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl space-y-2">
+            <label className="block text-sm font-bold text-amber-900">
+              Clinical Amendment Justification *
+            </label>
+            <p className="text-xs text-amber-700">
+              Diagnostic radiology reports are permanent medical records. Detail the rationale for this amendment (e.g. secondary review, addendum, clerical correction).
+            </p>
+            <textarea
+              rows={3}
+              value={amendmentReason}
+              onChange={(e) => setAmendmentReason(e.target.value)}
+              placeholder="State the clinical justification for amending the original report..."
+              className="w-full px-3 py-2 text-sm border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none bg-white text-gray-900"
+              required
+            />
+          </div>
+        )}
         {/* Radiologist Info */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
@@ -354,7 +416,7 @@ export const AttachImagingReportPage: React.FC = () => {
             className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-sm disabled:opacity-50 transition"
           >
             <Save size={16} />
-            {isSubmitting ? 'Attaching Report...' : 'Attach Radiology Report'}
+            {isSubmitting ? 'Submitting...' : amendReportId ? 'Submit Report Amendment' : 'Attach Radiology Report'}
           </button>
         </div>
       </form>

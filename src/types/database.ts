@@ -3970,6 +3970,23 @@ export interface Database {
         };
         Returns: string;
       };
+      amend_imaging_report: {
+        Args: {
+          p_original_report_id: string;
+          p_author_name: string;
+          p_findings: string;
+          p_impression: string;
+          p_amendment_reason: string;
+          p_source?: ImagingReportSource;
+          p_author_credentials?: string | null;
+          p_authoring_organization?: string | null;
+          p_recommendations?: string | null;
+          p_critical_findings_identified?: boolean;
+          p_critical_findings_communicated?: boolean;
+          p_communication_details?: string | null;
+        };
+        Returns: string;
+      };
       register_imaging_attachment: {
         Args: {
           p_study_id: string;

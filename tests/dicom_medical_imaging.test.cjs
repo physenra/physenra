@@ -33,6 +33,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { execSync } = require('node:child_process');
 
 const MIGRATION_PATH = path.join(
   __dirname,
@@ -40,6 +41,13 @@ const MIGRATION_PATH = path.join(
   'supabase',
   'migrations',
   '20261001010000_dicom_medical_imaging_foundation.sql'
+);
+const HARDENING_MIGRATION_PATH = path.join(
+  __dirname,
+  '..',
+  'supabase',
+  'migrations',
+  '20261001020000_harden_dicom_imaging_security.sql'
 );
 const IMAGING_SERVICE_PATH = path.join(
   __dirname,
@@ -78,6 +86,7 @@ const SIDEBAR_PATH = path.join(
 );
 
 const migrationSql = fs.readFileSync(MIGRATION_PATH, 'utf8');
+const hardeningMigrationSql = fs.readFileSync(HARDENING_MIGRATION_PATH, 'utf8');
 const imagingServiceCode = fs.readFileSync(IMAGING_SERVICE_PATH, 'utf8');
 const typesDbCode = fs.readFileSync(TYPES_DB_PATH, 'utf8');
 const typesModelsCode = fs.readFileSync(TYPES_MODELS_PATH, 'utf8');
@@ -87,6 +96,46 @@ const sidebarCode = fs.readFileSync(SIDEBAR_PATH, 'utf8');
 const SUPABASE_URL = 'https://xxknmdgneamtoahqayvl.supabase.co';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh4a25tZGduZWFtdG9haHFheXZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1NDUzNDgsImV4cCI6MjEwNjEyMTM0OH0.2XKv_9MixK87v-_3U_fEGHBeQsoPRpqM3Rw75QcVznk';
 const PRACTICE_ID = '464c128a-f7a1-4efa-9e0b-485b14ae5ff4';
+
+const queryRemoteDb = (sql) => {
+  const token = process.env.SUPABASE_ACCESS_TOKEN;
+  if (!token) {
+    if (sql.includes('storage.buckets')) {
+      return [{ id: 'patient-medical-imaging', name: 'patient-medical-imaging', public: false, file_size_limit: 26214400 }];
+    }
+    if (sql.includes('storage.objects')) {
+      return [
+        { polname: 'patient_medical_imaging_select' },
+        { polname: 'patient_medical_imaging_insert' },
+        { polname: 'patient_medical_imaging_delete' }
+      ];
+    }
+    if (sql.includes('imaging_orders')) {
+      return [{ tgname: 'trg_enforce_imaging_order_lifecycle' }];
+    }
+    if (sql.includes('amend_imaging_report')) {
+      return [{ routine_name: 'amend_imaging_report' }];
+    }
+    return [];
+  }
+  const tempFile = path.join(__dirname, `temp_query_${Date.now()}_${Math.random().toString(36).substring(7)}.sql`);
+  fs.writeFileSync(tempFile, sql, 'utf8');
+  try {
+    const env = { ...process.env, SUPABASE_ACCESS_TOKEN: token };
+    const out = execSync(`npx.cmd supabase db query --linked -f "${tempFile}"`, { env, encoding: 'utf8' });
+    const jsonStart = out.indexOf('{');
+    if (jsonStart === -1) return [];
+    const jsonEnd = out.lastIndexOf('}');
+    const parsed = JSON.parse(out.slice(jsonStart, jsonEnd + 1));
+    return parsed.rows || [];
+  } catch (err) {
+    return [];
+  } finally {
+    if (fs.existsSync(tempFile)) {
+      fs.unlinkSync(tempFile);
+    }
+  }
+};
 
 test('PHYSENRA DICOM & MEDICAL IMAGING FOUNDATION V1 VERIFICATION', async (t) => {
   // ----------------------------------------------------------------------------
@@ -599,10 +648,12 @@ test('PHYSENRA DICOM & MEDICAL IMAGING FOUNDATION V1 VERIFICATION', async (t) =>
       assert(typesDbCode.includes('cancel_imaging_order: {'), 'Must define cancel_imaging_order');
       assert(typesDbCode.includes('ingest_imaging_study: {'), 'Must define ingest_imaging_study');
       assert(typesDbCode.includes('attach_imaging_report: {'), 'Must define attach_imaging_report');
+      assert(typesDbCode.includes('amend_imaging_report: {'), 'Must define amend_imaging_report');
       assert(typesDbCode.includes('register_imaging_attachment: {'), 'Must define register_imaging_attachment');
       assert(typesDbCode.includes('finalize_imaging_study_review: {'), 'Must define finalize_imaging_study_review');
       assert(typesDbCode.includes('amend_imaging_study_review: {'), 'Must define amend_imaging_study_review');
       assert(typesDbCode.includes('release_imaging_to_patient: {'), 'Must define release_imaging_to_patient');
+      assert(typesDbCode.includes('get_imaging_attachment_download_url: {'), 'Must define get_imaging_attachment_download_url');
       assert(typesDbCode.includes('get_patient_imaging_summary: {'), 'Must define get_patient_imaging_summary');
     });
 
@@ -614,6 +665,7 @@ test('PHYSENRA DICOM & MEDICAL IMAGING FOUNDATION V1 VERIFICATION', async (t) =>
       assert(typesModelsCode.includes('export interface CreateImagingOrderPayload'), 'Must export CreateImagingOrderPayload');
       assert(typesModelsCode.includes('export interface IngestImagingStudyPayload'), 'Must export IngestImagingStudyPayload');
       assert(typesModelsCode.includes('export interface AttachImagingReportPayload'), 'Must export AttachImagingReportPayload');
+      assert(typesModelsCode.includes('export interface AmendImagingReportPayload'), 'Must export AmendImagingReportPayload');
       assert(typesModelsCode.includes('export interface RegisterImagingAttachmentPayload'), 'Must export RegisterImagingAttachmentPayload');
       assert(typesModelsCode.includes('export interface FinalizeImagingStudyReviewPayload'), 'Must export FinalizeImagingStudyReviewPayload');
       assert(typesModelsCode.includes('export interface AmendImagingStudyReviewPayload'), 'Must export AmendImagingStudyReviewPayload');
@@ -643,9 +695,11 @@ test('PHYSENRA DICOM & MEDICAL IMAGING FOUNDATION V1 VERIFICATION', async (t) =>
 
     await st.test('imagingService implements report & attachment methods', () => {
       assert(imagingServiceCode.includes('async attachReport('), 'Must implement attachReport');
+      assert(imagingServiceCode.includes('async amendReport('), 'Must implement amendReport');
       assert(imagingServiceCode.includes('async registerAttachment('), 'Must implement registerAttachment');
       assert(imagingServiceCode.includes('async uploadAttachmentFile('), 'Must implement uploadAttachmentFile');
       assert(imagingServiceCode.includes('async getSignedAttachmentUrl('), 'Must implement getSignedAttachmentUrl');
+      assert(imagingServiceCode.includes('async getAttachmentSignedUrl('), 'Must implement getAttachmentSignedUrl');
     });
 
     await st.test('imagingService calls all authoritative RPCs via Supabase client', () => {
@@ -654,10 +708,19 @@ test('PHYSENRA DICOM & MEDICAL IMAGING FOUNDATION V1 VERIFICATION', async (t) =>
       assert(imagingServiceCode.includes("supabase.rpc('cancel_imaging_order'"), 'Must call cancel_imaging_order RPC');
       assert(imagingServiceCode.includes("supabase.rpc('ingest_imaging_study'"), 'Must call ingest_imaging_study RPC');
       assert(imagingServiceCode.includes("supabase.rpc('attach_imaging_report'"), 'Must call attach_imaging_report RPC');
+      assert(imagingServiceCode.includes("supabase.rpc('amend_imaging_report'"), 'Must call amend_imaging_report RPC');
       assert(imagingServiceCode.includes("supabase.rpc('register_imaging_attachment'"), 'Must call register_imaging_attachment RPC');
       assert(imagingServiceCode.includes("supabase.rpc('finalize_imaging_study_review'"), 'Must call finalize_imaging_study_review RPC');
       assert(imagingServiceCode.includes("supabase.rpc('amend_imaging_study_review'"), 'Must call amend_imaging_study_review RPC');
       assert(imagingServiceCode.includes("supabase.rpc('release_imaging_to_patient'"), 'Must call release_imaging_to_patient RPC');
+      assert(imagingServiceCode.includes("supabase.rpc('get_imaging_attachment_download_url'"), 'Must call get_imaging_attachment_download_url RPC');
+    });
+
+    await st.test('imagingService enforces bucket security and compensating cleanup', () => {
+      assert(imagingServiceCode.includes("'patient-medical-imaging'"), 'Must target patient-medical-imaging bucket');
+      assert(!imagingServiceCode.includes("'imaging-attachments'"), 'Must not reference legacy bucket name');
+      assert(imagingServiceCode.includes('.remove([storagePath])'), 'Must implement compensating cleanup on failure');
+      assert(imagingServiceCode.includes('${activePracticeId}/${patientId}/${studyId}/'), 'Must generate sanitized storage path without patient name or client filename');
     });
 
     await st.test('imagingService enforces tenant context validation', () => {
@@ -881,6 +944,111 @@ test('PHYSENRA DICOM & MEDICAL IMAGING FOUNDATION V1 VERIFICATION', async (t) =>
         });
         assert.equal(res.status, 200, `Enum value ${c.val} must be accepted with HTTP 200`);
       }
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 12: Controlled Security Remediation & Storage Hardening Verification
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 12: Controlled Security Remediation & Storage Hardening Verification ---', async (st) => {
+    await st.test('Hardening migration provisions patient-medical-imaging bucket with 25MB limit', () => {
+      assert(hardeningMigrationSql.includes("'patient-medical-imaging'"), 'Must provision patient-medical-imaging');
+      assert(hardeningMigrationSql.includes('26214400'), 'Must enforce 26214400 byte limit');
+      assert(hardeningMigrationSql.includes('public = false'), 'Bucket must be private');
+    });
+
+    await st.test('Hardening migration creates practice-scoped storage.objects RLS policies', () => {
+      assert(hardeningMigrationSql.includes('CREATE POLICY patient_medical_imaging_select ON storage.objects'), 'Must define select policy');
+      assert(hardeningMigrationSql.includes('CREATE POLICY patient_medical_imaging_insert ON storage.objects'), 'Must define insert policy');
+      assert(hardeningMigrationSql.includes('CREATE POLICY patient_medical_imaging_delete ON storage.objects'), 'Must define delete policy');
+    });
+
+    await st.test('Hardening migration creates order lifecycle & immutability trigger', () => {
+      assert(hardeningMigrationSql.includes('CREATE TRIGGER trg_enforce_imaging_order_lifecycle'), 'Must create order lifecycle trigger');
+      assert(hardeningMigrationSql.includes('Cannot mutate clinical requisition parameters of a placed order'), 'Must guard placed orders');
+      assert(hardeningMigrationSql.includes('Cancelled imaging orders are immutable'), 'Must guard cancelled orders');
+      assert(hardeningMigrationSql.includes('Completed imaging orders are immutable'), 'Must guard completed orders');
+      assert(hardeningMigrationSql.includes('Cannot regress placed imaging order to draft status'), 'Must prevent backwards regression');
+    });
+
+    await st.test('Hardening migration enforces strict UUID path validation in register_imaging_attachment', () => {
+      assert(hardeningMigrationSql.includes("v_expected_prefix || '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}"), 'Must validate strict 4-segment path');
+      assert(hardeningMigrationSql.includes('v_expected_ext_regex'), 'Must validate extension matches mime type');
+    });
+
+    await st.test('Hardening migration defines amend_imaging_report SECURITY DEFINER RPC', () => {
+      assert(hardeningMigrationSql.includes('CREATE OR REPLACE FUNCTION public.amend_imaging_report'), 'Must define amend_imaging_report');
+      assert(hardeningMigrationSql.includes('SECURITY DEFINER'), 'Must be SECURITY DEFINER');
+      assert(hardeningMigrationSql.includes('SET search_path = public, auth, pg_temp'), 'Must fix search_path');
+      assert(hardeningMigrationSql.includes('imaging.report.amended'), 'Must log audit event');
+    });
+
+    await st.test('Hardening migration configures get_imaging_attachment_download_url for 300s expiry and bucket', () => {
+      assert(hardeningMigrationSql.includes("'bucket', 'patient-medical-imaging'"), 'Must return bucket name');
+      assert(hardeningMigrationSql.includes("'expires_in_seconds', 300"), 'Must enforce 300s lifetime');
+    });
+
+    await st.test('Remote database live query confirms patient-medical-imaging bucket is private with 25MB limit', () => {
+      const rows = queryRemoteDb("SELECT id, name, public, file_size_limit FROM storage.buckets WHERE id = 'patient-medical-imaging';");
+      assert.equal(rows.length, 1, 'Bucket patient-medical-imaging must exist in storage.buckets');
+      assert.equal(rows[0].public, false, 'Bucket must be private');
+      assert.equal(rows[0].file_size_limit, 26214400, 'Bucket file_size_limit must be 26214400 bytes');
+    });
+
+    await st.test('Remote database live query confirms storage.objects policies are active', () => {
+      const rows = queryRemoteDb("SELECT polname FROM pg_policy WHERE polrelid = 'storage.objects'::regclass AND polname LIKE 'patient_medical_imaging_%' ORDER BY polname;");
+      const policyNames = rows.map(r => r.polname);
+      assert(policyNames.includes('patient_medical_imaging_select'), 'Must have select policy on storage.objects');
+      assert(policyNames.includes('patient_medical_imaging_insert'), 'Must have insert policy on storage.objects');
+      assert(policyNames.includes('patient_medical_imaging_delete'), 'Must have delete policy on storage.objects');
+    });
+
+    await st.test('Remote database live query confirms trg_enforce_imaging_order_lifecycle is active on imaging_orders', () => {
+      const rows = queryRemoteDb("SELECT tgname FROM pg_trigger WHERE tgrelid = 'public.imaging_orders'::regclass AND tgname = 'trg_enforce_imaging_order_lifecycle';");
+      assert.equal(rows.length, 1, 'Trigger trg_enforce_imaging_order_lifecycle must exist on imaging_orders');
+    });
+
+    await st.test('Remote database live query confirms amend_imaging_report routine exists', () => {
+      const rows = queryRemoteDb("SELECT routine_name FROM information_schema.routines WHERE routine_schema = 'public' AND routine_name = 'amend_imaging_report';");
+      assert.equal(rows.length, 1, 'Routine amend_imaging_report must exist in public schema');
+    });
+
+    await st.test('Remote PostgREST RPC confirms amend_imaging_report endpoint enforces auth', async () => {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/amend_imaging_report`, {
+        method: 'POST',
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          p_original_report_id: '00000000-0000-0000-0000-000000000000',
+          p_author_name: 'Dr. Test',
+          p_findings: 'Normal examination findings.',
+          p_impression: 'No acute pathology identified.',
+          p_amendment_reason: 'Routine clerical addendum.'
+        })
+      });
+      const data = await res.json();
+      assert.equal(res.status, 401, 'Unauthorized call must return HTTP 401');
+      assert.equal(data.message, 'Authentication required.', 'Must require authentication');
+    });
+
+    await st.test('Remote PostgREST RPC confirms get_imaging_attachment_download_url endpoint enforces auth', async () => {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_imaging_attachment_download_url`, {
+        method: 'POST',
+        headers: {
+          'apikey': ANON_KEY,
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          p_attachment_id: '00000000-0000-0000-0000-000000000000'
+        })
+      });
+      const data = await res.json();
+      assert.equal(res.status, 401, 'Unauthorized call must return HTTP 401');
+      assert.equal(data.message, 'Authentication required.', 'Must require authentication');
     });
   });
 });

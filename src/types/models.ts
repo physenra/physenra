@@ -1295,6 +1295,21 @@ export interface AttachImagingReportPayload {
   communication_details?: string | null;
 }
 
+export interface AmendImagingReportPayload {
+  original_report_id: string;
+  author_name: string;
+  findings: string;
+  impression: string;
+  amendment_reason: string;
+  source?: ImagingReportSource;
+  author_credentials?: string | null;
+  authoring_organization?: string | null;
+  recommendations?: string | null;
+  critical_findings_identified?: boolean;
+  critical_findings_communicated?: boolean;
+  communication_details?: string | null;
+}
+
 export interface RegisterImagingAttachmentPayload {
   study_id: string;
   attachment_type: ImagingAttachmentType;
