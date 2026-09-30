@@ -301,7 +301,7 @@ export const membershipService = {
           first_name,
           last_name,
           date_of_birth,
-          gender,
+          sex,
           email,
           phone
         ),

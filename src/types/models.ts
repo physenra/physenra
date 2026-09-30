@@ -542,7 +542,8 @@ export interface PackageDefinition {
 export interface PackageDefinitionWithRelations extends PackageDefinition {
   service?: {
     id: string;
-    code: string;
+    code?: string;
+    service_code?: string;
     name: string;
     category: string;
   };
@@ -588,6 +589,7 @@ export interface PackageEntitlementWithRelations extends PackageEntitlement {
     last_name: string;
     date_of_birth?: string | null;
     gender?: string | null;
+    sex?: string | null;
   };
   definition?: {
     id: string;
@@ -600,7 +602,8 @@ export interface PackageEntitlementWithRelations extends PackageEntitlement {
     currency: string;
     service?: {
       id: string;
-      code: string;
+      code?: string;
+      service_code?: string;
       name: string;
     };
   };
@@ -822,6 +825,7 @@ export interface PatientMembershipWithRelations extends PatientMembership {
     last_name: string;
     date_of_birth?: string | null;
     gender?: string | null;
+    sex?: string | null;
     email?: string | null;
     phone?: string | null;
   } | null;
@@ -1179,21 +1183,28 @@ export interface ImagingOrderWithRelations extends ImagingOrder {
     last_name: string;
     date_of_birth?: string | null;
     gender?: string | null;
+    sex?: string | null;
     phone?: string | null;
   };
   episode?: {
     id: string;
     episode_number?: string;
+    episode_identifier?: string;
     title?: string;
   } | null;
   visit?: {
     id: string;
     visit_number?: string;
+    visit_identifier?: string;
     start_time?: string;
+    actual_start?: string;
   } | null;
   ordering_clinician?: {
     id: string;
     full_name?: string;
+    display_name?: string;
+    first_name?: string;
+    last_name?: string;
     email?: string;
   } | null;
   studies?: ImagingStudy[];
@@ -1207,21 +1218,28 @@ export interface ImagingStudyWithRelations extends ImagingStudy {
     last_name: string;
     date_of_birth?: string | null;
     gender?: string | null;
+    sex?: string | null;
   };
   order?: ImagingOrder | null;
   episode?: {
     id: string;
     episode_number?: string;
+    episode_identifier?: string;
     title?: string;
   } | null;
   visit?: {
     id: string;
     visit_number?: string;
+    visit_identifier?: string;
     start_time?: string;
+    actual_start?: string;
   } | null;
   reviewed_by_clinician?: {
     id: string;
     full_name?: string;
+    display_name?: string;
+    first_name?: string;
+    last_name?: string;
     email?: string;
   } | null;
   reports?: ImagingReportWithRelations[];

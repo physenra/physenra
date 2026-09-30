@@ -131,7 +131,7 @@ export const ImagingOrderDetailPage: React.FC = () => {
           </div>
           <p className="text-sm text-gray-500 mt-1">
             Ordered on {new Date(order.order_date).toLocaleDateString()} by{' '}
-            {order.ordering_clinician?.full_name || 'Treating Clinician'}
+            {order.ordering_clinician?.display_name || order.ordering_clinician?.full_name || 'Treating Clinician'}
           </p>
         </div>
 

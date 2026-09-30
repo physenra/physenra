@@ -52,7 +52,7 @@ export const packageService = {
         *,
         service:services!fk_package_definitions_service_practice (
           id,
-          code,
+          service_code,
           name,
           category
         )
@@ -106,7 +106,7 @@ export const packageService = {
         *,
         service:services!fk_package_definitions_service_practice (
           id,
-          code,
+          service_code,
           name,
           category
         )
@@ -235,7 +235,7 @@ export const packageService = {
           first_name,
           last_name,
           date_of_birth,
-          gender
+          sex
         ),
         definition:package_definitions!fk_entitlements_definition_practice (
           id,
@@ -248,7 +248,7 @@ export const packageService = {
           currency,
           service:services!fk_package_definitions_service_practice (
             id,
-            code,
+            service_code,
             name
           )
         ),
@@ -338,7 +338,7 @@ export const packageService = {
           first_name,
           last_name,
           date_of_birth,
-          gender
+          sex
         ),
         definition:package_definitions!fk_entitlements_definition_practice (
           id,
@@ -351,7 +351,7 @@ export const packageService = {
           currency,
           service:services!fk_package_definitions_service_practice (
             id,
-            code,
+            service_code,
             name
           )
         ),
@@ -398,7 +398,7 @@ export const packageService = {
     practiceId?: string
   ): Promise<Array<PackageConsumption & {
     patient?: { id: string; patient_identifier: string; first_name: string; last_name: string };
-    visit?: { id: string; visit_identifier: string; visit_date: string; status: string };
+    visit?: { id: string; visit_identifier: string; actual_start?: string; visit_date?: string; status: string };
   }>> {
     const activePracticeId = practiceId || getActivePracticeHeader();
     if (!activePracticeId) {
@@ -418,7 +418,7 @@ export const packageService = {
         visit:clinical_visits!fk_consumption_visit_patient_practice (
           id,
           visit_identifier,
-          visit_date,
+          actual_start,
           status
         )
       `)
@@ -432,7 +432,7 @@ export const packageService = {
 
     return (data || []) as unknown as Array<PackageConsumption & {
       patient?: { id: string; patient_identifier: string; first_name: string; last_name: string };
-      visit?: { id: string; visit_identifier: string; visit_date: string; status: string };
+      visit?: { id: string; visit_identifier: string; actual_start?: string; visit_date?: string; status: string };
     }>;
   },
 

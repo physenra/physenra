@@ -59,25 +59,26 @@ export const imagingService = {
           first_name,
           last_name,
           date_of_birth,
-          gender,
+          sex,
           phone
         ),
-        episode:episodes_of_care!fk_imaging_orders_episode_practice (
+        episode:episodes_of_care!fk_imaging_orders_episode_patient_practice (
           id,
-          episode_number,
+          episode_identifier,
           title
         ),
-        visit:clinical_visits!fk_imaging_orders_visit_practice (
+        visit:clinical_visits!fk_imaging_orders_visit_patient_practice (
           id,
-          visit_number,
-          start_time
+          visit_identifier,
+          actual_start
         ),
-        ordering_clinician:profiles!fk_imaging_orders_clinician_profile (
+        ordering_clinician:profiles!fk_imaging_orders_ordering_clinician (
           id,
-          full_name,
-          email
+          display_name,
+          first_name,
+          last_name
         ),
-        studies:imaging_studies!fk_imaging_studies_order_practice (*)
+        studies:imaging_studies!fk_imaging_studies_parent_order (*)
       `)
       .eq('practice_id', activePracticeId)
       .order('created_at', { ascending: false });
@@ -152,25 +153,26 @@ export const imagingService = {
           first_name,
           last_name,
           date_of_birth,
-          gender,
+          sex,
           phone
         ),
-        episode:episodes_of_care!fk_imaging_orders_episode_practice (
+        episode:episodes_of_care!fk_imaging_orders_episode_patient_practice (
           id,
-          episode_number,
+          episode_identifier,
           title
         ),
-        visit:clinical_visits!fk_imaging_orders_visit_practice (
+        visit:clinical_visits!fk_imaging_orders_visit_patient_practice (
           id,
-          visit_number,
-          start_time
+          visit_identifier,
+          actual_start
         ),
-        ordering_clinician:profiles!fk_imaging_orders_clinician_profile (
+        ordering_clinician:profiles!fk_imaging_orders_ordering_clinician (
           id,
-          full_name,
-          email
+          display_name,
+          first_name,
+          last_name
         ),
-        studies:imaging_studies!fk_imaging_studies_order_practice (*)
+        studies:imaging_studies!fk_imaging_studies_parent_order (*)
       `)
       .eq('practice_id', activePracticeId)
       .eq('id', orderId)
@@ -276,24 +278,24 @@ export const imagingService = {
           first_name,
           last_name,
           date_of_birth,
-          gender
+          sex
         ),
-        order:imaging_orders!fk_imaging_studies_order_practice (*),
-        episode:episodes_of_care!fk_imaging_studies_episode_practice (
+        order:imaging_orders!fk_imaging_studies_parent_order (*),
+        episode:episodes_of_care!fk_imaging_studies_episode_patient_practice (
           id,
-          episode_number,
+          episode_identifier,
           title
         ),
-        visit:clinical_visits!fk_imaging_studies_visit_practice (
+        visit:clinical_visits!fk_imaging_studies_visit_patient_practice (
           id,
-          visit_number,
-          start_time
+          visit_identifier,
+          actual_start
         ),
-        reports:imaging_reports!fk_imaging_reports_study_practice (
+        reports:imaging_reports!fk_imaging_reports_parent_study (
           *,
-          attachments:imaging_attachments!fk_imaging_attachments_report_practice (*)
+          attachments:imaging_attachments!imaging_attachments_report_id_fkey (*)
         ),
-        attachments:imaging_attachments!fk_imaging_attachments_study_practice (*)
+        attachments:imaging_attachments!fk_imaging_attachments_parent_study (*)
       `)
       .eq('practice_id', activePracticeId)
       .order('created_at', { ascending: false });
@@ -366,24 +368,24 @@ export const imagingService = {
           first_name,
           last_name,
           date_of_birth,
-          gender
+          sex
         ),
-        order:imaging_orders!fk_imaging_studies_order_practice (*),
-        episode:episodes_of_care!fk_imaging_studies_episode_practice (
+        order:imaging_orders!fk_imaging_studies_parent_order (*),
+        episode:episodes_of_care!fk_imaging_studies_episode_patient_practice (
           id,
-          episode_number,
+          episode_identifier,
           title
         ),
-        visit:clinical_visits!fk_imaging_studies_visit_practice (
+        visit:clinical_visits!fk_imaging_studies_visit_patient_practice (
           id,
-          visit_number,
-          start_time
+          visit_identifier,
+          actual_start
         ),
-        reports:imaging_reports!fk_imaging_reports_study_practice (
+        reports:imaging_reports!fk_imaging_reports_parent_study (
           *,
-          attachments:imaging_attachments!fk_imaging_attachments_report_practice (*)
+          attachments:imaging_attachments!imaging_attachments_report_id_fkey (*)
         ),
-        attachments:imaging_attachments!fk_imaging_attachments_study_practice (*)
+        attachments:imaging_attachments!fk_imaging_attachments_parent_study (*)
       `)
       .eq('practice_id', activePracticeId)
       .eq('id', studyId)
