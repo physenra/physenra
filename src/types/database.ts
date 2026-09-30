@@ -234,6 +234,72 @@ export type InventoryAdjustmentReason =
   | 'clerical_error'
   | 'theft_or_loss';
 
+export type ImagingModality =
+  | 'xray'
+  | 'mri'
+  | 'ultrasound'
+  | 'ct'
+  | 'dexa'
+  | 'fluoroscopy'
+  | 'other';
+export type ImagingAnatomicalRegion =
+  | 'cervical_spine'
+  | 'thoracic_spine'
+  | 'lumbar_spine'
+  | 'sacrum_pelvis'
+  | 'shoulder'
+  | 'elbow'
+  | 'wrist_hand'
+  | 'hip'
+  | 'knee'
+  | 'ankle_foot'
+  | 'chest_ribs'
+  | 'head_neck'
+  | 'abdomen'
+  | 'multi_region'
+  | 'other';
+export type ImagingLaterality =
+  | 'left'
+  | 'right'
+  | 'bilateral'
+  | 'not_applicable';
+export type ImagingUrgency =
+  | 'routine'
+  | 'urgent'
+  | 'red_flag_emergency';
+export type ImagingOrderStatus =
+  | 'draft'
+  | 'placed'
+  | 'completed'
+  | 'cancelled';
+export type ImagingReviewStatus =
+  | 'unreviewed'
+  | 'under_review'
+  | 'reviewed'
+  | 'amended';
+export type ImagingPatientReleaseStatus =
+  | 'withheld'
+  | 'released_to_portal'
+  | 'restricted';
+export type ImagingReportType =
+  | 'formal_radiology'
+  | 'preliminary_wet_read'
+  | 'clinical_functional_note'
+  | 'amendment';
+export type ImagingReportSource =
+  | 'external_facility'
+  | 'in_house_radiologist'
+  | 'attending_physiotherapist';
+export type ImagingAttachmentType =
+  | 'key_image'
+  | 'radiology_report_pdf'
+  | 'requisition_form_pdf'
+  | 'patient_scanned_document';
+export type ImagingMimeType =
+  | 'image/jpeg'
+  | 'image/png'
+  | 'application/pdf';
+
 
 export interface Database {
   public: {
@@ -510,6 +576,378 @@ export interface Database {
           idempotency_key?: string;
           notes?: string | null;
           actor_user_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      practice_imaging_counters: {
+        Row: {
+          practice_id: string;
+          last_order_number: number;
+          last_study_number: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          last_order_number?: number;
+          last_study_number?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          last_order_number?: number;
+          last_study_number?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      imaging_orders: {
+        Row: {
+          id: string;
+          practice_id: string;
+          order_number: string;
+          patient_id: string;
+          episode_id: string | null;
+          clinical_visit_id: string | null;
+          ordering_clinician_id: string;
+          modality: ImagingModality;
+          anatomical_region: ImagingAnatomicalRegion;
+          laterality: ImagingLaterality;
+          clinical_indication: string;
+          provisional_diagnosis: string | null;
+          urgency: ImagingUrgency;
+          red_flag_concerns: string[];
+          contraindications_screened: boolean;
+          contraindication_notes: string | null;
+          referred_facility_name: string | null;
+          status: ImagingOrderStatus;
+          order_date: string;
+          placed_at: string | null;
+          cancelled_at: string | null;
+          cancellation_reason: string | null;
+          completed_at: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          order_number: string;
+          patient_id: string;
+          episode_id?: string | null;
+          clinical_visit_id?: string | null;
+          ordering_clinician_id: string;
+          modality: ImagingModality;
+          anatomical_region: ImagingAnatomicalRegion;
+          laterality?: ImagingLaterality;
+          clinical_indication: string;
+          provisional_diagnosis?: string | null;
+          urgency?: ImagingUrgency;
+          red_flag_concerns?: string[];
+          contraindications_screened?: boolean;
+          contraindication_notes?: string | null;
+          referred_facility_name?: string | null;
+          status?: ImagingOrderStatus;
+          order_date?: string;
+          placed_at?: string | null;
+          cancelled_at?: string | null;
+          cancellation_reason?: string | null;
+          completed_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          order_number?: string;
+          patient_id?: string;
+          episode_id?: string | null;
+          clinical_visit_id?: string | null;
+          ordering_clinician_id?: string;
+          modality?: ImagingModality;
+          anatomical_region?: ImagingAnatomicalRegion;
+          laterality?: ImagingLaterality;
+          clinical_indication?: string;
+          provisional_diagnosis?: string | null;
+          urgency?: ImagingUrgency;
+          red_flag_concerns?: string[];
+          contraindications_screened?: boolean;
+          contraindication_notes?: string | null;
+          referred_facility_name?: string | null;
+          status?: ImagingOrderStatus;
+          order_date?: string;
+          placed_at?: string | null;
+          cancelled_at?: string | null;
+          cancellation_reason?: string | null;
+          completed_at?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      imaging_studies: {
+        Row: {
+          id: string;
+          practice_id: string;
+          study_number: string;
+          patient_id: string;
+          episode_id: string | null;
+          clinical_visit_id: string | null;
+          order_id: string | null;
+          referring_clinician_id: string | null;
+          reviewing_clinician_id: string | null;
+          study_instance_uid: string | null;
+          accession_number: string | null;
+          study_date: string;
+          study_time: string | null;
+          modality: ImagingModality;
+          anatomical_region: ImagingAnatomicalRegion;
+          laterality: ImagingLaterality;
+          performing_facility: string | null;
+          body_part_examined: string | null;
+          series_count: number;
+          instance_count: number;
+          external_viewer_url: string | null;
+          review_status: ImagingReviewStatus;
+          reviewed_at: string | null;
+          clinical_functional_interpretation: string | null;
+          correlation_with_physical_findings: string | null;
+          treatment_plan_impact: string | null;
+          red_flag_alert: boolean;
+          red_flag_details: string | null;
+          patient_release_status: ImagingPatientReleaseStatus;
+          released_at: string | null;
+          released_by: string | null;
+          is_patient_visible: boolean;
+          is_active: boolean;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          study_number: string;
+          patient_id: string;
+          episode_id?: string | null;
+          clinical_visit_id?: string | null;
+          order_id?: string | null;
+          referring_clinician_id?: string | null;
+          reviewing_clinician_id?: string | null;
+          study_instance_uid?: string | null;
+          accession_number?: string | null;
+          study_date: string;
+          study_time?: string | null;
+          modality: ImagingModality;
+          anatomical_region: ImagingAnatomicalRegion;
+          laterality?: ImagingLaterality;
+          performing_facility?: string | null;
+          body_part_examined?: string | null;
+          series_count?: number;
+          instance_count?: number;
+          external_viewer_url?: string | null;
+          review_status?: ImagingReviewStatus;
+          reviewed_at?: string | null;
+          clinical_functional_interpretation?: string | null;
+          correlation_with_physical_findings?: string | null;
+          treatment_plan_impact?: string | null;
+          red_flag_alert?: boolean;
+          red_flag_details?: string | null;
+          patient_release_status?: ImagingPatientReleaseStatus;
+          released_at?: string | null;
+          released_by?: string | null;
+          is_patient_visible?: boolean;
+          is_active?: boolean;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          study_number?: string;
+          patient_id?: string;
+          episode_id?: string | null;
+          clinical_visit_id?: string | null;
+          order_id?: string | null;
+          referring_clinician_id?: string | null;
+          reviewing_clinician_id?: string | null;
+          study_instance_uid?: string | null;
+          accession_number?: string | null;
+          study_date?: string;
+          study_time?: string | null;
+          modality?: ImagingModality;
+          anatomical_region?: ImagingAnatomicalRegion;
+          laterality?: ImagingLaterality;
+          performing_facility?: string | null;
+          body_part_examined?: string | null;
+          series_count?: number;
+          instance_count?: number;
+          external_viewer_url?: string | null;
+          review_status?: ImagingReviewStatus;
+          reviewed_at?: string | null;
+          clinical_functional_interpretation?: string | null;
+          correlation_with_physical_findings?: string | null;
+          treatment_plan_impact?: string | null;
+          red_flag_alert?: boolean;
+          red_flag_details?: string | null;
+          patient_release_status?: ImagingPatientReleaseStatus;
+          released_at?: string | null;
+          released_by?: string | null;
+          is_patient_visible?: boolean;
+          is_active?: boolean;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      imaging_reports: {
+        Row: {
+          id: string;
+          practice_id: string;
+          study_id: string;
+          patient_id: string;
+          report_type: ImagingReportType;
+          source: ImagingReportSource;
+          author_name: string;
+          author_credentials: string | null;
+          authoring_organization: string | null;
+          findings: string;
+          impression: string;
+          recommendations: string | null;
+          critical_findings_identified: boolean;
+          critical_findings_communicated: boolean;
+          communication_details: string | null;
+          reported_at: string;
+          transcribed_at: string | null;
+          is_amendment: boolean;
+          original_report_id: string | null;
+          amendment_reason: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          study_id: string;
+          patient_id: string;
+          report_type?: ImagingReportType;
+          source?: ImagingReportSource;
+          author_name: string;
+          author_credentials?: string | null;
+          authoring_organization?: string | null;
+          findings: string;
+          impression: string;
+          recommendations?: string | null;
+          critical_findings_identified?: boolean;
+          critical_findings_communicated?: boolean;
+          communication_details?: string | null;
+          reported_at?: string;
+          transcribed_at?: string | null;
+          is_amendment?: boolean;
+          original_report_id?: string | null;
+          amendment_reason?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          study_id?: string;
+          patient_id?: string;
+          report_type?: ImagingReportType;
+          source?: ImagingReportSource;
+          author_name?: string;
+          author_credentials?: string | null;
+          authoring_organization?: string | null;
+          findings?: string;
+          impression?: string;
+          recommendations?: string | null;
+          critical_findings_identified?: boolean;
+          critical_findings_communicated?: boolean;
+          communication_details?: string | null;
+          reported_at?: string;
+          transcribed_at?: string | null;
+          is_amendment?: boolean;
+          original_report_id?: string | null;
+          amendment_reason?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      imaging_attachments: {
+        Row: {
+          id: string;
+          practice_id: string;
+          study_id: string;
+          patient_id: string;
+          report_id: string | null;
+          attachment_type: ImagingAttachmentType;
+          storage_path: string;
+          file_name: string;
+          file_size_bytes: number;
+          mime_type: ImagingMimeType;
+          sha256_hash: string;
+          caption: string | null;
+          key_slice_reference: string | null;
+          is_patient_visible: boolean;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          study_id: string;
+          patient_id: string;
+          report_id?: string | null;
+          attachment_type: ImagingAttachmentType;
+          storage_path: string;
+          file_name: string;
+          file_size_bytes: number;
+          mime_type: ImagingMimeType;
+          sha256_hash: string;
+          caption?: string | null;
+          key_slice_reference?: string | null;
+          is_patient_visible?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          study_id?: string;
+          patient_id?: string;
+          report_id?: string | null;
+          attachment_type?: ImagingAttachmentType;
+          storage_path?: string;
+          file_name?: string;
+          file_size_bytes?: number;
+          mime_type?: ImagingMimeType;
+          sha256_hash?: string;
+          caption?: string | null;
+          key_slice_reference?: string | null;
+          is_patient_visible?: boolean;
+          created_by?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -3447,6 +3885,145 @@ export interface Database {
         };
         Returns: Json;
       };
+      generate_next_imaging_order_identifier: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
+      generate_next_imaging_study_identifier: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: string;
+      };
+      create_imaging_order: {
+        Args: {
+          p_practice_id: string;
+          p_patient_id: string;
+          p_ordering_clinician_id: string;
+          p_modality: ImagingModality;
+          p_anatomical_region: ImagingAnatomicalRegion;
+          p_clinical_indication: string;
+          p_laterality?: ImagingLaterality;
+          p_episode_id?: string | null;
+          p_clinical_visit_id?: string | null;
+          p_provisional_diagnosis?: string | null;
+          p_urgency?: ImagingUrgency;
+          p_red_flag_concerns?: string[];
+          p_contraindications_screened?: boolean;
+          p_contraindication_notes?: string | null;
+          p_referred_facility_name?: string | null;
+        };
+        Returns: string;
+      };
+      place_imaging_order: {
+        Args: {
+          p_order_id: string;
+        };
+        Returns: undefined;
+      };
+      cancel_imaging_order: {
+        Args: {
+          p_order_id: string;
+          p_cancellation_reason: string;
+        };
+        Returns: undefined;
+      };
+      ingest_imaging_study: {
+        Args: {
+          p_practice_id: string;
+          p_patient_id: string;
+          p_study_date: string;
+          p_modality: ImagingModality;
+          p_anatomical_region: ImagingAnatomicalRegion;
+          p_order_id?: string | null;
+          p_episode_id?: string | null;
+          p_clinical_visit_id?: string | null;
+          p_referring_clinician_id?: string | null;
+          p_study_instance_uid?: string | null;
+          p_accession_number?: string | null;
+          p_study_time?: string | null;
+          p_laterality?: ImagingLaterality;
+          p_performing_facility?: string | null;
+          p_body_part_examined?: string | null;
+          p_series_count?: number;
+          p_instance_count?: number;
+          p_external_viewer_url?: string | null;
+        };
+        Returns: string;
+      };
+      attach_imaging_report: {
+        Args: {
+          p_study_id: string;
+          p_author_name: string;
+          p_findings: string;
+          p_impression: string;
+          p_report_type?: ImagingReportType;
+          p_source?: ImagingReportSource;
+          p_author_credentials?: string | null;
+          p_authoring_organization?: string | null;
+          p_recommendations?: string | null;
+          p_critical_findings_identified?: boolean;
+          p_critical_findings_communicated?: boolean;
+          p_communication_details?: string | null;
+        };
+        Returns: string;
+      };
+      register_imaging_attachment: {
+        Args: {
+          p_study_id: string;
+          p_attachment_type: ImagingAttachmentType;
+          p_storage_path: string;
+          p_file_name: string;
+          p_file_size_bytes: number;
+          p_mime_type: ImagingMimeType;
+          p_sha256_hash: string;
+          p_report_id?: string | null;
+          p_caption?: string | null;
+          p_key_slice_reference?: string | null;
+          p_is_patient_visible?: boolean;
+        };
+        Returns: string;
+      };
+      finalize_imaging_study_review: {
+        Args: {
+          p_study_id: string;
+          p_clinical_functional_interpretation: string;
+          p_correlation_with_physical_findings?: string | null;
+          p_treatment_plan_impact?: string | null;
+          p_red_flag_alert?: boolean;
+          p_red_flag_details?: string | null;
+        };
+        Returns: undefined;
+      };
+      amend_imaging_study_review: {
+        Args: {
+          p_study_id: string;
+          p_amendment_notes: string;
+          p_amendment_reason: string;
+        };
+        Returns: undefined;
+      };
+      release_imaging_to_patient: {
+        Args: {
+          p_study_id: string;
+          p_release_notes?: string | null;
+        };
+        Returns: undefined;
+      };
+      get_imaging_attachment_download_url: {
+        Args: {
+          p_attachment_id: string;
+        };
+        Returns: Json;
+      };
+      get_patient_imaging_summary: {
+        Args: {
+          p_patient_id: string;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       membership_role: MembershipRole;
@@ -3500,6 +4077,17 @@ export interface Database {
       inventory_base_unit: InventoryBaseUnit;
       inventory_movement_type: InventoryMovementType;
       inventory_adjustment_reason: InventoryAdjustmentReason;
+      imaging_modality: ImagingModality;
+      imaging_anatomical_region: ImagingAnatomicalRegion;
+      imaging_laterality: ImagingLaterality;
+      imaging_urgency: ImagingUrgency;
+      imaging_order_status: ImagingOrderStatus;
+      imaging_review_status: ImagingReviewStatus;
+      imaging_patient_release_status: ImagingPatientReleaseStatus;
+      imaging_report_type: ImagingReportType;
+      imaging_report_source: ImagingReportSource;
+      imaging_attachment_type: ImagingAttachmentType;
+      imaging_mime_type: ImagingMimeType;
     };
     CompositeTypes: {
       [_ in never]: never;

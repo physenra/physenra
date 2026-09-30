@@ -49,7 +49,32 @@ import type {
   InventoryBaseUnit,
   InventoryMovementType,
   InventoryAdjustmentReason,
+  ImagingModality,
+  ImagingAnatomicalRegion,
+  ImagingLaterality,
+  ImagingUrgency,
+  ImagingOrderStatus,
+  ImagingReviewStatus,
+  ImagingPatientReleaseStatus,
+  ImagingReportType,
+  ImagingReportSource,
+  ImagingAttachmentType,
+  ImagingMimeType,
 } from './database';
+
+export type {
+  ImagingModality,
+  ImagingAnatomicalRegion,
+  ImagingLaterality,
+  ImagingUrgency,
+  ImagingOrderStatus,
+  ImagingReviewStatus,
+  ImagingPatientReleaseStatus,
+  ImagingReportType,
+  ImagingReportSource,
+  ImagingAttachmentType,
+  ImagingMimeType,
+};
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type Practice = Database['public']['Tables']['practices']['Row'];
@@ -1121,6 +1146,204 @@ export interface StockMovementFilters {
   startDate?: string;
   endDate?: string;
 }
+
+// ==========================================
+// DICOM & Medical Imaging Foundation Models
+// ==========================================
+
+export type PracticeImagingCounters = Database['public']['Tables']['practice_imaging_counters']['Row'];
+export type PracticeImagingCountersInsert = Database['public']['Tables']['practice_imaging_counters']['Insert'];
+export type PracticeImagingCountersUpdate = Database['public']['Tables']['practice_imaging_counters']['Update'];
+
+export type ImagingOrder = Database['public']['Tables']['imaging_orders']['Row'];
+export type ImagingOrderInsert = Database['public']['Tables']['imaging_orders']['Insert'];
+export type ImagingOrderUpdate = Database['public']['Tables']['imaging_orders']['Update'];
+
+export type ImagingStudy = Database['public']['Tables']['imaging_studies']['Row'];
+export type ImagingStudyInsert = Database['public']['Tables']['imaging_studies']['Insert'];
+export type ImagingStudyUpdate = Database['public']['Tables']['imaging_studies']['Update'];
+
+export type ImagingReport = Database['public']['Tables']['imaging_reports']['Row'];
+export type ImagingReportInsert = Database['public']['Tables']['imaging_reports']['Insert'];
+export type ImagingReportUpdate = Database['public']['Tables']['imaging_reports']['Update'];
+
+export type ImagingAttachment = Database['public']['Tables']['imaging_attachments']['Row'];
+export type ImagingAttachmentInsert = Database['public']['Tables']['imaging_attachments']['Insert'];
+export type ImagingAttachmentUpdate = Database['public']['Tables']['imaging_attachments']['Update'];
+
+export interface ImagingOrderWithRelations extends ImagingOrder {
+  patient?: {
+    id: string;
+    patient_identifier: string;
+    first_name: string;
+    last_name: string;
+    date_of_birth?: string | null;
+    gender?: string | null;
+    phone?: string | null;
+  };
+  episode?: {
+    id: string;
+    episode_number?: string;
+    title?: string;
+  } | null;
+  visit?: {
+    id: string;
+    visit_number?: string;
+    start_time?: string;
+  } | null;
+  ordering_clinician?: {
+    id: string;
+    full_name?: string;
+    email?: string;
+  } | null;
+  studies?: ImagingStudy[];
+}
+
+export interface ImagingStudyWithRelations extends ImagingStudy {
+  patient?: {
+    id: string;
+    patient_identifier: string;
+    first_name: string;
+    last_name: string;
+    date_of_birth?: string | null;
+    gender?: string | null;
+  };
+  order?: ImagingOrder | null;
+  episode?: {
+    id: string;
+    episode_number?: string;
+    title?: string;
+  } | null;
+  visit?: {
+    id: string;
+    visit_number?: string;
+    start_time?: string;
+  } | null;
+  reviewed_by_clinician?: {
+    id: string;
+    full_name?: string;
+    email?: string;
+  } | null;
+  reports?: ImagingReportWithRelations[];
+  attachments?: ImagingAttachment[];
+}
+
+export interface ImagingReportWithRelations extends ImagingReport {
+  study?: ImagingStudy;
+  amended_from?: ImagingReport | null;
+  attachments?: ImagingAttachment[];
+}
+
+export interface ImagingAttachmentWithRelations extends ImagingAttachment {
+  study?: ImagingStudy;
+  patient?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  };
+}
+
+export interface CreateImagingOrderPayload {
+  patient_id: string;
+  modality: ImagingModality;
+  anatomical_region: ImagingAnatomicalRegion;
+  clinical_indication: string;
+  ordering_clinician_id?: string;
+  laterality?: ImagingLaterality;
+  episode_id?: string | null;
+  clinical_visit_id?: string | null;
+  provisional_diagnosis?: string | null;
+  urgency?: ImagingUrgency;
+  red_flag_concerns?: string[];
+  contraindications_screened?: boolean;
+  contraindication_notes?: string | null;
+  referred_facility_name?: string | null;
+}
+
+export interface IngestImagingStudyPayload {
+  patient_id: string;
+  study_date: string;
+  modality: ImagingModality;
+  anatomical_region: ImagingAnatomicalRegion;
+  order_id?: string | null;
+  episode_id?: string | null;
+  clinical_visit_id?: string | null;
+  referring_clinician_id?: string | null;
+  study_instance_uid?: string | null;
+  accession_number?: string | null;
+  study_time?: string | null;
+  laterality?: ImagingLaterality;
+  performing_facility?: string | null;
+  body_part_examined?: string | null;
+  series_count?: number;
+  instance_count?: number;
+  external_viewer_url?: string | null;
+}
+
+export interface AttachImagingReportPayload {
+  study_id: string;
+  author_name: string;
+  findings: string;
+  impression: string;
+  report_type?: ImagingReportType;
+  source?: ImagingReportSource;
+  author_credentials?: string | null;
+  authoring_organization?: string | null;
+  recommendations?: string | null;
+  critical_findings_identified?: boolean;
+  critical_findings_communicated?: boolean;
+  communication_details?: string | null;
+}
+
+export interface RegisterImagingAttachmentPayload {
+  study_id: string;
+  attachment_type: ImagingAttachmentType;
+  storage_path: string;
+  file_name: string;
+  file_size_bytes: number;
+  mime_type: ImagingMimeType;
+  sha256_hash: string;
+  report_id?: string | null;
+  caption?: string | null;
+  key_slice_reference?: string | null;
+  is_patient_visible?: boolean;
+}
+
+export interface FinalizeImagingStudyReviewPayload {
+  study_id: string;
+  clinical_functional_interpretation: string;
+  correlation_with_physical_findings?: string | null;
+  treatment_plan_impact?: string | null;
+  red_flag_alert?: boolean;
+  red_flag_details?: string | null;
+}
+
+export interface AmendImagingStudyReviewPayload {
+  study_id: string;
+  amendment_notes: string;
+  amendment_reason: string;
+}
+
+export interface ImagingOrderFilters {
+  patientId?: string;
+  modality?: ImagingModality | 'all';
+  status?: ImagingOrderStatus | 'all';
+  urgency?: ImagingUrgency | 'all';
+  searchQuery?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface ImagingStudyFilters {
+  patientId?: string;
+  modality?: ImagingModality | 'all';
+  reviewStatus?: ImagingReviewStatus | 'all';
+  searchQuery?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+
 
 
 

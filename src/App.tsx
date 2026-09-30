@@ -69,6 +69,15 @@ import { ReceiveStockPage } from './pages/inventory/ReceiveStockPage';
 import { TransferStockPage } from './pages/inventory/TransferStockPage';
 import { AdjustStockPage } from './pages/inventory/AdjustStockPage';
 import { InventoryLocationsPage } from './pages/inventory/InventoryLocationsPage';
+import { ImagingDashboardPage } from './pages/imaging/ImagingDashboardPage';
+import { ImagingOrdersPage } from './pages/imaging/ImagingOrdersPage';
+import { CreateImagingOrderPage } from './pages/imaging/CreateImagingOrderPage';
+import { ImagingOrderDetailPage } from './pages/imaging/ImagingOrderDetailPage';
+import { ImagingStudiesPage } from './pages/imaging/ImagingStudiesPage';
+import { IngestImagingStudyPage } from './pages/imaging/IngestImagingStudyPage';
+import { ImagingStudyDetailPage } from './pages/imaging/ImagingStudyDetailPage';
+import { ReviewImagingStudyPage } from './pages/imaging/ReviewImagingStudyPage';
+import { AttachImagingReportPage } from './pages/imaging/AttachImagingReportPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -200,6 +209,19 @@ export const App: React.FC = () => {
         <Route path="inventory/adjust" element={<AdjustStockPage />} />
         <Route path="inventory/locations" element={<InventoryLocationsPage />} />
         <Route path="inventory/:itemId" element={<InventoryItemDetailPage />} />
+
+        {/* DICOM & Medical Imaging Foundation V1 */}
+        <Route path="imaging" element={<ImagingDashboardPage />} />
+        <Route path="imaging/orders" element={<ImagingOrdersPage />} />
+        <Route path="imaging/orders/new" element={<CreateImagingOrderPage />} />
+        <Route path="imaging/orders/:orderId" element={<ImagingOrderDetailPage />} />
+        <Route path="imaging/studies" element={<ImagingStudiesPage />} />
+        <Route path="imaging/studies/new" element={<IngestImagingStudyPage />} />
+        <Route path="imaging/studies/ingest" element={<IngestImagingStudyPage />} />
+        <Route path="imaging/studies/:studyId" element={<ImagingStudyDetailPage />} />
+        <Route path="imaging/studies/:studyId/review" element={<ReviewImagingStudyPage />} />
+        <Route path="imaging/studies/:studyId/attach-report" element={<AttachImagingReportPage />} />
+        <Route path="imaging/studies/:studyId/reports/new" element={<AttachImagingReportPage />} />
       </Route>
 
       {/* Unmatched 404 Route */}
