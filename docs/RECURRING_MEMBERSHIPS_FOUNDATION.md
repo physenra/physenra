@@ -229,7 +229,7 @@ Membership agreements are assigned human-readable sequential identifiers (`MBR-0
 ---
 
 ## 8. Verification & Test Coverage
-- **Dedicated Test Suite**: [`tests/memberships.test.cjs`](file:///C:/project/physenra/tests/memberships.test.cjs) contains 52 comprehensive tests across 10 suites:
+- **Dedicated Test Suite**: [`tests/memberships.test.cjs`](file:///C:/project/physenra/tests/memberships.test.cjs) contains 59 comprehensive tests across 11 suites:
   - Suite 1: Database Schema & Relational Tenancy (7 tests)
   - Suite 2: Atomic Sequential Identifier Generator (3 tests)
   - Suite 3: Immutability & Lifecycle Triggers (3 tests)
@@ -240,7 +240,8 @@ Membership agreements are assigned human-readable sequential identifiers (`MBR-0
   - Suite 8: Absolute Domain Boundary Verification (7 tests)
   - Suite 9: Legacy Isolation (Zero Forbidden Keywords) (1 test)
   - Suite 10: Remote Supabase Live Verification with Disambiguated Hints (5 tests)
-- **Full Regression Test Suite**: `npm test` reports **653 / 653 tests passing across all domains (0 failures)**.
+  - Suite 11: Clinical Usage Authority & Immutability Hardening (6 tests)
+- **Full Regression Test Suite**: `npm test` reports **660 / 660 tests passing across all domains (0 failures)**.
 - **Production Build**: `npm run build` compiles with **zero TypeScript errors and zero Rollup errors**.
 
 ---

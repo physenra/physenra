@@ -27,6 +27,13 @@ const MIGRATION_PATH = path.join(
   'migrations',
   '20260929012000_recurring_memberships_foundation.sql'
 );
+const HARDEN_MIGRATION_PATH = path.join(
+  __dirname,
+  '..',
+  'supabase',
+  'migrations',
+  '20260929013000_harden_membership_financial_invariants.sql'
+);
 const MEMBERSHIP_SERVICE_PATH = path.join(
   __dirname,
   '..',
@@ -50,6 +57,7 @@ const TYPES_MODELS_PATH = path.join(
 );
 
 const migrationSql = fs.readFileSync(MIGRATION_PATH, 'utf8');
+const hardenMigrationSql = fs.readFileSync(HARDEN_MIGRATION_PATH, 'utf8');
 const membershipServiceCode = fs.readFileSync(MEMBERSHIP_SERVICE_PATH, 'utf8');
 const typesDbCode = fs.readFileSync(TYPES_DB_PATH, 'utf8');
 const typesModelsCode = fs.readFileSync(TYPES_MODELS_PATH, 'utf8');
@@ -463,6 +471,7 @@ test('PHYSENRA RECURRING MEMBERSHIPS FOUNDATION V1 VERIFICATION', async (t) => {
     await st.test('Zero forbidden legacy references across membership files', () => {
       const forbiddenPattern = /kabworld/i;
       assert(!forbiddenPattern.test(migrationSql), 'Migration contains forbidden legacy reference');
+      assert(!forbiddenPattern.test(hardenMigrationSql), 'Hardening migration contains forbidden legacy reference');
       assert(!forbiddenPattern.test(membershipServiceCode), 'Service contains forbidden legacy reference');
       assert(!forbiddenPattern.test(typesDbCode), 'types/database contains forbidden legacy reference');
       assert(!forbiddenPattern.test(typesModelsCode), 'types/models contains forbidden legacy reference');
@@ -515,6 +524,64 @@ test('PHYSENRA RECURRING MEMBERSHIPS FOUNDATION V1 VERIFICATION', async (t) => {
       const url = `${SUPABASE_URL}/rest/v1/patient_memberships?select=*,profiles(id)&limit=1`;
       const res = await fetch(url, { headers });
       assert.equal(res.status, 300, `Expected HTTP 300 for unhinted patient_memberships query, got ${res.status}`);
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 11: Clinical Usage Authority & Immutability Hardening
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 11: Clinical Usage Authority & Immutability Hardening ---', async (st) => {
+    await st.test('record_membership_visit_usage strictly requires clinical visit status completed', () => {
+      assert(
+        hardenMigrationSql.includes("v_visit.status <> 'completed'") &&
+        hardenMigrationSql.includes('Clinical visit must be completed to record membership usage'),
+        'Must reject non-completed visits in record_membership_visit_usage'
+      );
+    });
+
+    await st.test('record_membership_visit_usage verifies clinical encounter falls within cycle window', () => {
+      assert(
+        hardenMigrationSql.includes('v_visit_date < v_cycle.cycle_start_date OR v_visit_date > v_cycle.cycle_end_date') &&
+        hardenMigrationSql.includes('falls outside billing cycle window'),
+        'Must reject clinical visits that fall outside cycle date bounds'
+      );
+    });
+
+    await st.test('generate_membership_cycle_invoice prohibits generating invoices on non-active memberships', () => {
+      assert(
+        hardenMigrationSql.includes("v_membership.status <> 'active'") &&
+        hardenMigrationSql.includes('Cannot generate cycle invoice for membership in status'),
+        'Must block cycle invoice generation for non-active memberships'
+      );
+    });
+
+    await st.test('Billing cycle immutability trigger protects identification, quota, dates, and invoice link', () => {
+      assert(
+        hardenMigrationSql.includes('protect_membership_billing_cycles_immutability') &&
+        hardenMigrationSql.includes('trg_protect_membership_billing_cycles_immutability') &&
+        hardenMigrationSql.includes('Linked authoritative cycle invoice cannot be modified or unlinked') &&
+        hardenMigrationSql.includes("OLD.status IN ('completed', 'cancelled')"),
+        'Must register immutability and terminal state protection trigger on membership_billing_cycles'
+      );
+    });
+
+    await st.test('Membership plans immutability trigger protects plan code, service link, and currency', () => {
+      assert(
+        hardenMigrationSql.includes('protect_membership_plans_immutability') &&
+        hardenMigrationSql.includes('trg_protect_membership_plans_immutability') &&
+        hardenMigrationSql.includes('Core membership plan code, service link, currency, and creation audit fields are immutable'),
+        'Must register immutability trigger on membership_plans'
+      );
+    });
+
+    await st.test('patient_memberships enforces chk_membership_pause and persists pause_reason', () => {
+      assert(
+        hardenMigrationSql.includes('chk_membership_pause') &&
+        hardenMigrationSql.includes('pause_reason IS NOT NULL AND \n                    length(trim(pause_reason)) >= 5') &&
+        hardenMigrationSql.includes('pause_reason = trim(p_reason)') &&
+        hardenMigrationSql.includes('pause_reason = NULL'),
+        'Must enforce pause constraint and maintain pause_reason lifecycle'
+      );
     });
   });
 });

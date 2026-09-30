@@ -2543,6 +2543,7 @@ export interface Database {
           auto_renew: boolean;
           paused_at: string | null;
           resumed_at: string | null;
+          pause_reason: string | null;
           cancelled_at: string | null;
           cancelled_by: string | null;
           cancellation_reason: string | null;
@@ -2562,6 +2563,7 @@ export interface Database {
           auto_renew?: boolean;
           paused_at?: string | null;
           resumed_at?: string | null;
+          pause_reason?: string | null;
           cancelled_at?: string | null;
           cancelled_by?: string | null;
           cancellation_reason?: string | null;
@@ -2581,6 +2583,7 @@ export interface Database {
           auto_renew?: boolean;
           paused_at?: string | null;
           resumed_at?: string | null;
+          pause_reason?: string | null;
           cancelled_at?: string | null;
           cancelled_by?: string | null;
           cancellation_reason?: string | null;
