@@ -24,6 +24,26 @@ export type SubscriptionStatus =
   | 'paused'
   | 'cancelled'
   | 'expired';
+export type SaasPlanCode = 'solo' | 'professional' | 'clinic' | 'enterprise';
+export type SaasBillingInterval = 'monthly' | 'annual' | 'custom';
+export type SaasSubscriptionStatus =
+  | 'trialing'
+  | 'active'
+  | 'pending_payment'
+  | 'past_due'
+  | 'grace_period'
+  | 'suspended'
+  | 'cancelled'
+  | 'expired';
+export type SaasInvoiceStatus = 'draft' | 'open' | 'paid' | 'uncollectible' | 'void';
+export type SaasPaymentStatus = 'pending' | 'successful' | 'failed' | 'refunded';
+export type SaasPaymentGateway =
+  | 'paystack'
+  | 'flutterwave'
+  | 'stripe'
+  | 'manual_bank_transfer'
+  | 'offline';
+
 export type PatientStatus = 'active' | 'inactive' | 'archived';
 export type PatientSex = 'male' | 'female' | 'other' | 'unknown';
 export type EpisodeStatus = 'active' | 'paused' | 'completed' | 'archived';
@@ -304,6 +324,417 @@ export type ImagingMimeType =
 export interface Database {
   public: {
     Tables: {
+      saas_plans: {
+        Row: {
+          id: string;
+          plan_code: SaasPlanCode;
+          name: string;
+          description: string | null;
+          currency: string;
+          monthly_price_cents: number;
+          annual_price_cents: number;
+          practitioner_seat_limit: number;
+          admin_seat_limit: number;
+          features: Json;
+          storage_allowance_mb: number;
+          is_active: boolean;
+          is_public: boolean;
+          trial_allowed: boolean;
+          trial_duration_days: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          plan_code: SaasPlanCode;
+          name: string;
+          description?: string | null;
+          currency?: string;
+          monthly_price_cents: number;
+          annual_price_cents: number;
+          practitioner_seat_limit: number;
+          admin_seat_limit?: number;
+          features?: Json;
+          storage_allowance_mb?: number;
+          is_active?: boolean;
+          is_public?: boolean;
+          trial_allowed?: boolean;
+          trial_duration_days?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          plan_code?: SaasPlanCode;
+          name?: string;
+          description?: string | null;
+          currency?: string;
+          monthly_price_cents?: number;
+          annual_price_cents?: number;
+          practitioner_seat_limit?: number;
+          admin_seat_limit?: number;
+          features?: Json;
+          storage_allowance_mb?: number;
+          is_active?: boolean;
+          is_public?: boolean;
+          trial_allowed?: boolean;
+          trial_duration_days?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      practice_subscriptions: {
+        Row: {
+          id: string;
+          practice_id: string;
+          plan_id: string;
+          status: SaasSubscriptionStatus;
+          billing_interval: SaasBillingInterval;
+          current_price_cents: number;
+          currency: string;
+          seat_limit: number;
+          current_period_start: string;
+          current_period_end: string;
+          trial_started_at: string | null;
+          trial_ends_at: string | null;
+          grace_period_ends_at: string | null;
+          cancel_at_period_end: boolean;
+          cancelled_at: string | null;
+          suspended_at: string | null;
+          gateway_provider: SaasPaymentGateway;
+          gateway_customer_code: string | null;
+          gateway_subscription_code: string | null;
+          gateway_auth_token: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          plan_id: string;
+          status?: SaasSubscriptionStatus;
+          billing_interval?: SaasBillingInterval;
+          current_price_cents: number;
+          currency?: string;
+          seat_limit: number;
+          current_period_start: string;
+          current_period_end: string;
+          trial_started_at?: string | null;
+          trial_ends_at?: string | null;
+          grace_period_ends_at?: string | null;
+          cancel_at_period_end?: boolean;
+          cancelled_at?: string | null;
+          suspended_at?: string | null;
+          gateway_provider?: SaasPaymentGateway;
+          gateway_customer_code?: string | null;
+          gateway_subscription_code?: string | null;
+          gateway_auth_token?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          plan_id?: string;
+          status?: SaasSubscriptionStatus;
+          billing_interval?: SaasBillingInterval;
+          current_price_cents?: number;
+          currency?: string;
+          seat_limit?: number;
+          current_period_start?: string;
+          current_period_end?: string;
+          trial_started_at?: string | null;
+          trial_ends_at?: string | null;
+          grace_period_ends_at?: string | null;
+          cancel_at_period_end?: boolean;
+          cancelled_at?: string | null;
+          suspended_at?: string | null;
+          gateway_provider?: SaasPaymentGateway;
+          gateway_customer_code?: string | null;
+          gateway_subscription_code?: string | null;
+          gateway_auth_token?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      saas_billing_cycles: {
+        Row: {
+          id: string;
+          subscription_id: string;
+          practice_id: string;
+          cycle_number: number;
+          start_date: string;
+          end_date: string;
+          plan_snapshot: Json;
+          amount_cents: number;
+          currency: string;
+          is_trial: boolean;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          subscription_id: string;
+          practice_id: string;
+          cycle_number: number;
+          start_date: string;
+          end_date: string;
+          plan_snapshot: Json;
+          amount_cents: number;
+          currency?: string;
+          is_trial?: boolean;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          subscription_id?: string;
+          practice_id?: string;
+          cycle_number?: number;
+          start_date?: string;
+          end_date?: string;
+          plan_snapshot?: Json;
+          amount_cents?: number;
+          currency?: string;
+          is_trial?: boolean;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      saas_invoices: {
+        Row: {
+          id: string;
+          invoice_number: string;
+          practice_id: string;
+          subscription_id: string;
+          billing_cycle_id: string | null;
+          currency: string;
+          subtotal_cents: number;
+          discount_cents: number;
+          tax_cents: number;
+          total_cents: number;
+          status: SaasInvoiceStatus;
+          due_date: string;
+          paid_at: string | null;
+          voided_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          invoice_number: string;
+          practice_id: string;
+          subscription_id: string;
+          billing_cycle_id?: string | null;
+          currency?: string;
+          subtotal_cents: number;
+          discount_cents?: number;
+          tax_cents?: number;
+          total_cents: number;
+          status?: SaasInvoiceStatus;
+          due_date: string;
+          paid_at?: string | null;
+          voided_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          invoice_number?: string;
+          practice_id?: string;
+          subscription_id?: string;
+          billing_cycle_id?: string | null;
+          currency?: string;
+          subtotal_cents?: number;
+          discount_cents?: number;
+          tax_cents?: number;
+          total_cents?: number;
+          status?: SaasInvoiceStatus;
+          due_date?: string;
+          paid_at?: string | null;
+          voided_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      saas_invoice_lines: {
+        Row: {
+          id: string;
+          invoice_id: string;
+          description: string;
+          quantity: number;
+          unit_price_cents: number;
+          amount_cents: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          invoice_id: string;
+          description: string;
+          quantity?: number;
+          unit_price_cents: number;
+          amount_cents: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          invoice_id?: string;
+          description?: string;
+          quantity?: number;
+          unit_price_cents?: number;
+          amount_cents?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      saas_payments: {
+        Row: {
+          id: string;
+          payment_number: string;
+          invoice_id: string;
+          practice_id: string;
+          amount_cents: number;
+          currency: string;
+          payment_method: string;
+          gateway_provider: SaasPaymentGateway;
+          gateway_reference: string;
+          gateway_fee_cents: number;
+          status: SaasPaymentStatus;
+          settled_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          payment_number: string;
+          invoice_id: string;
+          practice_id: string;
+          amount_cents: number;
+          currency?: string;
+          payment_method: string;
+          gateway_provider: SaasPaymentGateway;
+          gateway_reference: string;
+          gateway_fee_cents?: number;
+          status?: SaasPaymentStatus;
+          settled_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          payment_number?: string;
+          invoice_id?: string;
+          practice_id?: string;
+          amount_cents?: number;
+          currency?: string;
+          payment_method?: string;
+          gateway_provider?: SaasPaymentGateway;
+          gateway_reference?: string;
+          gateway_fee_cents?: number;
+          status?: SaasPaymentStatus;
+          settled_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      saas_webhook_events: {
+        Row: {
+          id: string;
+          gateway: SaasPaymentGateway;
+          external_event_id: string;
+          event_type: string;
+          payload: Json;
+          signature_verified: boolean;
+          processed: boolean;
+          error_message: string | null;
+          received_at: string;
+          processed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          gateway: SaasPaymentGateway;
+          external_event_id: string;
+          event_type: string;
+          payload: Json;
+          signature_verified?: boolean;
+          processed?: boolean;
+          error_message?: string | null;
+          received_at?: string;
+          processed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          gateway?: SaasPaymentGateway;
+          external_event_id?: string;
+          event_type?: string;
+          payload?: Json;
+          signature_verified?: boolean;
+          processed?: boolean;
+          error_message?: string | null;
+          received_at?: string;
+          processed_at?: string | null;
+        };
+        Relationships: [];
+      };
+      saas_trial_extensions: {
+        Row: {
+          id: string;
+          practice_id: string;
+          subscription_id: string;
+          extended_by: string;
+          previous_ends_at: string;
+          new_ends_at: string;
+          days_added: number;
+          reason: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          subscription_id: string;
+          extended_by: string;
+          previous_ends_at: string;
+          new_ends_at: string;
+          days_added: number;
+          reason: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          subscription_id?: string;
+          extended_by?: string;
+          previous_ends_at?: string;
+          new_ends_at?: string;
+          days_added?: number;
+          reason?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      platform_settings: {
+        Row: {
+          key: string;
+          value: Json;
+          description: string | null;
+          updated_by: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          key: string;
+          value: Json;
+          description?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          key?: string;
+          value?: Json;
+          description?: string | null;
+          updated_by?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       practice_inventory_counters: {
         Row: {
           practice_id: string;
@@ -4041,6 +4472,47 @@ export interface Database {
         };
         Returns: Json;
       };
+      register_practice_and_subscribe: {
+        Args: {
+          p_practice_name: string;
+          p_slug: string;
+          p_plan_code: SaasPlanCode;
+          p_billing_interval?: SaasBillingInterval;
+          p_country?: string;
+          p_timezone?: string;
+        };
+        Returns: Json;
+      };
+      extend_practice_trial: {
+        Args: {
+          p_practice_id: string;
+          p_days_to_add: number;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      process_subscription_payment_settlement: {
+        Args: {
+          p_invoice_id: string;
+          p_gateway: SaasPaymentGateway;
+          p_gateway_reference: string;
+          p_amount_cents: number;
+          p_payment_method: string;
+          p_gateway_fee_cents: number;
+          p_auth_token?: string | null;
+        };
+        Returns: Json;
+      };
+      practice_is_writable: {
+        Args: {
+          p_practice_id: string;
+        };
+        Returns: boolean;
+      };
+      get_platform_kpis: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
     };
     Enums: {
       membership_role: MembershipRole;
@@ -4048,6 +4520,12 @@ export interface Database {
       practice_status: PracticeStatus;
       subscription_tier: SubscriptionTier;
       subscription_status: SubscriptionStatus;
+      saas_plan_code: SaasPlanCode;
+      saas_billing_interval: SaasBillingInterval;
+      saas_subscription_status: SaasSubscriptionStatus;
+      saas_invoice_status: SaasInvoiceStatus;
+      saas_payment_status: SaasPaymentStatus;
+      saas_payment_gateway: SaasPaymentGateway;
       patient_status: PatientStatus;
       patient_sex: PatientSex;
       episode_status: EpisodeStatus;

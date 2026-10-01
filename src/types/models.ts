@@ -60,6 +60,12 @@ import type {
   ImagingReportSource,
   ImagingAttachmentType,
   ImagingMimeType,
+  SaasPlanCode,
+  SaasBillingInterval,
+  SaasSubscriptionStatus,
+  SaasInvoiceStatus,
+  SaasPaymentStatus,
+  SaasPaymentGateway,
 } from './database';
 
 export type {
@@ -75,6 +81,81 @@ export type {
   ImagingAttachmentType,
   ImagingMimeType,
 };
+
+export type {
+  SaasPlanCode,
+  SaasBillingInterval,
+  SaasSubscriptionStatus,
+  SaasInvoiceStatus,
+  SaasPaymentStatus,
+  SaasPaymentGateway,
+};
+
+export type SaasPlan = Database['public']['Tables']['saas_plans']['Row'];
+export type SaasPlanInsert = Database['public']['Tables']['saas_plans']['Insert'];
+export type SaasPlanUpdate = Database['public']['Tables']['saas_plans']['Update'];
+
+export type PracticeSubscription = Database['public']['Tables']['practice_subscriptions']['Row'];
+export type PracticeSubscriptionInsert = Database['public']['Tables']['practice_subscriptions']['Insert'];
+export type PracticeSubscriptionUpdate = Database['public']['Tables']['practice_subscriptions']['Update'];
+
+export type SaasBillingCycle = Database['public']['Tables']['saas_billing_cycles']['Row'];
+export type SaasBillingCycleInsert = Database['public']['Tables']['saas_billing_cycles']['Insert'];
+export type SaasBillingCycleUpdate = Database['public']['Tables']['saas_billing_cycles']['Update'];
+
+export type SaasInvoice = Database['public']['Tables']['saas_invoices']['Row'];
+export type SaasInvoiceInsert = Database['public']['Tables']['saas_invoices']['Insert'];
+export type SaasInvoiceUpdate = Database['public']['Tables']['saas_invoices']['Update'];
+
+export type SaasInvoiceLine = Database['public']['Tables']['saas_invoice_lines']['Row'];
+export type SaasInvoiceLineInsert = Database['public']['Tables']['saas_invoice_lines']['Insert'];
+export type SaasInvoiceLineUpdate = Database['public']['Tables']['saas_invoice_lines']['Update'];
+
+export type SaasPayment = Database['public']['Tables']['saas_payments']['Row'];
+export type SaasPaymentInsert = Database['public']['Tables']['saas_payments']['Insert'];
+export type SaasPaymentUpdate = Database['public']['Tables']['saas_payments']['Update'];
+
+export type SaasWebhookEvent = Database['public']['Tables']['saas_webhook_events']['Row'];
+export type SaasWebhookEventInsert = Database['public']['Tables']['saas_webhook_events']['Insert'];
+export type SaasWebhookEventUpdate = Database['public']['Tables']['saas_webhook_events']['Update'];
+
+export type SaasTrialExtension = Database['public']['Tables']['saas_trial_extensions']['Row'];
+export type SaasTrialExtensionInsert = Database['public']['Tables']['saas_trial_extensions']['Insert'];
+export type SaasTrialExtensionUpdate = Database['public']['Tables']['saas_trial_extensions']['Update'];
+
+export type PlatformSetting = Database['public']['Tables']['platform_settings']['Row'];
+export type PlatformSettingInsert = Database['public']['Tables']['platform_settings']['Insert'];
+export type PlatformSettingUpdate = Database['public']['Tables']['platform_settings']['Update'];
+
+export interface PlatformKPIs {
+  total_practices: number;
+  active_practices: number;
+  trialing_practices: number;
+  past_due_practices: number;
+  suspended_practices: number;
+  mrr_cents: number;
+  arr_cents: number;
+  generated_at: string;
+}
+
+export interface RegisterPracticeAndSubscribePayload {
+  practice_name: string;
+  slug: string;
+  plan_code: SaasPlanCode;
+  billing_interval?: SaasBillingInterval;
+  country?: string;
+  timezone?: string;
+}
+
+export interface RegisterPracticeAndSubscribeResponse {
+  practice_id: string;
+  subscription_id: string;
+  slug: string;
+  status: SaasSubscriptionStatus;
+  seat_limit: number;
+  trial_ends_at: string | null;
+}
+
 
 export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type Practice = Database['public']['Tables']['practices']['Row'];

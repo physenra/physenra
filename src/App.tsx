@@ -78,14 +78,46 @@ import { IngestImagingStudyPage } from './pages/imaging/IngestImagingStudyPage';
 import { ImagingStudyDetailPage } from './pages/imaging/ImagingStudyDetailPage';
 import { ReviewImagingStudyPage } from './pages/imaging/ReviewImagingStudyPage';
 import { AttachImagingReportPage } from './pages/imaging/AttachImagingReportPage';
+import { PlatformAdminGuard } from './components/auth/PlatformAdminGuard';
+import { PlatformLayout } from './components/layout/PlatformLayout';
+import { PlatformDashboardPage } from './pages/platform/PlatformDashboardPage';
+import { PlatformPracticesPage } from './pages/platform/PlatformPracticesPage';
+import { PlatformPracticeDetailPage } from './pages/platform/PlatformPracticeDetailPage';
+import { PlatformPlansPage } from './pages/platform/PlatformPlansPage';
+import { PlatformBillingPage } from './pages/platform/PlatformBillingPage';
+import { PlatformAuditPage } from './pages/platform/PlatformAuditPage';
+import { PlatformSettingsPage } from './pages/platform/PlatformSettingsPage';
+import { PricingPage } from './pages/public/PricingPage';
+import { RegisterPracticePage } from './pages/auth/RegisterPracticePage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
 export const App: React.FC = () => {
   return (
     <Routes>
-      {/* Public Authentication */}
+      {/* Public Routes */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/register-practice" element={<RegisterPracticePage />} />
+
+      {/* Platform Administration Console */}
+      <Route
+        path="/platform"
+        element={
+          <PlatformAdminGuard>
+            <PlatformLayout />
+          </PlatformAdminGuard>
+        }
+      >
+        <Route index element={<Navigate to="/platform/dashboard" replace />} />
+        <Route path="dashboard" element={<PlatformDashboardPage />} />
+        <Route path="practices" element={<PlatformPracticesPage />} />
+        <Route path="practices/:practiceId" element={<PlatformPracticeDetailPage />} />
+        <Route path="plans" element={<PlatformPlansPage />} />
+        <Route path="billing" element={<PlatformBillingPage />} />
+        <Route path="audit" element={<PlatformAuditPage />} />
+        <Route path="settings" element={<PlatformSettingsPage />} />
+      </Route>
 
       {/* Authenticated user with no practice assigned */}
       <Route path="/no-practice" element={<NoPracticePage />} />

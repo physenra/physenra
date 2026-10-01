@@ -153,6 +153,53 @@ export const PracticeSettingsPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Commercial SaaS Subscription Section */}
+        <div className="settings-card">
+          <div className="settings-card-header">
+            <Calendar size={20} className="text-teal-600" />
+            <div>
+              <h3 className="settings-card-title">SaaS Licensing &amp; Subscription</h3>
+              <p className="settings-card-subtitle">Contracted plan tier, seat limits, and billing cycle</p>
+            </div>
+          </div>
+
+          <div className="settings-card-body">
+            <div className="details-grid">
+              <div className="detail-item">
+                <span className="detail-label">Subscription Tier</span>
+                <span className="detail-value font-semibold capitalize">
+                  {activePractice.status === 'trial' ? '14-Day Free Evaluation Trial' : 'Active Paid Commercial Plan'}
+                </span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Workspace Writability</span>
+                <span className="status-badge-pill">
+                  <CheckCircle size={14} />
+                  <span>Full Read/Write Access</span>
+                </span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Practitioner Seat Capacity</span>
+                <span className="detail-value font-mono">Governed by Plan Catalog</span>
+              </div>
+
+              <div className="detail-item">
+                <span className="detail-label">Plan Actions</span>
+                <div>
+                  <a
+                    href="/pricing"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold transition-colors"
+                  >
+                    View SaaS Plans &amp; Upgrades
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
