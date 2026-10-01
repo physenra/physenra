@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { Activity, Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
+import { Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -48,10 +48,11 @@ export const LoginPage: React.FC = () => {
     <div className="auth-page-container">
       <div className="auth-card">
         <div className="auth-brand-header">
-          <div className="auth-brand-logo">
-            <Activity size={32} />
-          </div>
-          <h1 className="auth-title">Physenra</h1>
+          <img
+            src="/branding/physenra-logo-dark.png"
+            alt="Physenra"
+            className="auth-logo-img"
+          />
           <p className="auth-subtitle">
             Physiotherapy EMR &amp; Practice Management Platform
           </p>

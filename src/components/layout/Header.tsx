@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { usePractice } from '../../hooks/usePractice';
 import { PracticeSelector } from '../ui/PracticeSelector';
-import { LogOut, User, Activity } from 'lucide-react';
+import { LogOut, User } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const { user, profile, signOut } = useAuth();
@@ -25,8 +25,11 @@ export const Header: React.FC = () => {
     <header className="header-bar">
       <div className="header-left">
         <div className="brand-badge">
-          <Activity className="brand-icon" size={22} />
-          <span className="brand-name">Physenra</span>
+          <img
+            src="/branding/physenra-logo.png"
+            alt="Physenra"
+            className="brand-logo-img"
+          />
         </div>
         <div className="header-divider" />
         <PracticeSelector />

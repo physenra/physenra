@@ -1,0 +1,26 @@
+{
+  "name": "Physenra",
+  "short_name": "Physenra",
+  "description": "Physiotherapy EMR & Practice Management Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "/branding/favicon-64.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "/branding/favicon-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/branding/favicon-256.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    }
+  ]
+}

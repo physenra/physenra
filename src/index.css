@@ -110,6 +110,14 @@ input, select {
   color: var(--color-primary-dark);
 }
 
+.brand-logo-img {
+  height: 36px;
+  width: auto;
+  max-width: 140px;
+  object-fit: contain;
+  display: block;
+}
+
 .brand-icon {
   color: var(--color-primary);
 }
@@ -784,6 +792,15 @@ input, select {
   color: #ffffff;
   padding: 32px 24px;
   text-align: center;
+}
+
+.auth-logo-img {
+  height: 48px;
+  width: auto;
+  max-width: 220px;
+  object-fit: contain;
+  margin: 0 auto 12px;
+  display: block;
 }
 
 .auth-brand-logo {
