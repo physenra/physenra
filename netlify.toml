@@ -1,0 +1,15 @@
+# Physenra V1.0.0 — Netlify Production Hosting Configuration
+# Classification: HOSTING CONFIGURATION ONLY (Category 1)
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA routing fallback: rewrite all non-asset requests to /index.html (HTTP 200)
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
