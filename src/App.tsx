@@ -90,6 +90,8 @@ import { PlatformSettingsPage } from './pages/platform/PlatformSettingsPage';
 import { PricingPage } from './pages/public/PricingPage';
 import { RegisterPracticePage } from './pages/auth/RegisterPracticePage';
 import { SignUpPage } from './pages/auth/SignUpPage';
+import { PracticeBillingPage } from './pages/billing/PracticeBillingPage';
+import { PracticeInvoiceDetailPage } from './pages/billing/PracticeInvoiceDetailPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -139,6 +141,12 @@ export const App: React.FC = () => {
         <Route index element={<Navigate to="/app/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="practice" element={<PracticeSettingsPage />} />
+
+        {/* Practice SaaS Billing & Subscription Management (Phase 4C) */}
+        <Route path="billing" element={<PracticeBillingPage />} />
+        <Route path="billing/plans" element={<PracticeBillingPage defaultTab="plans" />} />
+        <Route path="billing/invoices" element={<PracticeBillingPage defaultTab="invoices" />} />
+        <Route path="billing/invoices/:invoiceId" element={<PracticeInvoiceDetailPage />} />
         
         {/* Patient Registry Foundation V1 */}
         <Route path="patients" element={<PatientListPage />} />

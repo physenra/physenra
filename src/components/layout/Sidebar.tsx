@@ -6,7 +6,7 @@ import { useRole } from '../../hooks/useRole';
 
 export const Sidebar: React.FC = () => {
   const { activePractice } = usePractice();
-  const { isOwner, isManager, isPlatformAdmin } = useRole();
+  const { isOwner, isManager, isAccountant, isPlatformAdmin } = useRole();
 
   return (
     <aside className="app-sidebar">
@@ -254,6 +254,19 @@ export const Sidebar: React.FC = () => {
             <Boxes size={18} />
             <span>Inventory</span>
           </NavLink>
+
+          {/* Practice SaaS Billing & Plan Management */}
+          {(isOwner || isAccountant || isManager) && (
+            <NavLink
+              to="/app/billing"
+              className={({ isActive }) =>
+                `nav-link ${isActive ? 'nav-link-active' : ''}`
+              }
+            >
+              <CreditCard size={18} />
+              <span>Billing & Plan</span>
+            </NavLink>
+          )}
 
           <NavLink
             to="/app/practice"

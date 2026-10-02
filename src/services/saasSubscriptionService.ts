@@ -219,6 +219,48 @@ export const saasSubscriptionService = {
     return (data as SaasInvoiceLine[]) || [];
   },
 
+  /**
+   * Retrieves SaaS payments for the practice.
+   */
+  async getPracticePayments(practiceId?: string): Promise<SaasPayment[]> {
+    const activePracticeId = practiceId || getActivePracticeHeader();
+    if (!activePracticeId) return [];
+
+    const { data, error } = await supabase
+      .from('saas_payments')
+      .select('*')
+      .eq('practice_id', activePracticeId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch practice payments: ${error.message}`);
+    }
+
+    return (data as SaasPayment[]) || [];
+  },
+
+  /**
+   * Retrieves active clinical practitioner count for seat capacity checks.
+   */
+  async getActivePractitionerCount(practiceId?: string): Promise<number> {
+    const activePracticeId = practiceId || getActivePracticeHeader();
+    if (!activePracticeId) return 0;
+
+    const { count, error } = await supabase
+      .from('practice_memberships')
+      .select('*', { count: 'exact', head: true })
+      .eq('practice_id', activePracticeId)
+      .in('role', ['physiotherapist', 'practice_owner'])
+      .eq('status', 'active');
+
+    if (error) {
+      console.warn('Failed to count active practitioners:', error.message);
+      return 0;
+    }
+
+    return count || 0;
+  },
+
   // ----------------------------------------------------------------------------
   // 3. PLATFORM ADMINISTRATION CONSOLE OPERATIONS
   // ----------------------------------------------------------------------------
