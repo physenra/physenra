@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { usePractice } from '../../hooks/usePractice';
-import { Building2, LogOut, RefreshCw, AlertCircle } from 'lucide-react';
+import { Building2, LogOut, RefreshCw, AlertCircle, ShieldCheck } from 'lucide-react';
 
 export const NoPracticePage: React.FC = () => {
   const { user, profile, signOut } = useAuth();
@@ -56,6 +57,17 @@ export const NoPracticePage: React.FC = () => {
         </div>
 
         <div className="action-buttons-group">
+          {Boolean(profile?.is_platform_admin) && (
+            <Link
+              to="/platform"
+              className="btn-primary"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', background: '#059669' }}
+            >
+              <ShieldCheck size={16} />
+              <span>Open Platform Admin Console</span>
+            </Link>
+          )}
+
           <button
             onClick={handleRefresh}
             className="btn-primary"

@@ -13,7 +13,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   requirePractice = true,
 }) => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const { memberships, loading: practiceLoading } = usePractice();
   const location = useLocation();
 
@@ -23,6 +23,16 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // Narrow exemption: IF authenticated user is Platform Admin
+  // AND requested route is an authorized Platform route,
+  // THEN allow Platform Administration access without requiring a clinical practice context
+  const isPlatformRoute = location.pathname.startsWith('/platform');
+  const isPlatformAdmin = Boolean(profile?.is_platform_admin);
+
+  if (isPlatformAdmin && isPlatformRoute) {
+    return <>{children}</>;
   }
 
   if (practiceLoading) {

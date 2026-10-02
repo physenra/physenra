@@ -1,8 +1,9 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { usePractice } from '../../hooks/usePractice';
 import { PracticeSelector } from '../ui/PracticeSelector';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, ShieldCheck } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const { user, profile, signOut } = useAuth();
@@ -36,6 +37,18 @@ export const Header: React.FC = () => {
       </div>
 
       <div className="header-right">
+        {Boolean(profile?.is_platform_admin) && (
+          <Link
+            to="/platform"
+            className="btn-platform-console"
+            title="Open Platform Admin Console"
+            aria-label="Platform Admin Console"
+          >
+            <ShieldCheck size={16} />
+            <span>Platform Admin Console</span>
+          </Link>
+        )}
+
         <div className="user-profile-summary">
           <div className="user-avatar-circle">
             <User size={16} />

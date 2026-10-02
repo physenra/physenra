@@ -1,6 +1,7 @@
 import React from 'react';
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { usePractice } from '../../hooks/usePractice';
 import {
   LayoutDashboard,
   Building2,
@@ -15,7 +16,10 @@ import {
 
 export const PlatformLayout: React.FC = () => {
   const { profile, signOut } = useAuth();
+  const { memberships } = usePractice();
   const navigate = useNavigate();
+
+  const hasPractice = Boolean(memberships && memberships.length > 0);
 
   const handleSignOut = async () => {
     await signOut();
@@ -83,13 +87,25 @@ export const PlatformLayout: React.FC = () => {
 
         {/* User footer & return link */}
         <div className="p-4 border-t border-slate-800 space-y-3">
-          <Link
-            to="/app"
-            className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-slate-700 transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Switch to Practice Workspace
-          </Link>
+          {hasPractice ? (
+            <Link
+              to="/app/dashboard"
+              className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 hover:text-emerald-200 text-xs font-semibold border border-emerald-800/60 transition-colors"
+              title="Return to Clinical Practice Dashboard"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Return to Clinical Workspace</span>
+            </Link>
+          ) : (
+            <Link
+              to="/no-practice"
+              className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-medium border border-slate-700 transition-colors"
+              title="No clinical practice associated with this account"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Return to Clinical Workspace</span>
+            </Link>
+          )}
 
           <div className="flex items-center justify-between pt-2">
             <div className="text-xs truncate max-w-[140px]">
