@@ -8,8 +8,29 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# Netlify Functions Configuration
+[functions]
+  directory = "netlify/functions"
+
+# API Route redirects for server-side Paystack payment infrastructure
+[[redirects]]
+  from = "/api/paystack-webhook"
+  to = "/.netlify/functions/paystack-webhook"
+  status = 200
+
+[[redirects]]
+  from = "/api/initialize-payment"
+  to = "/.netlify/functions/initialize-payment"
+  status = 200
+
+[[redirects]]
+  from = "/api/verify-payment"
+  to = "/.netlify/functions/verify-payment"
+  status = 200
+
 # SPA routing fallback: rewrite all non-asset requests to /index.html (HTTP 200)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+

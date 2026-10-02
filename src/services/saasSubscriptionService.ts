@@ -978,4 +978,91 @@ export const saasSubscriptionService = {
 
     return data as any;
   },
+
+  // ----------------------------------------------------------------------------
+  // 6. SERVERLESS PAYSTACK CHECKOUT & VERIFICATION (PHASE 4B)
+  // ----------------------------------------------------------------------------
+
+  /**
+   * Initializes a Paystack checkout transaction via the serverless API.
+   * Derives authoritative invoice amount and gateway reference server-side.
+   * Client amounts are strictly ignored.
+   */
+  async initializePaystackCheckout(
+    practiceId: string,
+    invoiceId: string
+  ): Promise<{
+    success: boolean;
+    authorization_url: string;
+    access_code: string;
+    reference: string;
+    invoice_id: string;
+    invoice_number: string;
+    amount_cents: number;
+    currency: string;
+  }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('Authentication required to initialize checkout');
+    }
+
+    const response = await fetch('/api/initialize-payment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        practice_id: practiceId,
+        invoice_id: invoiceId,
+      }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to initialize payment checkout');
+    }
+
+    return result;
+  },
+
+  /**
+   * Fallback server-side verification invoked after browser checkout completes.
+   * Confirms payment against Paystack server-to-server and triggers idempotent settlement.
+   */
+  async verifyPaystackPayment(
+    practiceId: string,
+    reference: string
+  ): Promise<{
+    status: string;
+    message?: string;
+    settlement?: any;
+    payment_id?: string;
+    invoice_id?: string;
+  }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('Authentication required to verify payment');
+    }
+
+    const response = await fetch('/api/verify-payment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        practice_id: practiceId,
+        reference: reference,
+      }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to verify payment with server');
+    }
+
+    return result;
+  },
 };
+
