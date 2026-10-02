@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
+import { SubscriptionStatusBanner } from '../billing/SubscriptionStatusBanner';
 
 export const AppShell: React.FC = () => {
   return (
@@ -11,6 +12,7 @@ export const AppShell: React.FC = () => {
         <Sidebar />
         <main className="app-main">
           <div className="main-content-container">
+            <SubscriptionStatusBanner />
             <Outlet />
           </div>
         </main>

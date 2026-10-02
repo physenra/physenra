@@ -78,6 +78,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
   const [planToChange, setPlanToChange] = useState<SaasPlan | null>(null);
   const [changeType, setChangeType] = useState<'upgrade' | 'downgrade' | null>(null);
   const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
+  const [showReactivateModal, setShowReactivateModal] = useState<boolean>(false);
   const [cancelReason, setCancelReason] = useState<string>('');
 
   // Payment verification state (from redirect callback)
@@ -373,13 +374,16 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
     const isCancelScheduled = Boolean(subscription?.cancel_at_period_end);
 
     if (isCancelScheduled) {
+      const periodEndFormatted = subscription?.current_period_end
+        ? new Date(subscription.current_period_end).toLocaleDateString()
+        : '';
       return {
         label: 'Cancellation Scheduled',
         badgeClass: 'bg-amber-100 text-amber-800 border-amber-200',
         bannerClass: 'bg-amber-50 border-amber-300 text-amber-900',
         icon: <Clock className="w-5 h-5 text-amber-600 flex-shrink-0" />,
-        headline: `Your subscription will end on ${new Date(subscription?.current_period_end || '').toLocaleDateString()}`,
-        explanation: 'Your practice will not lose paid clinical features immediately. No patient or clinical records will ever be deleted.',
+        headline: `Cancellation scheduled: Your subscription remains active until ${periodEndFormatted}.`,
+        explanation: 'Your practice will not lose paid clinical features immediately. After that date, access will transition according to the existing subscription lifecycle. No patient or clinical records will ever be deleted.',
       };
     }
 
@@ -391,43 +395,61 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
           bannerClass: 'bg-emerald-50 border-emerald-300 text-emerald-900',
           icon: <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />,
           headline: 'Your Physenra subscription is active and in good standing.',
-          explanation: `Next scheduled renewal: ${new Date(subscription?.current_period_end || '').toLocaleDateString()}`,
+          explanation: `Next renewal: ${new Date(subscription?.current_period_end || '').toLocaleDateString()}`,
         };
-      case 'trialing':
+      case 'trialing': {
+        const endDateStr = subscription?.trial_ends_at || subscription?.current_period_end;
+        const endDate = endDateStr ? new Date(endDateStr) : null;
+        let countdownLabel = '';
+        if (endDate) {
+          const diffDays = Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          if (diffDays <= 0) {
+            countdownLabel = 'Trial expires today';
+          } else if (diffDays === 1) {
+            countdownLabel = '1 day remaining';
+          } else {
+            countdownLabel = `${diffDays} days remaining`;
+          }
+        }
         return {
           label: 'Evaluation Trial',
           badgeClass: 'bg-teal-100 text-teal-800 border-teal-200',
           bannerClass: 'bg-teal-50 border-teal-300 text-teal-900',
           icon: <Sparkles className="w-5 h-5 text-teal-600 flex-shrink-0" />,
-          headline: `Your free evaluation trial ends on ${new Date(subscription?.current_period_end || '').toLocaleDateString()}.`,
+          headline: `Trial ends: ${endDate ? endDate.toLocaleDateString() : '—'}${countdownLabel ? ` (${countdownLabel})` : ''}`,
           explanation: 'Upgrade to a paid subscription at any time to preserve uninterrupted clinical write access.',
         };
+      }
       case 'past_due':
         return {
           label: 'Payment Past Due',
           badgeClass: 'bg-amber-100 text-amber-800 border-amber-200',
           bannerClass: 'bg-amber-50 border-amber-300 text-amber-900',
           icon: <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />,
-          headline: 'Payment is required to keep your practice active.',
-          explanation: 'Please settle your outstanding invoice to avoid entering the suspended grace period.',
+          headline: 'Payment issue: Your subscription payment requires attention. Payment is required to keep your practice active.',
+          explanation: 'Please update your billing or settle open invoices to avoid service interruption.',
         };
-      case 'grace_period':
+      case 'grace_period': {
+        const graceEndStr = subscription?.grace_period_ends_at
+          ? new Date(subscription.grace_period_ends_at).toLocaleDateString()
+          : '';
         return {
           label: 'Payment Grace Period',
           badgeClass: 'bg-orange-100 text-orange-800 border-orange-200',
           bannerClass: 'bg-orange-50 border-orange-300 text-orange-900',
           icon: <Clock className="w-5 h-5 text-orange-600 flex-shrink-0" />,
-          headline: 'Your account is currently in its payment grace period.',
-          explanation: 'Immediate settlement is required to prevent temporary suspension of clinical write operations.',
+          headline: `Payment overdue: Your practice remains active during the grace period until ${graceEndStr}.`,
+          explanation: 'Please update your billing before access is restricted. Settle your outstanding invoice to avoid service interruption.',
         };
+      }
       case 'suspended':
         return {
           label: 'Suspended',
           badgeClass: 'bg-rose-100 text-rose-800 border-rose-200',
           bannerClass: 'bg-rose-50 border-rose-300 text-rose-900',
           icon: <ShieldAlert className="w-5 h-5 text-rose-600 flex-shrink-0" />,
-          headline: 'Your practice is suspended.',
-          explanation: 'Clinical write access is paused. Contact Physenra platform support or settle outstanding charges to restore access.',
+          headline: 'Practice access is currently suspended.',
+          explanation: 'Your clinical records remain preserved. Contact your practice administrator or Physenra support.',
         };
       case 'expired':
         return {
@@ -435,8 +457,17 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
           badgeClass: 'bg-rose-100 text-rose-800 border-rose-200',
           bannerClass: 'bg-rose-50 border-rose-300 text-rose-900',
           icon: <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />,
-          headline: 'Your trial or subscription has expired.',
-          explanation: 'Payment is required to restore full clinical write entitlement. Your clinical data remains securely preserved.',
+          headline: 'Your free trial has ended.',
+          explanation: 'Payment is required to restore full clinical write entitlement. Your clinical data remains securely preserved. Subscribe to continue creating or editing clinical records.',
+        };
+      case 'cancelled':
+        return {
+          label: 'Cancelled',
+          badgeClass: 'bg-slate-100 text-slate-800 border-slate-200',
+          bannerClass: 'bg-slate-50 border-slate-300 text-slate-900',
+          icon: <Info className="w-5 h-5 text-slate-600 flex-shrink-0" />,
+          headline: 'Your subscription has been cancelled.',
+          explanation: 'Your clinical records remain preserved in read-only mode. Choose a plan to restore write access.',
         };
       default:
         return {
@@ -510,22 +541,62 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
         </div>
       )}
 
-      {/* Subscription Status Banner */}
-      <div className={`mb-8 p-5 rounded-xl border flex items-start gap-4 ${statusConfig.bannerClass}`}>
-        {statusConfig.icon}
-        <div className="flex-1">
-          <h3 className="font-semibold text-base mb-1">{statusConfig.headline}</h3>
-          <p className="text-sm opacity-90">{statusConfig.explanation}</p>
-        </div>
-        {subscription?.cancel_at_period_end && !isReadOnly && (
+      {verificationState.status === 'failed' && (
+        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-lg flex items-start justify-between gap-3 text-rose-900 text-sm">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold">We couldn't complete your subscription payment.</p>
+              <p className="text-xs text-rose-700 mt-1">
+                Your payment attempt could not be processed. Please try again or choose another payment method.
+              </p>
+            </div>
+          </div>
           <button
-            onClick={handleReactivateSubscription}
-            disabled={actionLoading}
-            className="px-3.5 py-1.5 bg-white border border-amber-400 text-amber-900 rounded-lg text-xs font-semibold hover:bg-amber-50 transition shadow-sm"
+            onClick={() => setVerificationState({ status: 'idle', message: null })}
+            className="px-3.5 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-semibold hover:bg-rose-700 transition flex-shrink-0"
           >
-            Keep My Subscription
+            Try Again
           </button>
-        )}
+        </div>
+      )}
+
+      {/* Subscription Status Banner */}
+      <div className={`mb-8 p-5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${statusConfig.bannerClass}`}>
+        <div className="flex items-start gap-4">
+          {statusConfig.icon}
+          <div>
+            <h3 className="font-semibold text-base mb-1">{statusConfig.headline}</h3>
+            <p className="text-sm opacity-90">{statusConfig.explanation}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 pl-9 sm:pl-0 flex-shrink-0">
+          {subscription?.cancel_at_period_end && !isReadOnly && (
+            <button
+              onClick={() => setShowReactivateModal(true)}
+              disabled={actionLoading}
+              className="px-3.5 py-1.5 bg-white border border-amber-400 text-amber-900 rounded-lg text-xs font-semibold hover:bg-amber-50 transition shadow-sm"
+            >
+              Keep My Subscription
+            </button>
+          )}
+          {subscription?.status === 'expired' && !isReadOnly && (
+            <>
+              <button
+                onClick={() => setActiveTab('plans')}
+                className="px-3.5 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 transition shadow-sm"
+              >
+                Choose a Plan
+              </button>
+              <button
+                onClick={() => setActiveTab('invoices')}
+                className="px-3.5 py-1.5 bg-white border border-rose-300 text-rose-800 rounded-lg text-xs font-semibold hover:bg-rose-50 transition shadow-sm"
+              >
+                View Invoices
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Navigation Tabs */}
@@ -626,10 +697,30 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block mb-1">Renewal / Expiration Date</span>
+                    <span className="text-slate-400 block mb-1">
+                      {subscription?.cancel_at_period_end
+                        ? 'Access ends'
+                        : subscription?.status === 'trialing'
+                        ? 'Trial ends'
+                        : subscription?.status === 'grace_period'
+                        ? 'Grace period ends'
+                        : subscription?.status === 'active'
+                        ? 'Next renewal'
+                        : subscription?.status === 'expired'
+                        ? 'Expired on'
+                        : subscription?.status === 'suspended'
+                        ? 'Suspended on'
+                        : 'Renewal Date'}
+                    </span>
                     <span className="font-semibold text-slate-800">
                       {subscription?.current_period_end
-                        ? new Date(subscription.current_period_end).toLocaleDateString()
+                        ? new Date(
+                            subscription?.status === 'grace_period' && subscription?.grace_period_ends_at
+                              ? subscription.grace_period_ends_at
+                              : subscription?.status === 'trialing' && subscription?.trial_ends_at
+                              ? subscription.trial_ends_at
+                              : subscription.current_period_end
+                          ).toLocaleDateString()
                         : '—'}
                     </span>
                   </div>
@@ -1260,13 +1351,34 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
               <p>
                 Are you sure you want to cancel your practice subscription?
               </p>
+
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1 text-slate-700">
+                <div>
+                  <span className="text-slate-400">Current Plan:</span>{' '}
+                  <strong className="text-slate-900">{subscription?.plan?.name || 'Active Plan'}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400">Billing Interval:</span>{' '}
+                  <strong className="text-slate-900 capitalize">{subscription?.billing_interval || 'Monthly'}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400">Current Period End:</span>{' '}
+                  <strong className="text-slate-900">
+                    {subscription?.current_period_end
+                      ? new Date(subscription.current_period_end).toLocaleDateString()
+                      : '—'}
+                  </strong>
+                </div>
+              </div>
+
               <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 space-y-1.5">
-                <p className="font-semibold">Authoritative Terms:</p>
+                <p className="font-semibold">Cancellation Terms:</p>
                 <p>
                   • Your subscription remains active until{' '}
                   <strong>{new Date(subscription?.current_period_end || '').toLocaleDateString()}</strong>.
                 </p>
                 <p>• You will not lose paid clinical features before that date.</p>
+                <p>• After that date, your practice access will transition to read-only.</p>
                 <p>• <strong>No clinical records or patient history will be deleted.</strong></p>
               </div>
 
@@ -1299,6 +1411,54 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                 className="px-4 py-2 text-sm font-semibold bg-rose-600 text-white rounded-lg hover:bg-rose-700 transition"
               >
                 {actionLoading ? 'Cancelling...' : 'Confirm Cancellation'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: REACTIVATION CONFIRMATION */}
+      {showReactivateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900 bg-opacity-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-900">Reactivate Subscription</h3>
+              <button onClick={() => setShowReactivateModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="py-4 space-y-3 text-sm text-slate-600">
+              <p>
+                Your cancellation is scheduled for{' '}
+                <strong>{new Date(subscription?.current_period_end || '').toLocaleDateString()}</strong>.
+              </p>
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 space-y-1.5">
+                <p className="font-semibold">Reactivation Terms:</p>
+                <p>• The scheduled cancellation will be removed.</p>
+                <p>• Your subscription will continue to renew automatically.</p>
+                <p>• Your clinical write access will remain completely uninterrupted.</p>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowReactivateModal(false)}
+                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowReactivateModal(false);
+                  await handleReactivateSubscription();
+                }}
+                disabled={actionLoading}
+                className="px-4 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
+              >
+                {actionLoading ? 'Reactivating...' : 'Keep My Subscription'}
               </button>
             </div>
           </div>
