@@ -4244,6 +4244,7 @@ export interface Database {
       };
       log_audit_event: {
         Args: {
+          p_practice_id?: string | null;
           p_action: string;
           p_entity_type: string;
           p_entity_id?: string | null;
@@ -4511,6 +4512,29 @@ export interface Database {
       };
       get_platform_kpis: {
         Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      suspend_practice: {
+        Args: {
+          p_practice_id: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      restore_practice: {
+        Args: {
+          p_practice_id: string;
+          p_reason: string;
+        };
+        Returns: Json;
+      };
+      change_practice_plan: {
+        Args: {
+          p_practice_id: string;
+          p_plan_code: string;
+          p_seat_limit?: number | null;
+          p_reason?: string;
+        };
         Returns: Json;
       };
     };

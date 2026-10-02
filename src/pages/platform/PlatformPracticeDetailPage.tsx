@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { saasSubscriptionService, type PracticeDossier } from '../../services/saasSubscriptionService';
+import type { SaasPlan } from '../../types/models';
 import {
   Building2,
   ArrowLeft,
@@ -15,6 +16,12 @@ import {
   CreditCard,
   History,
   Lock,
+  Ban,
+  RefreshCw,
+  Sliders,
+  User,
+  Mail,
+  Phone,
 } from 'lucide-react';
 
 export const PlatformPracticeDetailPage: React.FC = () => {
@@ -22,6 +29,10 @@ export const PlatformPracticeDetailPage: React.FC = () => {
   const [dossier, setDossier] = useState<PracticeDossier | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  // Available plans for plan change modal
+  const [plans, setPlans] = useState<SaasPlan[]>([]);
 
   // Trial Extension Modal State
   const [showExtendModal, setShowExtendModal] = useState<boolean>(false);
@@ -29,7 +40,26 @@ export const PlatformPracticeDetailPage: React.FC = () => {
   const [extensionReason, setExtensionReason] = useState<string>('');
   const [submittingExtension, setSubmittingExtension] = useState<boolean>(false);
   const [extensionError, setExtensionError] = useState<string | null>(null);
-  const [extensionSuccess, setExtensionSuccess] = useState<string | null>(null);
+
+  // Suspend Practice Modal State
+  const [showSuspendModal, setShowSuspendModal] = useState<boolean>(false);
+  const [suspendReason, setSuspendReason] = useState<string>('');
+  const [submittingSuspend, setSubmittingSuspend] = useState<boolean>(false);
+  const [suspendError, setSuspendError] = useState<string | null>(null);
+
+  // Restore Practice Modal State
+  const [showRestoreModal, setShowRestoreModal] = useState<boolean>(false);
+  const [restoreReason, setRestoreReason] = useState<string>('');
+  const [submittingRestore, setSubmittingRestore] = useState<boolean>(false);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+
+  // Change Plan Modal State
+  const [showChangePlanModal, setShowChangePlanModal] = useState<boolean>(false);
+  const [selectedPlanCode, setSelectedPlanCode] = useState<string>('solo');
+  const [customSeats, setCustomSeats] = useState<number>(1);
+  const [changePlanReason, setChangePlanReason] = useState<string>('');
+  const [submittingChangePlan, setSubmittingChangePlan] = useState<boolean>(false);
+  const [changePlanError, setChangePlanError] = useState<string | null>(null);
 
   const loadDossier = useCallback(async () => {
     if (!practiceId) return;
@@ -50,6 +80,13 @@ export const PlatformPracticeDetailPage: React.FC = () => {
     loadDossier();
   }, [loadDossier]);
 
+  // Load plans in background for modals
+  useEffect(() => {
+    saasSubscriptionService.getAllPlans()
+      .then((p) => setPlans(p))
+      .catch((err) => console.warn('Could not preload plans:', err));
+  }, []);
+
   const handleExtendTrial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!practiceId) return;
@@ -67,7 +104,7 @@ export const PlatformPracticeDetailPage: React.FC = () => {
         daysToAdd,
         extensionReason.trim()
       );
-      setExtensionSuccess(
+      setActionSuccess(
         `Trial extended successfully! New trial period ends: ${new Date(
           result.new_trial_ends_at
         ).toLocaleDateString()}`
@@ -79,6 +116,115 @@ export const PlatformPracticeDetailPage: React.FC = () => {
       setExtensionError(err instanceof Error ? err.message : 'Trial extension failed');
     } finally {
       setSubmittingExtension(false);
+    }
+  };
+
+  const handleSuspendPractice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!practiceId) return;
+
+    if (!suspendReason.trim() || suspendReason.trim().length < 5) {
+      setSuspendError('Mandatory justification reason is required (minimum 5 characters).');
+      return;
+    }
+
+    try {
+      setSubmittingSuspend(true);
+      setSuspendError(null);
+      await saasSubscriptionService.suspendPractice(practiceId, suspendReason.trim());
+      setActionSuccess('Practice successfully suspended. Write operations are now blocked.');
+      setShowSuspendModal(false);
+      setSuspendReason('');
+      await loadDossier();
+    } catch (err: unknown) {
+      setSuspendError(err instanceof Error ? err.message : 'Practice suspension failed');
+    } finally {
+      setSubmittingSuspend(false);
+    }
+  };
+
+  const handleRestorePractice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!practiceId) return;
+
+    if (!restoreReason.trim() || restoreReason.trim().length < 5) {
+      setRestoreError('Mandatory justification reason is required (minimum 5 characters).');
+      return;
+    }
+
+    try {
+      setSubmittingRestore(true);
+      setRestoreError(null);
+      const res = await saasSubscriptionService.restorePractice(practiceId, restoreReason.trim());
+      setActionSuccess(`Practice restored successfully. Active subscription state: ${res.status}.`);
+      setShowRestoreModal(false);
+      setRestoreReason('');
+      await loadDossier();
+    } catch (err: unknown) {
+      setRestoreError(err instanceof Error ? err.message : 'Practice restoration failed');
+    } finally {
+      setSubmittingRestore(false);
+    }
+  };
+
+  const openChangePlanModal = () => {
+    setChangePlanError(null);
+    if (dossier?.subscription?.plan?.plan_code) {
+      setSelectedPlanCode(dossier.subscription.plan.plan_code);
+    }
+    if (dossier?.subscription?.seat_limit) {
+      setCustomSeats(dossier.subscription.seat_limit);
+    }
+    setChangePlanReason('');
+    setShowChangePlanModal(true);
+  };
+
+  const handleChangePlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!practiceId) return;
+
+    const targetPlan = plans.find((p) => p.plan_code === selectedPlanCode);
+    if (!targetPlan) {
+      setChangePlanError('Invalid plan selected.');
+      return;
+    }
+
+    if (customSeats < targetPlan.practitioner_seat_limit) {
+      setChangePlanError(
+        `Seat limit cannot be lower than the ${targetPlan.name} plan minimum of ${targetPlan.practitioner_seat_limit} seats.`
+      );
+      return;
+    }
+
+    if (dossier && dossier.practitionerCount > customSeats) {
+      setChangePlanError(
+        `Capacity violation: practice has ${dossier.practitionerCount} active practitioners. Cannot reduce seat limit to ${customSeats}. Deactivate practitioners first.`
+      );
+      return;
+    }
+
+    if (!changePlanReason.trim() || changePlanReason.trim().length < 3) {
+      setChangePlanError('Mandatory justification reason is required.');
+      return;
+    }
+
+    try {
+      setSubmittingChangePlan(true);
+      setChangePlanError(null);
+      await saasSubscriptionService.changePracticePlan(
+        practiceId,
+        selectedPlanCode,
+        customSeats,
+        changePlanReason.trim()
+      );
+      setActionSuccess(`Plan updated successfully to ${targetPlan.name} (${customSeats} seats).`);
+      setShowChangePlanModal(false);
+      setChangePlanReason('');
+      await loadDossier();
+    } catch (err: unknown) {
+      setChangePlanError(err instanceof Error ? err.message : 'Plan change failed');
+    } finally {
+      setSubmittingChangePlan(false);
     }
   };
 
@@ -116,6 +262,12 @@ export const PlatformPracticeDetailPage: React.FC = () => {
           </span>
         );
       case 'suspended':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+            <Ban className="w-3.5 h-3.5" />
+            Suspended
+          </span>
+        );
       case 'expired':
       case 'cancelled':
         return (
@@ -158,8 +310,10 @@ export const PlatformPracticeDetailPage: React.FC = () => {
     );
   }
 
-  const { practice, subscription, trialExtensions, invoices, payments, practitionerCount } = dossier;
-  const isTrialOrExpired = subscription && ['trialing', 'expired', 'past_due'].includes(subscription.status);
+  const { practice, owner, subscription, trialExtensions, invoices, payments, practitionerCount } = dossier;
+  const isSuspended = practice.status === 'suspended' || subscription?.status === 'suspended';
+  const isTrialOrExpired = !isSuspended && subscription && ['trialing', 'expired', 'past_due'].includes(subscription.status);
+  const selectedPlan = plans.find((p) => p.plan_code === selectedPlanCode);
 
   return (
     <div className="space-y-8">
@@ -186,21 +340,70 @@ export const PlatformPracticeDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {isTrialOrExpired && (
+        {/* Action Controls */}
+        <div className="flex flex-wrap items-center gap-2 self-start">
+          {/* Change Plan / Seats Button */}
           <button
-            onClick={() => setShowExtendModal(true)}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 self-start shadow-sm"
+            onClick={openChangePlanModal}
+            className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 border border-slate-700 shadow-sm"
           >
-            <Calendar className="w-4 h-4" />
-            <span>Grant Trial Extension</span>
+            <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Change Plan / Seats</span>
           </button>
-        )}
+
+          {/* Trial Extension (if trialing/expired) */}
+          {isTrialOrExpired && (
+            <button
+              onClick={() => setShowExtendModal(true)}
+              className="px-3.5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Extend Trial</span>
+            </button>
+          )}
+
+          {/* Suspend or Restore Button */}
+          {isSuspended ? (
+            <button
+              onClick={() => {
+                setRestoreError(null);
+                setRestoreReason('');
+                setShowRestoreModal(true);
+              }}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Restore Practice</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setSuspendError(null);
+                setSuspendReason('');
+                setShowSuspendModal(true);
+              }}
+              className="px-3.5 py-2 bg-rose-600/90 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 shadow-sm"
+            >
+              <Ban className="w-3.5 h-3.5" />
+              <span>Suspend Practice</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      {extensionSuccess && (
-        <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0" />
-          <span>{extensionSuccess}</span>
+      {/* Action Notification Banner */}
+      {actionSuccess && (
+        <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{actionSuccess}</span>
+          </div>
+          <button
+            onClick={() => setActionSuccess(null)}
+            className="text-xs text-slate-400 hover:text-white"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -215,6 +418,92 @@ export const PlatformPracticeDetailPage: React.FC = () => {
             commercial software licensing, seat allocation, and gateway billing ledgers.
           </p>
         </div>
+      </div>
+
+      {/* Practice Owner Contact Card */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <User className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white">Practice Owner Contact</h2>
+              <p className="text-xs text-slate-400">Primary administrative and operational contact for this tenant</p>
+            </div>
+          </div>
+          {owner ? (
+            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              Verified Owner
+            </span>
+          ) : (
+            <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              No Direct Owner Linked
+            </span>
+          )}
+        </div>
+
+        {owner ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 pt-5">
+            <div>
+              <span className="text-xs uppercase font-semibold text-slate-500 tracking-wider">Owner Name</span>
+              <p className="text-sm font-semibold text-white mt-1">{owner.name}</p>
+              <p className="text-xs text-slate-500 mt-0.5 capitalize">{owner.role.replace('_', ' ')}</p>
+            </div>
+
+            <div>
+              <span className="text-xs uppercase font-semibold text-slate-500 tracking-wider flex items-center gap-1.5">
+                <Mail className="w-3.5 h-3.5 text-cyan-400" />
+                Email Address
+              </span>
+              <p className="text-sm font-semibold text-white mt-1">
+                {owner.email ? (
+                  <a href={`mailto:${owner.email}`} className="text-cyan-400 hover:underline">
+                    {owner.email}
+                  </a>
+                ) : (
+                  <span className="text-slate-500 italic">No email recorded</span>
+                )}
+              </p>
+            </div>
+
+            <div>
+              <span className="text-xs uppercase font-semibold text-slate-500 tracking-wider flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                Phone Number
+              </span>
+              <p className="text-sm font-semibold text-white mt-1">
+                {owner.phone ? (
+                  <a href={`tel:${owner.phone}`} className="text-emerald-400 hover:underline">
+                    {owner.phone}
+                  </a>
+                ) : (
+                  <span className="text-slate-500 italic">No phone recorded</span>
+                )}
+              </p>
+            </div>
+
+            <div>
+              <span className="text-xs uppercase font-semibold text-slate-500 tracking-wider flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-purple-400" />
+                Member Since
+              </span>
+              <p className="text-sm font-semibold text-white mt-1">
+                {owner.joined_at ? new Date(owner.joined_at).toLocaleDateString() : '—'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="pt-4 text-xs text-slate-400 flex flex-wrap items-center gap-3">
+            <span>No specific practice_owner profile found. Practice contact channels:</span>
+            {practice.email && (
+              <span className="font-mono text-cyan-400">Email: {practice.email}</span>
+            )}
+            {practice.phone && (
+              <span className="font-mono text-emerald-400">Phone: {practice.phone}</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Subscription Dossier Card */}
@@ -474,6 +763,256 @@ export const PlatformPracticeDetailPage: React.FC = () => {
                   className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
                 >
                   {submittingExtension ? 'Recording Override...' : 'Confirm Extension'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Suspend Practice Modal */}
+      {showSuspendModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="font-bold text-white text-base flex items-center gap-2">
+                <Ban className="w-5 h-5 text-rose-400" />
+                Suspend Practice Workspace
+              </h3>
+              <button
+                onClick={() => setShowSuspendModal(false)}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs leading-relaxed space-y-1">
+              <p className="font-semibold text-rose-400">Immediate Operational Lockout</p>
+              <p>
+                Suspending this practice locks all clinical and administrative write access immediately.
+                Users will be restricted from creating encounters, medical notes, appointments, or invoices.
+                Historical medical records remain securely preserved and readable.
+              </p>
+            </div>
+
+            {suspendError && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+                {suspendError}
+              </div>
+            )}
+
+            <form onSubmit={handleSuspendPractice} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Mandatory Audit Justification (Min. 5 characters)
+                </label>
+                <textarea
+                  rows={3}
+                  value={suspendReason}
+                  onChange={(e) => setSuspendReason(e.target.value)}
+                  placeholder="e.g. Account suspended due to non-payment of invoice #PHY-INV-2026-000001 after grace period expired."
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-rose-500 placeholder-slate-500"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSuspendModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingSuspend || suspendReason.trim().length < 5}
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                >
+                  {submittingSuspend ? 'Suspending Workspace...' : 'Confirm Suspension'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Restore Practice Modal */}
+      {showRestoreModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="font-bold text-white text-base flex items-center gap-2">
+                <RefreshCw className="w-5 h-5 text-emerald-400" />
+                Restore Practice Workspace
+              </h3>
+              <button
+                onClick={() => setShowRestoreModal(false)}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs leading-relaxed space-y-1">
+              <p className="font-semibold text-emerald-400">Automatic State Restoration</p>
+              <p>
+                Restoring this practice will re-enable write access. The system automatically inspects
+                the pre-suspension state and current period validity to restore to active, trialing, or past_due.
+              </p>
+            </div>
+
+            {restoreError && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+                {restoreError}
+              </div>
+            )}
+
+            <form onSubmit={handleRestorePractice} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Mandatory Audit Justification (Min. 5 characters)
+                </label>
+                <textarea
+                  rows={3}
+                  value={restoreReason}
+                  onChange={(e) => setRestoreReason(e.target.value)}
+                  placeholder="e.g. Verified settlement received via Paystack; restoring full clinical access."
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500 placeholder-slate-500"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRestoreModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingRestore || restoreReason.trim().length < 5}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                >
+                  {submittingRestore ? 'Restoring Workspace...' : 'Confirm Restoration'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Change Plan / Seats Modal */}
+      {showChangePlanModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <h3 className="font-bold text-white text-base flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-cyan-400" />
+                Change Practice Plan & Seat Limits
+              </h3>
+              <button
+                onClick={() => setShowChangePlanModal(false)}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            {changePlanError && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+                {changePlanError}
+              </div>
+            )}
+
+            <form onSubmit={handleChangePlan} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Target SaaS Plan
+                </label>
+                <select
+                  value={selectedPlanCode}
+                  onChange={(e) => {
+                    const code = e.target.value;
+                    setSelectedPlanCode(code);
+                    const p = plans.find((pl) => pl.plan_code === code);
+                    if (p && customSeats < p.practitioner_seat_limit) {
+                      setCustomSeats(p.practitioner_seat_limit);
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                >
+                  {plans.map((p) => (
+                    <option key={p.id} value={p.plan_code}>
+                      {p.name} ({formatNaira(p.monthly_price_cents)}/mo • Min {p.practitioner_seat_limit} seats)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Practitioner Seat Limit
+                  </label>
+                  <span className="text-xs text-slate-400">
+                    Currently Active: <strong className="text-white">{practitionerCount}</strong>
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  min={selectedPlan?.practitioner_seat_limit || 1}
+                  value={customSeats}
+                  onChange={(e) => setCustomSeats(parseInt(e.target.value, 10) || 1)}
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
+                  required
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Plan minimum: {selectedPlan?.practitioner_seat_limit || 1} seats. Cannot be set lower than active practitioners ({practitionerCount}).
+                </p>
+                {practitionerCount > customSeats && (
+                  <p className="text-xs text-rose-400 font-semibold mt-1">
+                    ⚠ Downgrade blocked: Active practitioners ({practitionerCount}) exceed target seats ({customSeats}).
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Mandatory Audit Reason / Justification
+                </label>
+                <textarea
+                  rows={2}
+                  value={changePlanReason}
+                  onChange={(e) => setChangePlanReason(e.target.value)}
+                  placeholder="e.g. Upgraded to Professional plan per practice request and seat expansion."
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500 placeholder-slate-500"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowChangePlanModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={
+                    submittingChangePlan ||
+                    practitionerCount > customSeats ||
+                    customSeats < (selectedPlan?.practitioner_seat_limit || 1) ||
+                    !changePlanReason.trim()
+                  }
+                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
+                >
+                  {submittingChangePlan ? 'Updating Plan...' : 'Apply Plan Change'}
                 </button>
               </div>
             </form>

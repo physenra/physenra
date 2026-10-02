@@ -7,25 +7,43 @@ import {
   CheckCircle2,
   RefreshCw,
   TrendingUp,
+  Radio,
+  AlertCircle,
+  XCircle,
 } from 'lucide-react';
+
+interface WebhookTelemetryItem {
+  id: string;
+  gateway: string;
+  external_event_id: string;
+  event_type: string;
+  signature_verified: boolean;
+  processed: boolean;
+  error_message: string | null;
+  received_at: string;
+  processed_at: string | null;
+}
 
 export const PlatformBillingPage: React.FC = () => {
   const [invoices, setInvoices] = useState<SaasInvoice[]>([]);
   const [payments, setPayments] = useState<SaasPayment[]>([]);
+  const [webhooks, setWebhooks] = useState<WebhookTelemetryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'invoices' | 'payments'>('invoices');
+  const [activeTab, setActiveTab] = useState<'invoices' | 'payments' | 'webhooks'>('invoices');
   const [error, setError] = useState<string | null>(null);
 
   const fetchBillingData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [invData, pmtData] = await Promise.all([
+      const [invData, pmtData, whData] = await Promise.all([
         saasSubscriptionService.getAllInvoices(),
         saasSubscriptionService.getAllPayments(),
+        saasSubscriptionService.getWebhookTelemetry().catch(() => []),
       ]);
       setInvoices(invData);
       setPayments(pmtData);
+      setWebhooks(whData);
     } catch (err: unknown) {
       console.error('Failed to load billing records:', err);
       setError(err instanceof Error ? err.message : 'Error fetching billing records');
@@ -60,7 +78,7 @@ export const PlatformBillingPage: React.FC = () => {
             Billing, Invoices & Settlement
           </h1>
           <p className="text-slate-400 text-sm mt-1">
-            Global SaaS commercial ledger, invoice lifecycle, and Paystack settlement audit.
+            Global SaaS commercial ledger, invoice lifecycle, Paystack settlement, and webhook telemetry.
           </p>
         </div>
         <button
@@ -148,11 +166,22 @@ export const PlatformBillingPage: React.FC = () => {
           <CreditCard className="w-4 h-4" />
           <span>Settlement Payments ({payments.length})</span>
         </button>
+        <button
+          onClick={() => setActiveTab('webhooks')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            activeTab === 'webhooks'
+              ? 'bg-slate-800 text-emerald-400'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Radio className="w-4 h-4" />
+          <span>Webhook Telemetry ({webhooks.length})</span>
+        </button>
       </div>
 
       {/* Table Content */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
-        {activeTab === 'invoices' ? (
+        {activeTab === 'invoices' && (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-slate-800/60 text-xs uppercase font-semibold text-slate-400 border-b border-slate-800">
@@ -203,7 +232,9 @@ export const PlatformBillingPage: React.FC = () => {
               </tbody>
             </table>
           </div>
-        ) : (
+        )}
+
+        {activeTab === 'payments' && (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-slate-300">
               <thead className="bg-slate-800/60 text-xs uppercase font-semibold text-slate-400 border-b border-slate-800">
@@ -247,6 +278,87 @@ export const PlatformBillingPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-xs text-slate-400">
                         {pmt.settled_at ? new Date(pmt.settled_at).toLocaleDateString() : '—'}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {activeTab === 'webhooks' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-300">
+              <thead className="bg-slate-800/60 text-xs uppercase font-semibold text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th className="px-6 py-4">Gateway</th>
+                  <th className="px-6 py-4">Event ID / Type</th>
+                  <th className="px-6 py-4">Signature</th>
+                  <th className="px-6 py-4">Processing State</th>
+                  <th className="px-6 py-4">Received At</th>
+                  <th className="px-6 py-4">Processed At</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                      Loading webhook telemetry...
+                    </td>
+                  </tr>
+                ) : webhooks.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                      Zero gateway webhook events logged.
+                    </td>
+                  </tr>
+                ) : (
+                  webhooks.map((wh) => (
+                    <tr key={wh.id} className="hover:bg-slate-800/40">
+                      <td className="px-6 py-4">
+                        <span className="uppercase text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-200">
+                          {wh.gateway}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="font-mono text-xs text-white">{wh.external_event_id}</div>
+                        <div className="text-xs text-cyan-400 mt-0.5">{wh.event_type}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {wh.signature_verified ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Verified
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-400">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            Unverified
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {wh.processed ? (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            Processed
+                          </span>
+                        ) : wh.error_message ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20" title={wh.error_message}>
+                            <XCircle className="w-3.5 h-3.5" />
+                            Failed
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-xs font-medium bg-slate-800 text-slate-400">
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-slate-400">
+                        {new Date(wh.received_at).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-slate-400">
+                        {wh.processed_at ? new Date(wh.processed_at).toLocaleString() : '—'}
                       </td>
                     </tr>
                   ))

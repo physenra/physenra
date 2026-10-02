@@ -12,28 +12,57 @@ import {
   ArrowRight,
   Shield,
   Layers,
+  ChevronRight,
 } from 'lucide-react';
+
+interface ExpiringTrialItem {
+  practiceId: string;
+  practiceName: string;
+  slug: string;
+  planName: string;
+  trialEndsAt: string;
+  daysRemaining: number;
+  status: string;
+}
+
+interface DunningItem {
+  practiceId: string;
+  practiceName: string;
+  slug: string;
+  status: string;
+  planName: string;
+  currentPeriodEnd: string | null;
+  amountDueCents: number;
+}
 
 export const PlatformDashboardPage: React.FC = () => {
   const [kpis, setKpis] = useState<PlatformKPIs | null>(null);
+  const [expiringTrials, setExpiringTrials] = useState<ExpiringTrialItem[]>([]);
+  const [dunningPractices, setDunningPractices] = useState<DunningItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadKPIs() {
+    async function loadDashboardData() {
       try {
         setLoading(true);
-        const data = await saasSubscriptionService.getPlatformKPIs();
-        setKpis(data);
+        const [kpiData, trialsData, dunningData] = await Promise.all([
+          saasSubscriptionService.getPlatformKPIs(),
+          saasSubscriptionService.getExpiringTrials(7).catch(() => []),
+          saasSubscriptionService.getDunningPractices().catch(() => []),
+        ]);
+        setKpis(kpiData);
+        setExpiringTrials(trialsData);
+        setDunningPractices(dunningData);
       } catch (err: unknown) {
-        console.error('Failed to load platform KPIs:', err);
-        setError(err instanceof Error ? err.message : 'Failed to query platform KPIs');
+        console.error('Failed to load platform dashboard data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to query platform dashboard data');
       } finally {
         setLoading(false);
       }
     }
 
-    loadKPIs();
+    loadDashboardData();
   }, []);
 
   const formatNaira = (cents: number) => {
@@ -69,7 +98,7 @@ export const PlatformDashboardPage: React.FC = () => {
         <div className="flex items-center gap-3">
           <Link
             to="/platform/practices"
-            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 shadow-sm"
           >
             <span>Manage Practices</span>
             <ArrowRight className="w-4 h-4" />
@@ -174,7 +203,7 @@ export const PlatformDashboardPage: React.FC = () => {
 
         <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-400">
+            <div className="w-10 h-10 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-400">
               <AlertTriangle className="w-5 h-5" />
             </div>
             <div>
@@ -185,8 +214,138 @@ export const PlatformDashboardPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Operational Watchlist Feeds Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Expiring Trials Feed (Within 7 Days) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <Clock className="w-5 h-5 text-cyan-400" />
+                <h2 className="text-base font-bold text-white">Expiring Trials Feed</h2>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                Next 7 Days ({expiringTrials.length})
+              </span>
+            </div>
+
+            {expiringTrials.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-500">
+                Zero trial accounts expiring in the next 7 days.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-800/80">
+                {expiringTrials.slice(0, 5).map((trial) => (
+                  <Link
+                    key={trial.practiceId}
+                    to={`/platform/practices/${trial.practiceId}`}
+                    className="py-3 px-2 flex items-center justify-between hover:bg-slate-800/50 rounded-lg transition-colors group"
+                  >
+                    <div>
+                      <div className="font-semibold text-sm text-slate-200 group-hover:text-cyan-400 transition-colors">
+                        {trial.practiceName}
+                      </div>
+                      <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                        <span>{trial.planName}</span>
+                        <span>•</span>
+                        <span>Ends: {new Date(trial.trialEndsAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-cyan-500/10 text-cyan-400">
+                        {trial.daysRemaining === 0 ? 'Today' : `${trial.daysRemaining}d remaining`}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-300" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {expiringTrials.length > 5 && (
+            <div className="pt-3 border-t border-slate-800 text-right">
+              <Link
+                to="/platform/practices"
+                className="text-xs text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1"
+              >
+                <span>View all ({expiringTrials.length})</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Overdue / Dunning Watchlist Feed */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <AlertTriangle className="w-5 h-5 text-amber-400" />
+                <h2 className="text-base font-bold text-white">Overdue & Dunning Watchlist</h2>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                Action Required ({dunningPractices.length})
+              </span>
+            </div>
+
+            {dunningPractices.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-500">
+                Zero practices in dunning, past due, or expired status.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-800/80">
+                {dunningPractices.slice(0, 5).map((item) => (
+                  <Link
+                    key={item.practiceId}
+                    to={`/platform/practices/${item.practiceId}`}
+                    className="py-3 px-2 flex items-center justify-between hover:bg-slate-800/50 rounded-lg transition-colors group"
+                  >
+                    <div>
+                      <div className="font-semibold text-sm text-slate-200 group-hover:text-amber-400 transition-colors">
+                        {item.practiceName}
+                      </div>
+                      <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                        <span>{item.planName}</span>
+                        <span>•</span>
+                        <span className="capitalize">{item.status.replace('_', ' ')}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-right">
+                        <div className="text-xs font-semibold text-amber-400">
+                          {formatNaira(item.amountDueCents)}
+                        </div>
+                        {item.currentPeriodEnd && (
+                          <div className="text-[10px] text-slate-500">
+                            Due {new Date(item.currentPeriodEnd).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-300" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {dunningPractices.length > 5 && (
+            <div className="pt-3 border-t border-slate-800 text-right">
+              <Link
+                to="/platform/practices"
+                className="text-xs text-amber-400 hover:text-amber-300 inline-flex items-center gap-1"
+              >
+                <span>View all ({dunningPractices.length})</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Navigation Quick Panels */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
         <Link
           to="/platform/practices"
           className="group bg-slate-900 border border-slate-800 hover:border-emerald-500/50 rounded-xl p-6 transition-all duration-200 shadow-sm"
@@ -201,7 +360,7 @@ export const PlatformDashboardPage: React.FC = () => {
             Practice Directory
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Search, inspect dossiers, review active practitioner seats, and grant authorized trial extensions.
+            Search, inspect dossiers, review active practitioner seats, suspend, restore, or change plans.
           </p>
         </Link>
 
@@ -237,7 +396,7 @@ export const PlatformDashboardPage: React.FC = () => {
             Billing & Invoices
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Audit platform invoices, gateway settlements, Paystack transaction references, and revenue ledgers.
+            Audit platform invoices, gateway settlements, Paystack references, and webhook telemetry.
           </p>
         </Link>
       </div>

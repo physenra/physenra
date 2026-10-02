@@ -28,6 +28,18 @@ import type {
   SaasPaymentGateway,
 } from '../types/models';
 
+export interface PracticeOwnerContact {
+  id: string;
+  name: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  display_name?: string | null;
+  email: string | null;
+  phone?: string | null;
+  role: string;
+  joined_at?: string | null;
+}
+
 export interface PracticeDossier {
   practice: {
     id: string;
@@ -36,9 +48,12 @@ export interface PracticeDossier {
     status: string;
     country: string;
     timezone: string;
+    email?: string | null;
+    phone?: string | null;
     created_at: string;
   };
-  subscription: PracticeSubscription & { plan?: SaasPlan } | null;
+  owner: PracticeOwnerContact | null;
+  subscription: (PracticeSubscription & { plan?: SaasPlan }) | null;
   trialExtensions: SaasTrialExtension[];
   invoices: (SaasInvoice & { lines?: SaasInvoiceLine[] })[];
   payments: SaasPayment[];
@@ -283,7 +298,7 @@ export const saasSubscriptionService = {
     // 1. Practice
     const { data: practice, error: pracError } = await supabase
       .from('practices')
-      .select('id, name, slug, status, country, timezone, created_at')
+      .select('id, name, slug, status, country, timezone, email, phone, created_at')
       .eq('id', practiceId)
       .single();
 
@@ -319,14 +334,298 @@ export const saasSubscriptionService = {
       .in('role', ['physiotherapist', 'practice_owner'])
       .eq('status', 'active');
 
+    // 7. Practice Owner Contact
+    let owner: PracticeOwnerContact | null = null;
+    try {
+      const { data: ownerMembership } = await supabase
+        .from('practice_memberships')
+        .select('id, user_id, role, joined_at')
+        .eq('practice_id', practiceId)
+        .eq('role', 'practice_owner')
+        .maybeSingle();
+
+      if (ownerMembership?.user_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, display_name, first_name, last_name, phone')
+          .eq('id', ownerMembership.user_id)
+          .maybeSingle();
+
+        const fullName =
+          [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') ||
+          profile?.display_name ||
+          'Practice Owner';
+
+        owner = {
+          id: ownerMembership.user_id,
+          name: fullName,
+          first_name: profile?.first_name || null,
+          last_name: profile?.last_name || null,
+          display_name: profile?.display_name || null,
+          email: practice.email || null,
+          phone: profile?.phone || practice.phone || null,
+          role: ownerMembership.role,
+          joined_at: ownerMembership.joined_at,
+        };
+      }
+    } catch (ownerErr) {
+      console.warn('Failed to resolve practice owner contact:', ownerErr);
+    }
+
     return {
       practice,
+      owner,
       subscription,
       trialExtensions: (extensions as SaasTrialExtension[]) || [],
       invoices,
       payments: (payments as SaasPayment[]) || [],
       practitionerCount: practitionerCount || 0,
     };
+  },
+
+  /**
+   * Suspends a practice workspace and blocks further clinical/administrative writes.
+   * Enforces mandatory audit justification.
+   */
+  async suspendPractice(
+    practiceId: string,
+    reason: string
+  ): Promise<{
+    success: boolean;
+    practice_id: string;
+    status: string;
+    previous_status?: string;
+    audit_event_id?: string;
+    message?: string;
+  }> {
+    if (!reason || reason.trim().length < 5) {
+      throw new Error('Suspension reason is required and must be at least 5 characters');
+    }
+    const { data, error } = await supabase.rpc('suspend_practice', {
+      p_practice_id: practiceId,
+      p_reason: reason.trim(),
+    });
+
+    if (error) {
+      throw new Error(`Practice suspension failed: ${error.message}`);
+    }
+
+    return data as any;
+  },
+
+  /**
+   * Restores a suspended practice workspace to its appropriate subscription state.
+   * Enforces mandatory audit justification.
+   */
+  async restorePractice(
+    practiceId: string,
+    reason: string
+  ): Promise<{
+    success: boolean;
+    practice_id: string;
+    status: string;
+    practice_status?: string;
+    prior_subscription_status?: string;
+    audit_event_id?: string;
+    message?: string;
+  }> {
+    if (!reason || reason.trim().length < 5) {
+      throw new Error('Restoration reason is required and must be at least 5 characters');
+    }
+    const { data, error } = await supabase.rpc('restore_practice', {
+      p_practice_id: practiceId,
+      p_reason: reason.trim(),
+    });
+
+    if (error) {
+      throw new Error(`Practice restoration failed: ${error.message}`);
+    }
+
+    return data as any;
+  },
+
+  /**
+   * Changes a practice subscription plan and seat limit.
+   * Enforces seat capacity rules and immutable audit logging.
+   */
+  async changePracticePlan(
+    practiceId: string,
+    planCode: string,
+    seatLimit?: number,
+    reason?: string
+  ): Promise<{
+    success: boolean;
+    practice_id: string;
+    plan_id: string;
+    plan_code: string;
+    plan_name: string;
+    seat_limit: number;
+    price_cents: number;
+    currency: string;
+    audit_event_id: string;
+  }> {
+    const { data, error } = await supabase.rpc('change_practice_plan', {
+      p_practice_id: practiceId,
+      p_plan_code: planCode,
+      p_seat_limit: seatLimit ?? null,
+      p_reason: reason?.trim() || 'Administrative plan adjustment',
+    });
+
+    if (error) {
+      throw new Error(`Plan change failed: ${error.message}`);
+    }
+
+    return data as any;
+  },
+
+  /**
+   * Queries trialing practices whose trials expire within the threshold window (default: 7 days).
+   */
+  async getExpiringTrials(daysThreshold = 7): Promise<
+    Array<{
+      practiceId: string;
+      practiceName: string;
+      slug: string;
+      planName: string;
+      trialEndsAt: string;
+      daysRemaining: number;
+      status: string;
+    }>
+  > {
+    const now = new Date();
+    const futureDate = new Date();
+    futureDate.setDate(now.getDate() + daysThreshold);
+
+    const { data: subs, error: subErr } = await supabase
+      .from('practice_subscriptions')
+      .select('practice_id, status, trial_ends_at, plan_id')
+      .eq('status', 'trialing')
+      .not('trial_ends_at', 'is', null)
+      .lte('trial_ends_at', futureDate.toISOString())
+      .order('trial_ends_at', { ascending: true });
+
+    if (subErr) {
+      throw new Error(`Failed to fetch expiring trials: ${subErr.message}`);
+    }
+    if (!subs || subs.length === 0) return [];
+
+    const practiceIds = subs.map((s) => s.practice_id);
+    const planIds = Array.from(new Set(subs.map((s) => s.plan_id)));
+
+    const [{ data: practices }, { data: plans }] = await Promise.all([
+      supabase.from('practices').select('id, name, slug').in('id', practiceIds),
+      supabase.from('saas_plans').select('id, name').in('id', planIds),
+    ]);
+
+    const practiceMap = new Map((practices || []).map((p) => [p.id, p]));
+    const planMap = new Map((plans || []).map((p) => [p.id, p.name]));
+
+    return subs.map((s) => {
+      const p = practiceMap.get(s.practice_id);
+      const endsAt = new Date(s.trial_ends_at!);
+      const msDiff = endsAt.getTime() - now.getTime();
+      const daysRemaining = Math.max(0, Math.ceil(msDiff / (1000 * 60 * 60 * 24)));
+
+      return {
+        practiceId: s.practice_id,
+        practiceName: p?.name || 'Unknown Practice',
+        slug: p?.slug || '',
+        planName: planMap.get(s.plan_id) || 'Unknown Plan',
+        trialEndsAt: s.trial_ends_at!,
+        daysRemaining,
+        status: s.status,
+      };
+    });
+  },
+
+  /**
+   * Queries practices currently in dunning states (past_due, grace_period, expired).
+   */
+  async getDunningPractices(): Promise<
+    Array<{
+      practiceId: string;
+      practiceName: string;
+      slug: string;
+      status: string;
+      planName: string;
+      currentPeriodEnd: string | null;
+      amountDueCents: number;
+    }>
+  > {
+    const { data: subs, error: subErr } = await supabase
+      .from('practice_subscriptions')
+      .select('practice_id, status, current_period_end, current_price_cents, plan_id, updated_at')
+      .in('status', ['past_due', 'grace_period', 'expired'])
+      .order('updated_at', { ascending: false });
+
+    if (subErr) {
+      throw new Error(`Failed to fetch dunning practices: ${subErr.message}`);
+    }
+    if (!subs || subs.length === 0) return [];
+
+    const practiceIds = subs.map((s) => s.practice_id);
+    const planIds = Array.from(new Set(subs.map((s) => s.plan_id)));
+
+    const [{ data: practices }, { data: plans }] = await Promise.all([
+      supabase.from('practices').select('id, name, slug').in('id', practiceIds),
+      supabase.from('saas_plans').select('id, name').in('id', planIds),
+    ]);
+
+    const practiceMap = new Map((practices || []).map((p) => [p.id, p]));
+    const planMap = new Map((plans || []).map((p) => [p.id, p.name]));
+
+    return subs.map((s) => {
+      const p = practiceMap.get(s.practice_id);
+      return {
+        practiceId: s.practice_id,
+        practiceName: p?.name || 'Unknown Practice',
+        slug: p?.slug || '',
+        status: s.status,
+        planName: planMap.get(s.plan_id) || 'Unknown Plan',
+        currentPeriodEnd: s.current_period_end,
+        amountDueCents: s.current_price_cents || 0,
+      };
+    });
+  },
+
+  /**
+   * Fetches webhook event telemetry for administrative debugging.
+   */
+  async getWebhookTelemetry(limit = 50): Promise<
+    Array<{
+      id: string;
+      gateway: string;
+      external_event_id: string;
+      event_type: string;
+      signature_verified: boolean;
+      processed: boolean;
+      error_message: string | null;
+      received_at: string;
+      processed_at: string | null;
+    }>
+  > {
+    const { data, error } = await supabase
+      .from('saas_webhook_events')
+      .select('id, gateway, external_event_id, event_type, signature_verified, processed, error_message, received_at, processed_at')
+      .order('received_at', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.warn('Failed to load webhook telemetry:', error);
+      return [];
+    }
+
+    return (data as Array<{
+      id: string;
+      gateway: string;
+      external_event_id: string;
+      event_type: string;
+      signature_verified: boolean;
+      processed: boolean;
+      error_message: string | null;
+      received_at: string;
+      processed_at: string | null;
+    }>) || [];
   },
 
   /**
@@ -382,6 +681,25 @@ export const saasSubscriptionService = {
 
     if (error) {
       throw new Error(`Failed to update SaaS plan: ${error.message}`);
+    }
+
+    try {
+      await supabase.rpc('log_audit_event', {
+        p_practice_id: null,
+        p_action: 'plan.updated',
+        p_entity_type: 'saas_plan',
+        p_entity_id: planId,
+        p_metadata: {
+          plan_id: planId,
+          plan_code: data.plan_code,
+          plan_name: data.name,
+          updated_fields: Object.keys(updates),
+          updates,
+        },
+        p_source: 'web',
+      });
+    } catch (auditErr) {
+      console.warn('Audit logging for plan update failed:', auditErr);
     }
 
     return data as SaasPlan;
@@ -482,6 +800,23 @@ export const saasSubscriptionService = {
 
     if (error) {
       throw new Error(`Failed to update platform setting: ${error.message}`);
+    }
+
+    try {
+      await supabase.rpc('log_audit_event', {
+        p_practice_id: null,
+        p_action: 'platform_settings.updated',
+        p_entity_type: 'platform_setting',
+        p_entity_id: null,
+        p_metadata: {
+          key,
+          value: value as any,
+          description: description || null,
+        },
+        p_source: 'web',
+      });
+    } catch (auditErr) {
+      console.warn('Audit logging for platform setting update failed:', auditErr);
     }
   },
 

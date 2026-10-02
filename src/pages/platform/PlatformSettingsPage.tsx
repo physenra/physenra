@@ -140,7 +140,7 @@ export const PlatformSettingsPage: React.FC = () => {
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Default Free Trial Days</span>
+                  <span>Default Trial Duration for New Plans (Days)</span>
                 </label>
                 <input
                   type="number"
@@ -150,6 +150,9 @@ export const PlatformSettingsPage: React.FC = () => {
                   onChange={(e) => setTrialDays(parseInt(e.target.value, 10) || 14)}
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-cyan-500"
                 />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Sets default trial days for newly configured plans. Does not retroactively alter active practice trials.
+                </p>
               </div>
 
               <div>
