@@ -1,5 +1,5 @@
 // ==============================================================================
-// PHYSENRA PUBLIC WEBSITE — FEATURE DETAIL ROUTE SHELL
+// PHYSENRA PUBLIC WEBSITE — FEATURE DETAIL ROUTE SHELL (PHASE 1B REFINED)
 // File: src/public/pages/FeatureDetailShell.tsx
 // ==============================================================================
 
@@ -8,7 +8,13 @@ import { useParams, Link } from 'react-router-dom';
 import { MarketingLayout } from '../layouts/MarketingLayout';
 import { SectionHeading } from '../components/SectionHeading';
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
-import { CheckCircle2, ArrowLeft } from 'lucide-react';
+import { BrowserFrame } from '../components/BrowserFrame';
+import { StatusBadge } from '../components/StatusBadge';
+import {
+  CheckCircle2,
+  ArrowLeft,
+  Receipt,
+} from 'lucide-react';
 
 interface FeatureModuleData {
   title: string;
@@ -62,7 +68,7 @@ const FEATURE_DATA: Record<string, FeatureModuleData> = {
   'clinical-documentation': {
     title: 'Orthopaedic & Neurological Documentation',
     kicker: 'Standardized Clinical Records',
-    tagline: 'High-speed structured charting built around evidence-based physiotherapy.',
+    tagline: 'Structured charting built around evidence-based physiotherapy.',
     description:
       'Eliminate freehand narrative ambiguity. Physenra enforces standardized clinical fields for orthopaedic special tests, neurodynamic assessments, and functional goals.',
     highlights: [
@@ -106,7 +112,7 @@ const FEATURE_DATA: Record<string, FeatureModuleData> = {
       'Full-cycle commercial billing tailored for private practices. Generate itemized invoices from clinical encounters, print numbered tax receipts, and accept card payments via Paystack with instant verification.',
     highlights: [
       'Itemized billing from completed visits, packages, and clinic consumables',
-      'Instant online card checkout via secure Paystack payment gateway',
+      'Online card checkout via secure Paystack payment gateway integration',
       'Printable professional PDF tax invoices and official numbered receipts',
       'End-of-day revenue reconciliation and overdue outstanding account aging',
     ],
@@ -138,6 +144,154 @@ const FEATURE_DATA: Record<string, FeatureModuleData> = {
       'Immutable administrative audit trail recording all privileged actions',
     ],
   },
+};
+
+/**
+ * Renders a specialized, sanitized product mockup visual matching the module topic.
+ */
+const renderFeatureVisual = (slug: string) => {
+  switch (slug) {
+    case 'medical-imaging':
+      return (
+        <BrowserFrame urlPath="physenra.com/platform/imaging/studies/ST-2026-04" badge="Web PACS">
+          <div className="bg-slate-950 text-white p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-xs">
+              <span className="font-bold text-teal-400">Study: Lumbar Spine MRI (T2 SAG)</span>
+              <span className="font-mono text-slate-400 text-[11px]">WW: 850 • WL: 320</span>
+            </div>
+            <div className="aspect-[4/3] rounded-lg bg-black border border-slate-800 flex items-center justify-center relative overflow-hidden">
+              <div className="relative z-10 text-center p-3 rounded-lg bg-slate-900/90 border border-teal-500/50">
+                <div className="text-[10px] font-mono text-teal-400 uppercase tracking-wider">Cobb Angle Caliper</div>
+                <div className="text-2xl font-bold font-mono text-emerald-400">14.2°</div>
+                <div className="text-[10px] text-slate-400">L1 to L4 Angle</div>
+              </div>
+            </div>
+            <div className="flex justify-between text-[11px] text-slate-400">
+              <span>Presets: Soft Tissue • Bone</span>
+              <span className="text-teal-400">Attached to Episode #EP-2026-08</span>
+            </div>
+          </div>
+        </BrowserFrame>
+      );
+
+    case 'treatment-packages':
+      return (
+        <BrowserFrame urlPath="physenra.com/platform/patients/PT-2026-08/packages" badge="Entitlements">
+          <div className="p-5 bg-white space-y-4 text-left">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div>
+                <div className="text-xs font-bold text-slate-900">Post-Op Rehab Package (10 Sessions)</div>
+                <div className="text-[11px] text-slate-500">Patient: Adaeze N. • Atomic Decrementing</div>
+              </div>
+              <StatusBadge label="Active Package" variant="active" size="sm" />
+            </div>
+            <div className="p-3 rounded-lg bg-teal-50/70 border border-teal-100">
+              <div className="text-xs text-teal-800 font-semibold">Remaining Session Balance</div>
+              <div className="text-2xl font-extrabold font-mono text-teal-900 mt-0.5">7 of 10</div>
+              <div className="w-full bg-teal-200/60 h-2 rounded-full mt-2 overflow-hidden">
+                <div className="bg-teal-600 h-2 rounded-full" style={{ width: '70%' }} />
+              </div>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 flex justify-between items-center">
+              <div>
+                <div className="text-[11px] text-slate-500">Deposit Wallet Credit</div>
+                <div className="text-sm font-bold font-mono text-slate-900">₦120,000.00</div>
+              </div>
+              <StatusBadge label="Prepaid Credit" variant="scheduled" size="sm" dot={false} />
+            </div>
+          </div>
+        </BrowserFrame>
+      );
+
+    case 'appointments':
+      return (
+        <BrowserFrame urlPath="physenra.com/platform/appointments" badge="Multi-Therapist">
+          <div className="p-5 bg-white space-y-3 text-left">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span className="text-xs font-bold text-slate-900">Clinic Scheduling Grid</span>
+              <StatusBadge label="Active Bays" variant="active" size="sm" />
+            </div>
+            <div className="space-y-2">
+              <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 flex justify-between items-center">
+                <div>
+                  <div className="text-xs font-bold text-emerald-900">09:00 - 09:45 • Adaeze N.</div>
+                  <div className="text-[11px] text-emerald-700">Dr. K. Okonjo • Bay 1</div>
+                </div>
+                <StatusBadge label="In Session" variant="active" size="sm" dot={false} />
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex justify-between items-center">
+                <div>
+                  <div className="text-xs font-bold text-slate-900">10:30 - 11:15 • Emeka O.</div>
+                  <div className="text-[11px] text-slate-500">Dr. T. Balogun • Bay 2</div>
+                </div>
+                <StatusBadge label="Arrived" variant="scheduled" size="sm" dot={false} />
+              </div>
+            </div>
+          </div>
+        </BrowserFrame>
+      );
+
+    case 'billing':
+      return (
+        <BrowserFrame urlPath="physenra.com/platform/invoices/INV-2026-012" badge="Paystack Verified">
+          <div className="p-5 bg-white space-y-3 text-left">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div>
+                <div className="text-xs font-bold text-slate-900">Invoice #INV-2026-012</div>
+                <div className="text-[11px] text-slate-500">Adaeze N. • Paystack Checkout</div>
+              </div>
+              <StatusBadge label="Paid in Full" variant="active" size="sm" />
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
+              <div className="flex justify-between">
+                <span>10-Session Rehab Package Bundle</span>
+                <span className="font-mono font-bold">₦150,000</span>
+              </div>
+              <div className="flex justify-between text-slate-500">
+                <span>VAT (7.5%)</span>
+                <span className="font-mono">₦11,250</span>
+              </div>
+              <div className="flex justify-between font-bold pt-1.5 border-t border-slate-200 text-slate-900">
+                <span>Total Amount Paid</span>
+                <span className="font-mono text-teal-800">₦161,250</span>
+              </div>
+            </div>
+            <div className="text-[10px] text-slate-500 flex items-center gap-1.5">
+              <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Official Tax Receipt #RCT-00042 Generated</span>
+            </div>
+          </div>
+        </BrowserFrame>
+      );
+
+    default: // EMR / Clinical Documentation / Patient Management default
+      return (
+        <BrowserFrame urlPath="physenra.com/platform/encounters/ENC-2026-08" badge="Clinical EMR">
+          <div className="p-5 bg-white space-y-3 text-left">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div>
+                <div className="text-xs font-bold text-slate-900">Adaeze N. • L5-S1 Radiculopathy</div>
+                <div className="text-[11px] text-slate-500">Initial Musculoskeletal SOAP Note</div>
+              </div>
+              <StatusBadge label="Signed" variant="active" size="sm" />
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2 rounded bg-teal-50 border border-teal-100">
+                <span className="text-[10px] text-teal-700 font-bold block">VAS Pain Scale</span>
+                <span className="text-sm font-bold font-mono text-teal-900">6 / 10</span>
+              </div>
+              <div className="p-2 rounded bg-slate-50 border border-slate-200">
+                <span className="text-[10px] text-slate-500 font-bold block">ODI Impairment</span>
+                <span className="text-sm font-bold font-mono text-slate-900">42%</span>
+              </div>
+            </div>
+            <div className="p-2.5 rounded bg-slate-50 border border-slate-100 text-xs text-slate-600 leading-relaxed">
+              Objective: Lumbar extension centralizes pain. Straight leg raise positive right at 40°. McKenzie prone press-ups prescribed.
+            </div>
+          </div>
+        </BrowserFrame>
+      );
+  }
 };
 
 interface FeatureDetailShellProps {
@@ -175,6 +329,7 @@ export const FeatureDetailShell: React.FC<FeatureDetailShellProps> = ({ slug: pr
       <div className="py-16 sm:py-24 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-left">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+            {/* Left Column: Clinical Description & Highlights */}
             <div className="lg:col-span-7">
               <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mb-4">
                 Clinical Workflow & Overview
@@ -202,30 +357,36 @@ export const FeatureDetailShell: React.FC<FeatureDetailShellProps> = ({ slug: pr
               </div>
             </div>
 
-            <div className="lg:col-span-5 rounded-2xl border border-slate-200 bg-slate-50 p-6 sm:p-8">
-              <h3 className="text-lg font-bold text-slate-900 mb-2">
-                Ready to Experience {data.kicker}?
-              </h3>
-              <p className="text-xs text-slate-500 leading-relaxed mb-6">
-                All plans include full access to our clinical EMR, treatment packages, and scheduling tools. Test on your clinic caseload with zero risk.
-              </p>
-              <div className="space-y-2.5 text-xs text-slate-600 mb-6">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>14-day free trial on all plans</span>
+            {/* Right Column: Tailored Product Visual Mockup */}
+            <div className="lg:col-span-5 space-y-6">
+              {renderFeatureVisual(activeSlug)}
+
+              {/* Onboarding Callout Card */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 sm:p-8">
+                <h3 className="text-lg font-bold text-slate-900 mb-2">
+                  Experience {data.kicker}
+                </h3>
+                <p className="text-xs text-slate-500 leading-relaxed mb-6">
+                  All plans include full access to our clinical EMR, treatment packages, and scheduling tools. Test on your clinic caseload self-service.
+                </p>
+                <div className="space-y-2.5 text-xs text-slate-600 mb-6">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>14-day free trial on all plans</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>No credit card required</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Self-service practice setup</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>No credit card required</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Instant self-service onboarding</span>
-                </div>
+                <PrimaryCTAButton to="/register-practice" className="w-full">
+                  Create Practice Workspace
+                </PrimaryCTAButton>
               </div>
-              <PrimaryCTAButton to="/register-practice" className="w-full">
-                Create Practice Workspace
-              </PrimaryCTAButton>
             </div>
           </div>
         </div>

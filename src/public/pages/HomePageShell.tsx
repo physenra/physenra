@@ -1,5 +1,5 @@
 // ==============================================================================
-// PHYSENRA PUBLIC WEBSITE — HOMEPAGE ARCHITECTURAL SHELL
+// PHYSENRA PUBLIC WEBSITE — HOMEPAGE ARCHITECTURAL SHELL (PHASE 1B REFINED)
 // File: src/public/pages/HomePageShell.tsx
 // Route: /
 // ==============================================================================
@@ -12,6 +12,10 @@ import { SecondaryCTAButton } from '../components/SecondaryCTAButton';
 import { SectionHeading } from '../components/SectionHeading';
 import { FeatureCard } from '../components/FeatureCard';
 import { FAQAccordion, FAQItem } from '../components/FAQAccordion';
+import { ProductMockup } from '../components/ProductMockup';
+const InteractiveShowcase = React.lazy(() =>
+  import('../components/InteractiveShowcase').then((m) => ({ default: m.InteractiveShowcase }))
+);
 import { AUTHORITATIVE_SAAS_PLANS } from '../data/plans';
 import { formatNaira } from '../../utils/currency';
 import {
@@ -31,7 +35,7 @@ const HOMEPAGE_FAQS: FAQItem[] = [
   {
     question: 'Do I need to enter payment card details to start the trial?',
     answer:
-      'No. Physenra provides a full-featured 14-day free trial on all plans with no credit card required. You can set up your practice workspace in under two minutes.',
+      'No. Physenra provides a 14-day free trial on all plans with no credit card required. You can set up your practice workspace self-service.',
   },
   {
     question: 'How does the built-in DICOM PACS medical imaging viewer work?',
@@ -41,7 +45,7 @@ const HOMEPAGE_FAQS: FAQItem[] = [
   {
     question: 'What happens if my practice subscription expires or cancels?',
     answer:
-      'Physenra guarantees non-punitive read-only data retention. If your subscription ever lapses, your clinical notes and patient histories remain accessible in read-only mode so you never lose patient records.',
+      'Physenra implements a non-punitive read-only data retention policy. If your subscription ever lapses, your clinical notes and patient histories remain accessible in read-only mode so you never lose patient records.',
   },
   {
     question: 'Are patient medical records isolated between different practices?',
@@ -57,18 +61,19 @@ export const HomePageShell: React.FC = () => {
       <section className="relative overflow-hidden bg-gradient-to-b from-slate-50 via-white to-white py-16 sm:py-24 lg:py-32 border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            <div className="lg:col-span-7 text-left">
+            {/* Left Column: Clinical Value Proposition */}
+            <div className="lg:col-span-6 text-left">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider text-teal-800 bg-teal-50 border border-teal-200 mb-6">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
                 Specialized Physiotherapy EMR & Practice OS
               </div>
               <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 leading-tight">
                 The Clinical EMR Purpose-Built for <span className="text-teal-700">Physiotherapy</span>.
               </h1>
-              <p className="mt-6 text-lg sm:text-xl text-slate-600 leading-relaxed max-w-2xl">
+              <p className="mt-6 text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl">
                 Document musculoskeletal assessments in minutes, review DICOM diagnostic imaging in your browser, automate multi-session treatment packages, and run your entire practice on one secure platform.
               </p>
-              
+
               <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
                 <PrimaryCTAButton size="lg" to="/register-practice">
                   Start 14-Day Free Trial
@@ -78,57 +83,26 @@ export const HomePageShell: React.FC = () => {
                 </SecondaryCTAButton>
               </div>
 
-              <div className="mt-6 flex items-center gap-6 text-xs text-slate-500">
+              {/* Factual Value Points (No Unsupported Guarantees) */}
+              <div className="mt-6 flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-slate-500">
                 <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>No credit card required</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>2-minute practice setup</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Self-service practice setup</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>Full clinical features</span>
                 </div>
               </div>
             </div>
 
-            {/* 2. PRODUCT PREVIEW SHELL */}
-            <div className="lg:col-span-5">
-              <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-lg ring-1 ring-slate-900/5">
-                <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-slate-200" />
-                    <div className="w-3 h-3 rounded-full bg-slate-200" />
-                    <div className="w-3 h-3 rounded-full bg-slate-200" />
-                  </div>
-                  <span className="text-xs font-mono text-slate-400">physenra.com/platform</span>
-                </div>
-                <div className="space-y-3">
-                  <div className="p-3 rounded-lg bg-teal-50/60 border border-teal-100 text-left">
-                    <div className="text-xs font-semibold text-teal-800">Active Patient Encounter</div>
-                    <div className="text-sm font-bold text-slate-900 mt-0.5">L5-S1 Lumbar Radiculopathy</div>
-                    <div className="text-xs text-slate-500">SOAP Charting • Oxford MMT • VAS: 6/10 • ODI: 42%</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-slate-50 border border-slate-100 text-left flex items-center justify-between">
-                    <div>
-                      <div className="text-xs font-medium text-slate-500">Active Treatment Package</div>
-                      <div className="text-sm font-semibold text-slate-900">Post-Op Rehab (10 Sessions)</div>
-                    </div>
-                    <span className="px-2 py-1 rounded text-xs font-bold bg-amber-100 text-amber-800">
-                      7 Sessions Left
-                    </span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-slate-900 text-white text-left flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Scan className="w-4 h-4 text-teal-400" />
-                      <div className="text-xs">Web DICOM PACS • Spine MRI</div>
-                    </div>
-                    <span className="text-xs font-mono text-emerald-400">Cobb: 14.2°</span>
-                  </div>
-                </div>
-              </div>
+            {/* 2. PRODUCT PREVIEW: HIGH-FIDELITY COMPOSITE MOCKUP */}
+            <div className="lg:col-span-6">
+              <ProductMockup />
             </div>
           </div>
         </div>
@@ -162,43 +136,25 @@ export const HomePageShell: React.FC = () => {
         </div>
       </section>
 
-      {/* 4. CLINICAL WORKFLOW */}
+      {/* 4. INTERACTIVE CLINICAL SHOWCASE */}
       <section className="py-16 sm:py-24 bg-white border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionHeading
-            kicker="End-to-End Care Cycle"
-            title="Designed Around How Physiotherapists Actually Work"
-            subtitle="Connect patient intake, specialized clinical documentation, diagnostic imaging, and package billing into one unified workflow."
+            kicker="Interactive Platform Preview"
+            title="Explore Physenra’s Core Clinical Workflows"
+            subtitle="Switch between live product views to see how Physenra streamlines daily clinical documentation, multi-therapist scheduling, session packages, and diagnostic radiology."
           />
 
-          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-            <div className="p-6 rounded-xl border border-slate-200 bg-slate-50/50">
-              <div className="w-8 h-8 rounded-full bg-teal-600 text-white font-bold flex items-center justify-center mb-4">
-                1
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900">Intake & Episode Creation</h3>
-              <p className="mt-2 text-sm text-slate-600">
-                Structure patient medical history around distinct Episodes of Care—acute injuries, post-operative rehab, or chronic conditions.
-              </p>
-            </div>
-            <div className="p-6 rounded-xl border border-slate-200 bg-slate-50/50">
-              <div className="w-8 h-8 rounded-full bg-teal-600 text-white font-bold flex items-center justify-center mb-4">
-                2
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900">Musculoskeletal Assessment</h3>
-              <p className="mt-2 text-sm text-slate-600">
-                Document active/passive ROM, Oxford muscle strength grades, and automated functional outcome scores (NDI, ODI, LEFS, QuickDASH).
-              </p>
-            </div>
-            <div className="p-6 rounded-xl border border-slate-200 bg-slate-50/50">
-              <div className="w-8 h-8 rounded-full bg-teal-600 text-white font-bold flex items-center justify-center mb-4">
-                3
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900">Package Billing & Discharge</h3>
-              <p className="mt-2 text-sm text-slate-600">
-                Assign multi-session therapy packages, deduct sessions automatically upon visit completion, and print official tax receipts.
-              </p>
-            </div>
+          <div className="mt-12">
+            <React.Suspense
+              fallback={
+                <div className="h-96 rounded-2xl bg-slate-900/5 border border-slate-200 animate-pulse flex items-center justify-center text-slate-400 font-mono text-xs">
+                  Loading interactive showcase...
+                </div>
+              }
+            >
+              <InteractiveShowcase />
+            </React.Suspense>
           </div>
         </div>
       </section>
@@ -253,7 +209,7 @@ export const HomePageShell: React.FC = () => {
         </div>
       </section>
 
-      {/* 6. PRACTICE OPERATIONS & 7. BILLING */}
+      {/* 6. PRACTICE OPERATIONS & BILLING */}
       <section className="py-16 sm:py-24 bg-white border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
@@ -288,7 +244,7 @@ export const HomePageShell: React.FC = () => {
               </div>
             </div>
 
-            {/* 8. MEDICAL IMAGING PREVIEW */}
+            {/* Medical Imaging PACS Frame */}
             <div className="rounded-2xl bg-slate-900 p-6 md:p-8 text-white shadow-xl text-left">
               <div className="flex items-center justify-between pb-4 border-b border-slate-800">
                 <div className="flex items-center gap-2">
@@ -317,13 +273,13 @@ export const HomePageShell: React.FC = () => {
         </div>
       </section>
 
-      {/* 9. SECURITY & DATA PRIVACY */}
+      {/* 7. SECURITY & DATA PRIVACY */}
       <section className="py-16 sm:py-24 bg-slate-50 border-b border-slate-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionHeading
             kicker="Healthcare Data Sovereignty"
             title="Enterprise Security. Absolute Clinical Privacy."
-            subtitle="Your clinical records belong entirely to your practice. Built with cryptographic Row-Level Security and guaranteed data retention."
+            subtitle="Your clinical records belong entirely to your practice. Built with cryptographic Row-Level Security and strict tenant isolation."
           />
 
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
@@ -343,9 +299,9 @@ export const HomePageShell: React.FC = () => {
             </div>
             <div className="p-6 rounded-xl border border-slate-200 bg-white">
               <CheckCircle2 className="w-8 h-8 text-teal-700 mb-3" />
-              <h3 className="text-lg font-semibold text-slate-900">Read-Only Data Guarantee</h3>
+              <h3 className="text-lg font-semibold text-slate-900">Read-Only Access Architecture</h3>
               <p className="mt-2 text-sm text-slate-600">
-                If your subscription ever lapses, your clinical records remain accessible in read-only mode. We never hold your data hostage.
+                If your subscription ever lapses, your clinical records remain accessible in read-only mode so you never lose patient history.
               </p>
             </div>
           </div>
@@ -362,7 +318,7 @@ export const HomePageShell: React.FC = () => {
         </div>
       </section>
 
-      {/* 10. PRICING PREVIEW */}
+      {/* 8. PRICING PREVIEW */}
       <section className="py-16 sm:py-24 bg-white border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionHeading
@@ -438,7 +394,7 @@ export const HomePageShell: React.FC = () => {
         </div>
       </section>
 
-      {/* 11. FAQ ACCORDION */}
+      {/* 9. FAQ ACCORDION */}
       <section className="py-16 sm:py-24 bg-slate-50/60 border-b border-slate-200/80">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionHeading
@@ -453,7 +409,7 @@ export const HomePageShell: React.FC = () => {
         </div>
       </section>
 
-      {/* 12. FINAL CTA CONVERSION BANNER */}
+      {/* 10. FINAL CTA CONVERSION BANNER */}
       <section className="py-16 sm:py-20 bg-gradient-to-r from-teal-900 to-slate-900 text-white text-center">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-4xl font-bold tracking-tight">
@@ -471,7 +427,7 @@ export const HomePageShell: React.FC = () => {
             </SecondaryCTAButton>
           </div>
           <div className="mt-6 text-xs text-slate-400">
-            Instant setup • No credit card required • Cancel anytime
+            Self-service setup • No credit card required • Cancel anytime
           </div>
         </div>
       </section>
