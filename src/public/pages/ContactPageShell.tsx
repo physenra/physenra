@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 import { MarketingLayout } from '../layouts/MarketingLayout';
 import { SectionHeading } from '../components/SectionHeading';
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
+import { SecondaryCTAButton } from '../components/SecondaryCTAButton';
 import { MessageSquare, Building2, CheckCircle2 } from 'lucide-react';
 
 export const ContactPageShell: React.FC = () => {
@@ -128,12 +129,15 @@ export const ContactPageShell: React.FC = () => {
                 <Building2 className="w-6 h-6 text-teal-700 mb-2" />
                 <h3 className="text-base font-bold text-slate-900">Direct Self-Service Trial</h3>
                 <p className="mt-1 text-sm text-slate-600">
-                  You do not need to wait for a demo to evaluate Physenra. Create your practice in 2 minutes and start testing with full feature access immediately.
+                  You do not need to wait for a demo to evaluate Physenra. Create your practice self-service and start testing with full feature access immediately.
                 </p>
-                <div className="mt-4">
+                <div className="mt-4 flex flex-wrap items-center gap-3">
                   <PrimaryCTAButton size="sm" to="/register-practice">
                     Start 14-Day Free Trial
                   </PrimaryCTAButton>
+                  <SecondaryCTAButton size="sm" to="/login">
+                    Log In
+                  </SecondaryCTAButton>
                 </div>
               </div>
 

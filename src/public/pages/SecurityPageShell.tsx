@@ -8,6 +8,7 @@ import React from 'react';
 import { MarketingLayout } from '../layouts/MarketingLayout';
 import { SectionHeading } from '../components/SectionHeading';
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
+import { SecondaryCTAButton } from '../components/SecondaryCTAButton';
 import { ShieldCheck, Lock, Database, FileCheck, CheckCircle2, Server } from 'lucide-react';
 
 export const SecurityPageShell: React.FC = () => {
@@ -89,10 +90,13 @@ export const SecurityPageShell: React.FC = () => {
             <p className="mt-3 text-sm sm:text-base text-slate-300 max-w-2xl mx-auto">
               Our clinical and technical engineering team is available to review your clinic's technical requirements and data portability architecture.
             </p>
-            <div className="mt-6 flex justify-center">
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
               <PrimaryCTAButton size="lg" to="/register-practice">
                 Start Secure 14-Day Free Trial
               </PrimaryCTAButton>
+              <SecondaryCTAButton size="lg" to="/login" className="text-white border-slate-700 hover:bg-slate-800">
+                Log In
+              </SecondaryCTAButton>
             </div>
           </div>
         </div>

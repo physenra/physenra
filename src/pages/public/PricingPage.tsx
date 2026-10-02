@@ -287,12 +287,12 @@ export const PricingPage: React.FC = () => {
                 {/* CTA Button */}
                 <div className="mt-8 pt-4 border-t border-slate-100">
                   {isEnterprise ? (
-                    <a
-                      href="mailto:contact@physenra.com?subject=Enterprise%20Plan%20Inquiry"
+                    <Link
+                      to="/contact"
                       className="w-full h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold flex items-center justify-center transition border border-slate-200"
                     >
                       Contact Physenra
-                    </a>
+                    </Link>
                   ) : (
                     <Link
                       to={`/register-practice?plan=${p.code}&interval=${interval}`}
