@@ -19,6 +19,7 @@ import type {
   SaasInvoice,
   SaasInvoiceLine,
   SaasPayment,
+  SaasBillingCycle,
   SaasTrialExtension,
   PlatformSetting,
   PlatformKPIs,
@@ -237,6 +238,51 @@ export const saasSubscriptionService = {
     }
 
     return (data as SaasPayment[]) || [];
+  },
+
+  /**
+   * Retrieves the payment record associated with a specific SaaS invoice.
+   */
+  async getInvoicePayment(invoiceId: string, practiceId?: string): Promise<SaasPayment | null> {
+    const activePracticeId = practiceId || getActivePracticeHeader();
+    let query = supabase
+      .from('saas_payments')
+      .select('*')
+      .eq('invoice_id', invoiceId);
+
+    if (activePracticeId) {
+      query = query.eq('practice_id', activePracticeId);
+    }
+
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Failed to fetch invoice payment:', error.message);
+      return null;
+    }
+
+    return (data as SaasPayment) || null;
+  },
+
+  /**
+   * Retrieves billing cycle details for an invoice if available.
+   */
+  async getBillingCycle(billingCycleId: string): Promise<SaasBillingCycle | null> {
+    const { data, error } = await supabase
+      .from('saas_billing_cycles')
+      .select('*')
+      .eq('id', billingCycleId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn('Failed to fetch billing cycle:', error.message);
+      return null;
+    }
+
+    return (data as SaasBillingCycle) || null;
   },
 
   /**

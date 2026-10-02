@@ -996,10 +996,19 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
         <div className="space-y-8">
           {/* Invoices Table */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-            <h3 className="text-base font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-teal-600" />
-              SaaS Invoices
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-teal-600" />
+                SaaS Invoices
+              </h3>
+              <Link
+                to="/app/billing/invoices"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-600 hover:text-teal-800 transition"
+              >
+                <span>View Full Invoices History</span>
+                <ChevronRight size={14} />
+              </Link>
+            </div>
 
             {invoices.length === 0 ? (
               <p className="text-sm text-slate-400 py-6 text-center">No invoices generated for this practice.</p>

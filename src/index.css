@@ -2120,4 +2120,82 @@ input, select {
 
 @tailwind utilities;
 
+/* ==============================================================================
+   PHYSENRA — PRINT STYLESHEET (Phase 4D)
+   Hides navigation, sidebars, buttons, and app controls for pristine
+   browser-native printing of SaaS invoices and payment receipts.
+   ============================================================================== */
+@media print {
+  /* Hide application chrome, navigation, headers, sidebars, buttons */
+  header,
+  .header-bar,
+  aside,
+  .sidebar,
+  nav,
+  .print\:hidden,
+  [data-print="hidden"],
+  .no-print,
+  button,
+  .btn,
+  .breadcrumb,
+  input,
+  select {
+    display: none !important;
+  }
 
+  /* Reset layout constraints for paper output */
+  html,
+  body,
+  #root,
+  .app-shell,
+  .app-body,
+  .app-main,
+  .main-content-container {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+  }
+
+  /* Ensure invoice and receipt documents render crisply without breaks */
+  .printable-document,
+  .invoice-card,
+  .receipt-card {
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 0 !important;
+    margin: 0 auto !important;
+    padding: 24px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    background: #ffffff !important;
+  }
+
+  /* Avoid page breaks inside table rows and financial totals */
+  tr,
+  tbody tr,
+  .totals-section,
+  .payment-section {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Force color and background printing */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    margin: 1.5cm;
+    size: auto;
+  }
+}
