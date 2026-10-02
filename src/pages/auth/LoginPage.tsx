@@ -1,7 +1,14 @@
+// ==============================================================================
+// PHYSENRA DESIGN SYSTEM — AUTHENTICATION LOGIN PAGE
+// File: src/pages/auth/LoginPage.tsx
+// Route: /login
+// ==============================================================================
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { Lock, Mail, AlertCircle, ArrowRight, Building2 } from 'lucide-react';
+import { BrandLogo } from '../../components/ui/BrandLogo';
+import { Lock, Mail, AlertCircle, ArrowRight, Building2, ShieldCheck, Loader2 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -45,37 +52,48 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="auth-page-container">
-      <div className="auth-card">
-        <div className="auth-brand-header">
-          <img
-            src="/branding/physenra-logo-dark.png"
-            alt="Physenra"
-            className="auth-logo-img"
-          />
-          <p className="auth-subtitle">
-            Physiotherapy EMR &amp; Practice Management Platform
-          </p>
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between selection:bg-teal-100 selection:text-teal-900">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-200 py-4 px-4 sm:px-8">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <BrandLogo size="md" to="/" />
+          <Link
+            to="/register-practice"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100/80 rounded-lg border border-teal-200 transition"
+          >
+            <Building2 className="w-3.5 h-3.5" />
+            <span>Register Practice</span>
+          </Link>
         </div>
+      </header>
 
-        <div className="auth-card-body">
-          <h2 className="auth-heading">Sign in to your practice</h2>
-          <p className="auth-description">
-            Enter your credentials to access your clinical tenant workspace.
-          </p>
+      {/* Main Card Container */}
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-8">
+        <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 shadow-card p-6 sm:p-8">
+          
+          <div className="text-center mb-6">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+              Sign in to your practice
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Enter your credentials to access your clinical workspace.
+            </p>
+          </div>
 
           {error && (
-            <div className="auth-error-banner" role="alert">
-              <AlertCircle size={18} />
-              <span>{error}</span>
+            <div className="mb-5 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5" role="alert">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <span className="leading-relaxed">{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="auth-form">
-            <div className="form-group">
-              <label htmlFor="email">Email Address</label>
-              <div className="input-with-icon">
-                <Mail size={18} className="input-icon" />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-xs font-semibold text-slate-700 mb-1">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   id="email"
                   type="email"
@@ -85,14 +103,17 @@ export const LoginPage: React.FC = () => {
                   autoComplete="email"
                   required
                   disabled={submitting}
+                  className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition shadow-subtle"
                 />
               </div>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="password">Password</label>
-              <div className="input-with-icon">
-                <Lock size={18} className="input-icon" />
+            <div>
+              <label htmlFor="password" className="block text-xs font-semibold text-slate-700 mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   id="password"
                   type="password"
@@ -102,59 +123,62 @@ export const LoginPage: React.FC = () => {
                   autoComplete="current-password"
                   required
                   disabled={submitting}
+                  className="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition shadow-subtle"
                 />
               </div>
             </div>
 
             <button
               type="submit"
-              className="btn-primary btn-auth-submit"
               disabled={submitting || loading}
+              className="w-full h-11 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 mt-2"
             >
-              <span>{submitting ? 'Authenticating...' : 'Sign In'}</span>
-              <ArrowRight size={18} />
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Authenticating...</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign In</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
 
-          <div className="auth-footer-actions" style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #e2e8f0', textAlign: 'center' }}>
-            <p style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '0.625rem' }}>
+          {/* Footer Actions */}
+          <div className="mt-6 pt-5 border-t border-slate-100 text-center space-y-3">
+            <p className="text-xs text-slate-500">
               Setting up a new physiotherapy practice?
             </p>
             <Link
               to="/register-practice"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.375rem',
-                color: '#059669',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                textDecoration: 'none',
-              }}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-700 hover:text-teal-800 hover:underline"
             >
-              <Building2 size={16} />
-              <span>Start 14-Day Free Practice Trial</span>
-              <ArrowRight size={14} />
+              <Building2 className="w-4 h-4" />
+              <span>Start 14-Day Free Practice Trial &rarr;</span>
             </Link>
-            <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#94a3b8' }}>
-              <span>Need an individual account? </span>
-              <Link
-                to="/signup"
-                style={{ color: '#0284c7', fontWeight: 500, textDecoration: 'none' }}
-              >
+
+            <div className="pt-2 text-xs text-slate-400">
+              <span>Need an individual staff account? </span>
+              <Link to="/signup" className="text-teal-600 font-semibold hover:underline">
                 Create account
               </Link>
             </div>
           </div>
-        </div>
 
-        <div className="auth-card-footer">
-          <div className="security-notice">
-            <Lock size={14} />
+          <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+            <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
             <span>Secure Multi-Tenant Healthcare Isolation</span>
           </div>
         </div>
-      </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="py-4 text-center text-xs text-slate-400 border-t border-slate-200 bg-white">
+        &copy; {new Date().getFullYear()} Physenra. Physiotherapy EMR &amp; Practice Management.
+      </footer>
     </div>
   );
 };

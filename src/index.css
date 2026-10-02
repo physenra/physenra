@@ -1,41 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
+  /* Primary Brand Healthcare Blue-Teal */
+  --color-primary: #0d9488;
+  --color-primary-hover: #0f766e;
+  --color-primary-soft: #f0fdfa;
+  --color-primary-light: #ccfbf1;
+  --color-primary-dark: #115e59;
+
+  /* Backgrounds & Surfaces */
   --color-bg-app: #f8fafc;
   --color-bg-card: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+  --color-surface-card: #ffffff;
   --color-bg-sidebar: #0f172a;
   --color-bg-sidebar-hover: #1e293b;
+
+  /* Borders */
   --color-border: #e2e8f0;
+  --color-border-subtle: #f1f5f9;
+  --color-border-strong: #cbd5e1;
   --color-border-dark: #334155;
 
+  /* Text Typography */
   --color-text-main: #0f172a;
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
   --color-text-muted: #64748b;
   --color-text-light: #94a3b8;
   --color-text-inverse: #f8fafc;
 
-  --color-primary: #0d9488;
-  --color-primary-hover: #0f766e;
-  --color-primary-light: #ccfbf1;
-  --color-primary-dark: #115e59;
-
+  /* Semantic Feedback */
   --color-secondary: #0284c7;
-  --color-accent: #059669;
+  --color-accent: #0d9488;
   --color-danger: #dc2626;
   --color-danger-light: #fee2e2;
   --color-success: #16a34a;
   --color-success-light: #dcfce7;
   --color-warning: #d97706;
   --color-warning-light: #fef3c7;
+  --color-info: #0284c7;
 
+  /* Radius & Shadows */
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
   --radius-xl: 12px;
+  --radius-2xl: 16px;
 
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
 }
 
 * {
