@@ -151,7 +151,7 @@ export const PricingPage: React.FC = () => {
       <section className="pt-14 pb-10 text-center max-w-4xl mx-auto px-4">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-800 text-xs font-semibold mb-4">
           <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-          <span>Transparent Practitioner-First Pricing</span>
+          <span>Transparent Practice-First Pricing</span>
         </div>
         <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight leading-tight">
           Modern practice management plans for every clinic stage

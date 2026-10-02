@@ -14,7 +14,7 @@ export const SecurityPageShell: React.FC = () => {
   return (
     <MarketingLayout
       title="Security & Healthcare Privacy Architecture | Physenra"
-      description="Learn how Physenra safeguards patient records with PostgreSQL Row-Level Security, an architectural Platform Admin Privacy Firewall, and guaranteed data retention."
+      description="Learn how Physenra safeguards patient records with PostgreSQL Row-Level Security, an architectural Platform Admin Privacy Firewall, and non-punitive read-only data retention."
     >
       <div className="py-16 sm:py-24 bg-gradient-to-b from-slate-50 to-white border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -87,7 +87,7 @@ export const SecurityPageShell: React.FC = () => {
           <div className="mt-16 rounded-2xl bg-slate-900 text-white p-8 sm:p-12 text-center">
             <h3 className="text-2xl font-bold">Have Specific Governance or Security Requirements?</h3>
             <p className="mt-3 text-sm sm:text-base text-slate-300 max-w-2xl mx-auto">
-              Our clinical and technical engineering team is available to review your clinic's technical requirements and data portability guarantees.
+              Our clinical and technical engineering team is available to review your clinic's technical requirements and data portability architecture.
             </p>
             <div className="mt-6 flex justify-center">
               <PrimaryCTAButton size="lg" to="/register-practice">

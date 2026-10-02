@@ -77,7 +77,7 @@ const CATEGORIZED_FAQS: { category: string; items: FAQItem[] }[] = [
       {
         question: 'What happens to my clinical records if my subscription lapses?',
         answer:
-          'Physenra guarantees non-punitive read-only data retention. If your subscription ever lapses, your clinical notes and patient histories remain accessible in read-only mode forever.',
+          'Physenra implements non-punitive read-only data retention. If your subscription ever lapses, your clinical notes and patient histories remain accessible in read-only mode.',
       },
       {
         question: 'Can Physenra staff or administrators see our patient notes?',

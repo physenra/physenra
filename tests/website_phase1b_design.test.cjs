@@ -187,32 +187,89 @@ test('PHYSENRA — Website Phase 1B Design System & Interactive Showcase Verific
   // SUITE I, J, K, L: Claim Safety & Marketing Authenticity
   // ============================================================================
   await t.test('--- SUITE I, J, K, L: Claim Safety & Authenticity ---', async (st) => {
+    const getAllFiles = (dir) => {
+      let results = [];
+      const list = fs.readdirSync(dir);
+      list.forEach((file) => {
+        const full = path.join(dir, file);
+        const stat = fs.statSync(full);
+        if (stat && stat.isDirectory()) {
+          results = results.concat(getAllFiles(full));
+        } else if (file.endsWith('.tsx') || file.endsWith('.ts')) {
+          results.push(full);
+        }
+      });
+      return results;
+    };
+    const allPublicFiles = getAllFiles(PUBLIC_DIR);
+    const pricingPagePath = path.join(SRC_DIR, 'pages', 'public', 'PricingPage.tsx');
+    if (fs.existsSync(pricingPagePath)) {
+      allPublicFiles.push(pricingPagePath);
+    }
+
     await st.test('I1: Neutralized claims: zero unapproved "2-minute setup" or "trial guarantee" claims', () => {
       assert(!homepage.includes('2-minute practice setup'), 'Removed 2-minute practice setup');
       assert(!homepage.includes('2-minute setup'), 'Removed 2-minute setup');
       assert(!homepage.includes('Read-Only Data Guarantee'), 'Neutralized to Read-Only Access Architecture');
     });
 
-    await st.test('J1: Zero prohibited claims across public components (AI, WhatsApp, SMS, Video)', () => {
-      const publicFiles = [HOMEPAGE_PATH, SHOWCASE_PATH, PRODUCT_MOCKUP_PATH, FEATURE_DETAIL_PATH];
-      for (const filePath of publicFiles) {
+    await st.test('I2: Zero unsupported guarantees across public website files', () => {
+      const publicWebsiteFiles = getAllFiles(PUBLIC_DIR);
+      for (const filePath of publicWebsiteFiles) {
+        const content = fs.readFileSync(filePath, 'utf8');
+        const lines = content.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          if (line.trim().startsWith('//') || line.trim().startsWith('{/*')) continue;
+          assert(!/\bguarantees?\b/i.test(line), `Unsupported guarantee found in ${path.basename(filePath)}:${i + 1}`);
+          assert(!/\bguaranteed\b/i.test(line), `Unsupported guaranteed found in ${path.basename(filePath)}:${i + 1}`);
+        }
+      }
+    });
+
+    await st.test('J1: Zero prohibited claims across public components (AI, WhatsApp, SMS, Video, Self-Booking)', () => {
+      for (const filePath of allPublicFiles) {
         const content = fs.readFileSync(filePath, 'utf8');
         assert(!/ai clinical scribe/i.test(content), `Found forbidden AI claim in ${filePath}`);
         assert(!/automated whatsapp/i.test(content), `Found forbidden WhatsApp claim in ${filePath}`);
+        assert(!/whatsapp integration/i.test(content), `Found forbidden WhatsApp claim in ${filePath}`);
+        assert(!/whatsapp/i.test(content), `Found forbidden WhatsApp mention in ${filePath}`);
         assert(!/sms appointment reminder/i.test(content), `Found forbidden SMS claim in ${filePath}`);
+        assert(!/sms automation/i.test(content), `Found forbidden SMS automation in ${filePath}`);
         assert(!/video telehealth/i.test(content), `Found forbidden Video Telehealth claim in ${filePath}`);
         assert(!/patient self-booking portal/i.test(content), `Found forbidden Self-Booking claim in ${filePath}`);
       }
     });
 
-    await st.test('K1: Zero fake customer testimonials in public pages', () => {
+    await st.test('K1: Zero fake customer testimonials or reviews in public pages', () => {
       assert(!homepage.includes('Loved by 10,000+ doctors'), 'Zero fake customer claim');
       assert(!homepage.includes('Testimonial:'), 'Zero unverified testimonials');
+      for (const filePath of allPublicFiles) {
+        const content = fs.readFileSync(filePath, 'utf8');
+        assert(!/5-star rating/i.test(content), `Found fake rating in ${filePath}`);
+        assert(!/rated 4\.[89]\/5/i.test(content), `Found fake rating in ${filePath}`);
+      }
     });
 
     await st.test('L1: Zero fake customer logos or unverified hospital endorsements', () => {
       assert(!homepage.includes('hospital-logo-1.png'), 'Zero fake logo assets');
       assert(!homepage.includes('Mayo Clinic'), 'Zero fake hospital endorsement');
+      for (const filePath of allPublicFiles) {
+        const content = fs.readFileSync(filePath, 'utf8');
+        assert(!/Johns Hopkins/i.test(content), `Found fake hospital endorsement in ${filePath}`);
+        assert(!/Cleveland Clinic/i.test(content), `Found fake hospital endorsement in ${filePath}`);
+      }
+    });
+
+    await st.test('L2: Zero unsupported awards or unverified certifications', () => {
+      for (const filePath of allPublicFiles) {
+        const content = fs.readFileSync(filePath, 'utf8');
+        assert(!/#1 physiotherapy software/i.test(content), `Found unverified #1 claim in ${filePath}`);
+        assert(!/award-winning/i.test(content), `Found unverified award claim in ${filePath}`);
+        assert(!/hipaa certified/i.test(content), `Found unverified HIPAA certification claim in ${filePath}`);
+        assert(!/iso certified/i.test(content), `Found unverified ISO certification claim in ${filePath}`);
+        assert(!/soc 2 certified/i.test(content), `Found unverified SOC 2 certification claim in ${filePath}`);
+      }
     });
   });
 
@@ -220,12 +277,65 @@ test('PHYSENRA — Website Phase 1B Design System & Interactive Showcase Verific
   // SUITE M: Authoritative Pricing Integrity
   // ============================================================================
   await t.test('--- SUITE M: Authoritative Pricing Integrity ---', async (st) => {
-    await st.test('M1: Public plans catalog strictly adheres to authoritative numbers', () => {
-      assert(plans.includes('monthlyNaira: 15000'), 'Solo is 15,000');
-      assert(plans.includes('monthlyNaira: 30000'), 'Professional is 30,000');
-      assert(plans.includes('monthlyNaira: 50000'), 'Clinic is 50,000');
-      assert(!plans.includes('35000'), 'Strictly no 35,000');
-      assert(!plans.includes('65000'), 'Strictly no 65,000');
+    await st.test('M1: Solo plan matches authoritative backend values (₦15,000/mo, ₦150,000/yr, 1 seat, 14-day trial)', () => {
+      assert(plans.includes('code: \'solo\''), 'Defines solo plan');
+      assert(plans.includes('monthlyNaira: 15000'), 'Solo is 15,000 monthly');
+      assert(plans.includes('annualNaira: 150000'), 'Solo is 150,000 annual');
+      assert(plans.includes('seats: 1'), 'Solo has 1 seat');
+      assert(plans.includes('trialDays: 14'), 'Solo has 14-day trial');
+    });
+
+    await st.test('M2: Professional plan matches authoritative backend values (₦30,000/mo, ₦300,000/yr, 5 seats, 14-day trial)', () => {
+      assert(plans.includes('code: \'professional\''), 'Defines professional plan');
+      assert(plans.includes('monthlyNaira: 30000'), 'Professional is 30,000 monthly');
+      assert(plans.includes('annualNaira: 300000'), 'Professional is 300,000 annual');
+      assert(plans.includes('seats: 5'), 'Professional has 5 seats');
+      assert(plans.includes('trialDays: 14'), 'Professional has 14-day trial');
+    });
+
+    await st.test('M3: Clinic plan matches authoritative backend values (₦50,000/mo, ₦500,000/yr, 10 seats, 14-day trial)', () => {
+      assert(plans.includes('code: \'clinic\''), 'Defines clinic plan');
+      assert(plans.includes('monthlyNaira: 50000'), 'Clinic is 50,000 monthly');
+      assert(plans.includes('annualNaira: 500000'), 'Clinic is 500,000 annual');
+      assert(plans.includes('seats: 10'), 'Clinic has 10 seats');
+      assert(plans.includes('trialDays: 14'), 'Clinic has 14-day trial');
+    });
+
+    await st.test('M4: Enterprise plan specifies custom pricing', () => {
+      assert(plans.includes('code: \'enterprise\''), 'Defines enterprise plan');
+      assert(plans.includes('monthlyNaira: 0'), 'Enterprise monthly is custom (0 in numeric model)');
+      assert(plans.includes('annualNaira: 0'), 'Enterprise annual is custom (0 in numeric model)');
+    });
+
+    await st.test('M5: Barred unapproved prices (₦35,000 or ₦65,000)', () => {
+      assert(!plans.includes('35000'), 'Strictly no 35,000 in plans catalog');
+      assert(!plans.includes('65000'), 'Strictly no 65,000 in plans catalog');
+      assert(!homepage.includes('35000') && !homepage.includes('35,000'), 'No 35k on homepage');
+      assert(!homepage.includes('65000') && !homepage.includes('65,000'), 'No 65k on homepage');
+    });
+
+    await st.test('M6: Barred unapproved ₦3,000 extra-seat pricing & extra-seat claims', () => {
+      const allPublicFiles = [
+        HOMEPAGE_PATH,
+        SHOWCASE_PATH,
+        PRODUCT_MOCKUP_PATH,
+        FEATURE_DETAIL_PATH,
+        PLANS_PATH,
+        path.join(PUBLIC_DIR, 'pages', 'SecurityPageShell.tsx'),
+        path.join(PUBLIC_DIR, 'pages', 'AboutPageShell.tsx'),
+        path.join(PUBLIC_DIR, 'pages', 'FAQPageShell.tsx'),
+        path.join(PUBLIC_DIR, 'pages', 'ContactPageShell.tsx'),
+        path.join(PUBLIC_DIR, 'pages', 'TermsPageShell.tsx'),
+        path.join(PUBLIC_DIR, 'pages', 'PrivacyPageShell.tsx'),
+        path.join(SRC_DIR, 'pages', 'public', 'PricingPage.tsx'),
+      ];
+      for (const filePath of allPublicFiles) {
+        if (!fs.existsSync(filePath)) continue;
+        const content = fs.readFileSync(filePath, 'utf8');
+        assert(!/extra seat/i.test(content), `Found unsupported extra seat claim in ${filePath}`);
+        assert(!/additional seat/i.test(content), `Found unsupported additional seat claim in ${filePath}`);
+        assert(!/3,?000\s*\/\s*(?:extra|additional)?\s*seat/i.test(content), `Found 3,000 extra seat pricing in ${filePath}`);
+      }
     });
   });
 

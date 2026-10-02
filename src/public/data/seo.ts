@@ -38,7 +38,7 @@ export const ROUTE_METADATA: Record<string, RouteMetadata> = {
   '/security': {
     title: 'Security & Privacy Architecture | Physenra',
     description:
-      'Learn how Physenra safeguards patient records with PostgreSQL Row-Level Security, an architectural Platform Admin Privacy Firewall, and guaranteed read-only data retention.',
+      'Learn how Physenra safeguards patient records with PostgreSQL Row-Level Security, an architectural Platform Admin Privacy Firewall, and non-punitive read-only data retention.',
     canonical: 'https://physenra.com/security',
   },
   '/about': {

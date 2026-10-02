@@ -33,7 +33,7 @@ export const AboutPageShell: React.FC = () => {
               The Physenra Story
             </h2>
             <p className="text-base text-slate-600 leading-relaxed">
-              Modern physiotherapy clinics face a persistent operational dilemma: choose between cumbersome, multi-specialty hospital EMRs that lack musculoskeletal assessments, or cobble together generic calendar apps, WhatsApp chats, and paper tally books.
+              Modern physiotherapy clinics face a persistent operational dilemma: choose between cumbersome, multi-specialty hospital EMRs that lack musculoskeletal assessments, or cobble together generic calendar apps, unencrypted chat apps, and paper tally books.
             </p>
             <p className="mt-4 text-base text-slate-600 leading-relaxed">
               Physenra was engineered to eliminate this compromise. By integrating specialized musculoskeletal clinical examinations, validated functional outcome measures, built-in DICOM PACS medical imaging, and automated multi-session package tracking, Physenra gives physiotherapy practices the dedicated digital operating system they deserve.
@@ -52,7 +52,7 @@ export const AboutPageShell: React.FC = () => {
               <ShieldCheck className="w-8 h-8 text-teal-700 mb-3" />
               <h3 className="text-lg font-bold text-slate-900">Total Tenancy Sovereignty</h3>
               <p className="mt-2 text-sm text-slate-600">
-                Guaranteed patient data isolation, architectural admin firewalls, and permanent read-only record retention.
+                Verified patient data isolation, architectural admin firewalls, and non-punitive read-only record retention.
               </p>
             </div>
           </div>
