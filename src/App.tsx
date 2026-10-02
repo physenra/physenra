@@ -89,6 +89,7 @@ import { PlatformAuditPage } from './pages/platform/PlatformAuditPage';
 import { PlatformSettingsPage } from './pages/platform/PlatformSettingsPage';
 import { PricingPage } from './pages/public/PricingPage';
 import { RegisterPracticePage } from './pages/auth/RegisterPracticePage';
+import { SignUpPage } from './pages/auth/SignUpPage';
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
@@ -97,6 +98,7 @@ export const App: React.FC = () => {
     <Routes>
       {/* Public Routes */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignUpPage />} />
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/register-practice" element={<RegisterPracticePage />} />
 

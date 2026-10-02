@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
+import { Lock, Mail, AlertCircle, ArrowRight, Building2 } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -115,6 +115,37 @@ export const LoginPage: React.FC = () => {
               <ArrowRight size={18} />
             </button>
           </form>
+
+          <div className="auth-footer-actions" style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid #e2e8f0', textAlign: 'center' }}>
+            <p style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '0.625rem' }}>
+              Setting up a new physiotherapy practice?
+            </p>
+            <Link
+              to="/register-practice"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.375rem',
+                color: '#059669',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                textDecoration: 'none',
+              }}
+            >
+              <Building2 size={16} />
+              <span>Start 14-Day Free Practice Trial</span>
+              <ArrowRight size={14} />
+            </Link>
+            <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#94a3b8' }}>
+              <span>Need an individual account? </span>
+              <Link
+                to="/signup"
+                style={{ color: '#0284c7', fontWeight: 500, textDecoration: 'none' }}
+              >
+                Create account
+              </Link>
+            </div>
+          </div>
         </div>
 
         <div className="auth-card-footer">

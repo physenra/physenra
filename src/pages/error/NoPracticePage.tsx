@@ -68,9 +68,18 @@ export const NoPracticePage: React.FC = () => {
             </Link>
           )}
 
+          <Link
+            to="/register-practice"
+            className="btn-primary"
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none' }}
+          >
+            <Building2 size={16} />
+            <span>Register a Practice</span>
+          </Link>
+
           <button
             onClick={handleRefresh}
-            className="btn-primary"
+            className="btn-secondary"
             disabled={refreshing}
           >
             <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />

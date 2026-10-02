@@ -3,6 +3,18 @@ import type { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase, setActivePracticeHeader } from '../lib/supabase';
 import type { Profile } from '../types/models';
 
+export interface SignUpMetadata {
+  first_name?: string;
+  last_name?: string;
+  display_name?: string;
+}
+
+export interface SignUpResult {
+  error: AuthError | null;
+  session: Session | null;
+  user: User | null;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -10,6 +22,7 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
+  signUp: (email: string, password: string, metadata?: SignUpMetadata) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   clearError: () => void;
@@ -119,6 +132,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [fetchProfile]);
 
+  const signUp = useCallback(async (
+    email: string,
+    password: string,
+    metadata?: SignUpMetadata
+  ): Promise<SignUpResult> => {
+    setError(null);
+    try {
+      const trimmedEmail = email.trim();
+      const displayName = metadata?.display_name?.trim() ||
+        (metadata?.first_name ? `${metadata.first_name.trim()} ${(metadata?.last_name || '').trim()}`.trim() : trimmedEmail);
+
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password,
+        options: {
+          data: {
+            first_name: metadata?.first_name?.trim() || null,
+            last_name: metadata?.last_name?.trim() || null,
+            display_name: displayName,
+          },
+        },
+      });
+
+      if (signUpError) {
+        setError(signUpError.message);
+        return { error: signUpError, session: null, user: null };
+      }
+
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.user);
+        if (data.user) {
+          await fetchProfile(data.user.id);
+        }
+      } else if (data.user) {
+        setUser(data.user);
+      }
+
+      return { error: null, session: data.session, user: data.user };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred during account creation';
+      setError(message);
+      return { error: err as AuthError, session: null, user: null };
+    }
+  }, [fetchProfile]);
+
   const signOut = useCallback(async () => {
     setError(null);
     try {
@@ -150,10 +209,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     error,
     signIn,
+    signUp,
     signOut,
     refreshProfile,
     clearError,
-  }), [user, session, profile, loading, error, signIn, signOut, refreshProfile, clearError]);
+  }), [user, session, profile, loading, error, signIn, signUp, signOut, refreshProfile, clearError]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { saasSubscriptionService } from '../../services/saasSubscriptionService';
+import { setActivePracticeHeader } from '../../lib/supabase';
 import type { SaasPlanCode, SaasBillingInterval } from '../../types/models';
 import {
   Building2,
@@ -10,6 +11,10 @@ import {
   ArrowRight,
   Shield,
   Lock,
+  Mail,
+  User,
+  LogIn,
+  AlertCircle,
 } from 'lucide-react';
 
 export const RegisterPracticePage: React.FC = () => {
@@ -17,15 +22,26 @@ export const RegisterPracticePage: React.FC = () => {
   const initialPlan = (searchParams.get('plan') as SaasPlanCode) || 'professional';
   const initialInterval = (searchParams.get('interval') as SaasBillingInterval) || 'monthly';
 
+  // Account creation fields (used if visitor is not yet authenticated)
+  const [firstName, setFirstName] = useState<string>('');
+  const [lastName, setLastName] = useState<string>('');
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [confirmPassword, setConfirmPassword] = useState<string>('');
+
+  // Practice & Subscription fields
   const [practiceName, setPracticeName] = useState<string>('');
   const [slug, setSlug] = useState<string>('');
   const [selectedPlan, setSelectedPlan] = useState<SaasPlanCode>(initialPlan);
   const [selectedInterval, setSelectedInterval] = useState<SaasBillingInterval>(initialInterval);
+
+  // Flow & UI states
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [statusMessage, setStatusMessage] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
 
-  const { user } = useAuth();
+  const { user, signUp, signOut } = useAuth();
 
   // Auto-slugify when practice name changes if slug wasn't manually edited
   const handleNameChange = (name: string) => {
@@ -40,41 +56,109 @@ export const RegisterPracticePage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      setError('Please sign in or create a user account first to register your practice.');
-      return;
-    }
+    setError(null);
 
+    // 1. Validate Practice Information
     if (!practiceName.trim()) {
       setError('Practice name is required.');
       return;
     }
 
-    if (!slug.trim() || slug.length < 3) {
-      setError('Practice slug must be at least 3 lowercase characters.');
+    const cleanSlug = slug.trim().toLowerCase();
+    if (!cleanSlug || cleanSlug.length < 3 || cleanSlug.length > 48) {
+      setError('Practice URL identifier (slug) must be between 3 and 48 characters.');
+      return;
+    }
+
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(cleanSlug)) {
+      setError('Slug must consist of lowercase letters, numbers, and single hyphens (e.g. lagos-spine).');
       return;
     }
 
     try {
       setSubmitting(true);
-      setError(null);
+      let activeUser = user;
 
+      // 2. If visitor is not yet authenticated, create their account first
+      if (!activeUser) {
+        const cleanFirstName = firstName.trim();
+        const cleanLastName = lastName.trim();
+        const cleanEmail = email.trim();
+
+        if (!cleanFirstName) {
+          setError('Please provide your first name for your administrator profile.');
+          setSubmitting(false);
+          return;
+        }
+
+        if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+          setError('Please enter a valid work email address.');
+          setSubmitting(false);
+          return;
+        }
+
+        if (password.length < 8) {
+          setError('Password must be at least 8 characters in length.');
+          setSubmitting(false);
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          setError('Passwords do not match. Please verify your password confirmation.');
+          setSubmitting(false);
+          return;
+        }
+
+        setStatusMessage('Creating your Practice Owner account...');
+        const { error: signUpError, user: newUser } = await signUp(cleanEmail, password, {
+          first_name: cleanFirstName,
+          last_name: cleanLastName,
+          display_name: `${cleanFirstName} ${cleanLastName}`.trim(),
+        });
+
+        if (signUpError) {
+          if (signUpError.message.toLowerCase().includes('already registered')) {
+            setError('An account with this email address already exists. Please sign in to register a practice under your existing account.');
+          } else {
+            setError(signUpError.message);
+          }
+          setSubmitting(false);
+          return;
+        }
+
+        activeUser = newUser;
+      }
+
+      // 3. Atomically register practice, assign owner role, and provision 14-day trial
+      setStatusMessage('Initializing clinical workspace and 14-day trial...');
       const result = await saasSubscriptionService.registerPracticeAndSubscribe({
         practice_name: practiceName.trim(),
-        slug: slug.trim().toLowerCase(),
+        slug: cleanSlug,
         plan_code: selectedPlan,
         billing_interval: selectedInterval,
         country: 'NG',
         timezone: 'Africa/Lagos',
       });
 
+      // 4. Establish practice context header immediately
+      setActivePracticeHeader(result.practice_id);
+      setStatusMessage('Practice initialized! Redirecting to clinical workspace...');
       setSuccess(true);
+
+      // 5. Navigate to canonical practice dashboard
       setTimeout(() => {
-        // Force reload or redirect to app dashboard
         window.location.href = `/app/dashboard?registered=${result.practice_id}`;
-      }, 1500);
+      }, 1200);
+
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Registration failed');
+      const rawMsg = err instanceof Error ? err.message : 'Registration failed';
+      if (rawMsg.includes('unique_violation') || rawMsg.includes('already registered')) {
+        setError(`The practice URL identifier "${slug}" is already registered. Please choose a different URL slug.`);
+      } else if (rawMsg.includes('insufficient_privilege') || rawMsg.includes('Authentication required')) {
+        setError('Authentication required. Please sign in to complete practice registration.');
+      } else {
+        setError(rawMsg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -94,86 +178,226 @@ export const RegisterPracticePage: React.FC = () => {
           Register Your Practice Workspace
         </h2>
         <p className="mt-1 text-xs text-slate-400">
-          Start your 14-day free evaluation trial in seconds. No payment required.
+          Start your 14-day free evaluation trial in seconds. No credit card required.
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-xl px-4">
         <div className="bg-slate-900 py-8 px-6 shadow-2xl rounded-2xl border border-slate-800 sm:px-10">
-          {!user ? (
-            <div className="text-center py-6 space-y-4">
-              <div className="w-12 h-12 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto text-amber-400">
-                <Lock className="w-6 h-6" />
-              </div>
-              <h3 className="text-base font-bold text-white">Authentication Required</h3>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Please log into your Physenra account or create one before initializing a practice workspace.
-              </p>
-              <div className="pt-2">
-                <Link
-                  to="/login"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-colors"
-                >
-                  <span>Sign In / Create Account</span>
-                  <ArrowRight className="w-4 h-4" />
-                </Link>
-              </div>
-            </div>
-          ) : success ? (
+          {success ? (
             <div className="text-center py-8 space-y-3">
               <div className="w-14 h-14 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto text-emerald-400 border border-emerald-500/20">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
               <h3 className="text-lg font-bold text-white">Practice Initialized Successfully!</h3>
               <p className="text-xs text-slate-400">
-                Your 14-day trial has begun. Preparing your clinical workspace...
+                {statusMessage || 'Your 14-day trial has begun. Preparing your clinical workspace...'}
               </p>
+              <div className="pt-3">
+                <span className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-medium">
+                  <Clock className="w-3.5 h-3.5 animate-spin" />
+                  <span>Loading dashboard...</span>
+                </span>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
-                <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
-                  {error}
+                <div className="p-3.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{error}</span>
                 </div>
               )}
 
-              {/* Practice Name */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Practice Name
-                </label>
-                <div className="relative">
-                  <Building2 className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={practiceName}
-                    onChange={(e) => handleNameChange(e.target.value)}
-                    placeholder="e.g. Lagos Spine & Sports Physiotherapy"
-                    className="w-full pl-9 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-                    required
-                  />
+              {/* Authentication Status / Account Creation Section */}
+              {user ? (
+                <div className="p-3.5 rounded-xl bg-slate-800/60 border border-slate-700/80 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                      <User className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-slate-400 font-medium">Signed in as Practice Owner</p>
+                      <p className="text-xs font-semibold text-white">{user.email}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => signOut()}
+                    className="text-[11px] text-slate-400 hover:text-slate-200 underline"
+                  >
+                    Change account
+                  </button>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-4 pt-1 pb-2 border-b border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5" />
+                      <span>Step 1: Practice Owner Account</span>
+                    </h3>
+                    <Link
+                      to="/login?from=/register-practice"
+                      className="text-[11px] text-slate-400 hover:text-emerald-400 transition-colors flex items-center gap-1"
+                    >
+                      <LogIn className="w-3 h-3" />
+                      <span>Already have an account? Sign in</span>
+                    </Link>
+                  </div>
 
-              {/* Slug */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Practice URL Identifier (Slug)
-                </label>
-                <div className="flex rounded-lg overflow-hidden border border-slate-700 bg-slate-800 text-sm">
-                  <span className="px-3 py-2.5 bg-slate-800/80 text-slate-400 text-xs font-mono border-r border-slate-700">
-                    physenra.app/
-                  </span>
-                  <input
-                    type="text"
-                    value={slug}
-                    onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                    placeholder="lagos-spine"
-                    className="w-full px-3 py-2.5 bg-slate-800 text-white font-mono text-sm focus:outline-none"
-                    required
-                  />
+                  {/* Name fields */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        First Name
+                      </label>
+                      <div className="relative">
+                        <User className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          placeholder="e.g. Ada"
+                          autoComplete="given-name"
+                          className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                          required
+                          disabled={submitting}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Last Name
+                      </label>
+                      <div className="relative">
+                        <User className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          placeholder="e.g. Okonkwo"
+                          autoComplete="family-name"
+                          className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                          required
+                          disabled={submitting}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Email */}
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Work Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="dr.ada@lagosspine.com"
+                        autoComplete="email"
+                        className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                        required
+                        disabled={submitting}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password & Confirm */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Password (min. 8 chars)
+                      </label>
+                      <div className="relative">
+                        <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••••••"
+                          autoComplete="new-password"
+                          minLength={8}
+                          className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                          required
+                          disabled={submitting}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-300 mb-1">
+                        Confirm Password
+                      </label>
+                      <div className="relative">
+                        <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="••••••••••••"
+                          autoComplete="new-password"
+                          minLength={8}
+                          className="w-full pl-9 pr-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                          required
+                          disabled={submitting}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">Lowercase letters, numbers, and hyphens only.</p>
+              )}
+
+              {/* Practice Information */}
+              <div className="space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>{user ? 'Practice Information' : 'Step 2: Practice Information'}</span>
+                </h3>
+
+                {/* Practice Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Practice Name
+                  </label>
+                  <div className="relative">
+                    <Building2 className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={practiceName}
+                      onChange={(e) => handleNameChange(e.target.value)}
+                      placeholder="e.g. Lagos Spine & Sports Physiotherapy"
+                      className="w-full pl-9 pr-4 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      required
+                      disabled={submitting}
+                    />
+                  </div>
+                </div>
+
+                {/* Slug */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Practice URL Identifier (Slug)
+                  </label>
+                  <div className="flex rounded-lg overflow-hidden border border-slate-700 bg-slate-800 text-sm">
+                    <span className="px-3 py-2 bg-slate-800/80 text-slate-400 text-xs font-mono border-r border-slate-700 flex items-center">
+                      physenra.app/
+                    </span>
+                    <input
+                      type="text"
+                      value={slug}
+                      onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+                      placeholder="lagos-spine"
+                      className="w-full px-3 py-2 bg-slate-800 text-white font-mono text-xs focus:outline-none"
+                      required
+                      disabled={submitting}
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Unique clinic identifier. 3-48 lowercase letters, numbers, and hyphens.
+                  </p>
+                </div>
               </div>
 
               {/* Plan Selection */}
@@ -196,11 +420,12 @@ export const RegisterPracticePage: React.FC = () => {
                         type="button"
                         key={p.code}
                         onClick={() => setSelectedPlan(p.code as SaasPlanCode)}
-                        className={`p-3.5 rounded-xl border text-left transition-all ${
+                        className={`p-3 rounded-xl border text-left transition-all ${
                           isSelected
                             ? 'bg-emerald-600/10 border-emerald-500 ring-1 ring-emerald-500/20'
                             : 'bg-slate-800/60 border-slate-700 hover:border-slate-600'
                         }`}
+                        disabled={submitting}
                       >
                         <p className={`text-xs font-bold ${isSelected ? 'text-emerald-400' : 'text-white'}`}>
                           {p.name}
@@ -227,6 +452,7 @@ export const RegisterPracticePage: React.FC = () => {
                         ? 'bg-slate-800 border-emerald-500 text-emerald-400'
                         : 'bg-slate-800/50 border-slate-700 text-slate-400'
                     }`}
+                    disabled={submitting}
                   >
                     Monthly (Standard)
                   </button>
@@ -238,6 +464,7 @@ export const RegisterPracticePage: React.FC = () => {
                         ? 'bg-slate-800 border-emerald-500 text-emerald-400'
                         : 'bg-slate-800/50 border-slate-700 text-slate-400'
                     }`}
+                    disabled={submitting}
                   >
                     Annual (2 Months Free)
                   </button>
@@ -259,7 +486,11 @@ export const RegisterPracticePage: React.FC = () => {
                 disabled={submitting}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors disabled:opacity-50 shadow-lg shadow-emerald-600/20"
               >
-                <span>{submitting ? 'Registering Workspace...' : 'Create Practice & Begin Trial'}</span>
+                <span>
+                  {submitting
+                    ? (statusMessage || 'Initializing Workspace...')
+                    : 'Create Practice & Begin 14-Day Free Trial'}
+                </span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
