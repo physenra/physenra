@@ -50,6 +50,9 @@ const BUTTON_PATH = path.join(UI_DIR, 'Button.tsx');
 const CARD_PATH = path.join(UI_DIR, 'Card.tsx');
 const BADGE_PATH = path.join(UI_DIR, 'Badge.tsx');
 
+const PLATFORM_LAYOUT_PATH = path.join(SRC_DIR, 'components', 'layout', 'PlatformLayout.tsx');
+const PLATFORM_DASHBOARD_PATH = path.join(SRC_DIR, 'pages', 'platform', 'PlatformDashboardPage.tsx');
+
 test('PHYSENRA — Visual Design System & UI Remediation Suite', async (t) => {
   const appTsx = fs.readFileSync(APP_TSX_PATH, 'utf8');
   const mainTsx = fs.readFileSync(MAIN_TSX_PATH, 'utf8');
@@ -232,6 +235,51 @@ test('PHYSENRA — Visual Design System & UI Remediation Suite', async (t) => {
       assert(pkg.scripts.test, 'npm test script must be configured');
       const out = execSync('node --test tests/app_foundation.test.cjs', { cwd: ROOT_DIR, encoding: 'utf8', env: cleanEnv });
       assert(!out.includes('fail 1'), 'Core application foundation test suite must pass without failure');
+    });
+  });
+
+  // ============================================================================
+  // SUITE 5: Platform Console Design & Production CSS Verification
+  // ============================================================================
+  await t.test('--- SUITE 5: Platform Console Design & Production CSS Verification ---', async (st) => {
+    const platformLayout = fs.readFileSync(PLATFORM_LAYOUT_PATH, 'utf8');
+    const platformDashboard = fs.readFileSync(PLATFORM_DASHBOARD_PATH, 'utf8');
+
+    await st.test('TEST 17: PlatformLayout renders BrandLogo, Platform Console, and Privacy Firewall notice', () => {
+      assert(platformLayout.includes('BrandLogo'), 'PlatformLayout must render BrandLogo');
+      assert(platformLayout.includes('Platform Console'), 'PlatformLayout must display Platform Console tag');
+      assert(platformLayout.includes('Clinical Privacy Firewall Active'), 'PlatformLayout must display privacy notice');
+      assert(platformLayout.includes('Zero access to patient medical records or PHI'), 'PlatformLayout must state zero PHI access');
+    });
+
+    await st.test('TEST 18: PlatformDashboardPage renders responsive 4-column KPI cards and operational feeds', () => {
+      assert(platformDashboard.includes('grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'), 'PlatformDashboard must render 4-col desktop, 2-col tablet KPI grid');
+      assert(platformDashboard.includes('Monthly Recurring (MRR)'), 'PlatformDashboard must show MRR metric');
+      assert(platformDashboard.includes('Annual Run-Rate (ARR)'), 'PlatformDashboard must show ARR metric');
+      assert(platformDashboard.includes('Active Paid Tenants'), 'PlatformDashboard must show active tenants');
+      assert(platformDashboard.includes('Total Registered'), 'PlatformDashboard must show total practices');
+      assert(platformDashboard.includes('Expiring Trials Feed'), 'PlatformDashboard must show expiring trials feed');
+      assert(platformDashboard.includes('Overdue & Dunning Watchlist'), 'PlatformDashboard must show dunning watchlist');
+    });
+
+    await st.test('TEST 19: production CSS bundle size proves complete utility generation (>80kB)', () => {
+      const distAssets = path.join(DIST_DIR, 'assets');
+      assert(fs.existsSync(distAssets), 'dist/assets directory must exist');
+      const cssFiles = fs.readdirSync(distAssets).filter(f => f.endsWith('.css'));
+      assert(cssFiles.length > 0, 'dist/assets must contain built CSS bundle');
+      const cssContent = fs.readFileSync(path.join(distAssets, cssFiles[0]), 'utf8');
+      assert(cssContent.length > 80000, 'Compiled CSS must exceed 80kB confirming Tailwind utility inclusion');
+    });
+
+    await st.test('TEST 20: production CSS contains required platform and responsive escape selectors', () => {
+      const distAssets = path.join(DIST_DIR, 'assets');
+      const cssFiles = fs.readdirSync(distAssets).filter(f => f.endsWith('.css'));
+      const cssContent = fs.readFileSync(path.join(distAssets, cssFiles[0]), 'utf8');
+      assert(cssContent.includes('sm\\:grid-cols-2'), 'CSS must include escaped sm:grid-cols-2');
+      assert(cssContent.includes('lg\\:grid-cols-4'), 'CSS must include escaped lg:grid-cols-4');
+      assert(cssContent.includes('md\\:flex-row'), 'CSS must include escaped md:flex-row');
+      assert(cssContent.includes('bg-slate-950'), 'CSS must include bg-slate-950');
+      assert(cssContent.includes('text-emerald-400'), 'CSS must include text-emerald-400');
     });
   });
 });

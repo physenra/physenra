@@ -88,7 +88,7 @@ export const PlatformDashboardPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <Shield className="w-6 h-6 text-emerald-400" />
+            <Shield size={22} className="w-6 h-6 text-emerald-400" />
             Executive Platform Dashboard
           </h1>
           <p className="text-slate-400 text-sm mt-1">
@@ -101,7 +101,7 @@ export const PlatformDashboardPage: React.FC = () => {
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5 shadow-sm"
           >
             <span>Manage Practices</span>
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight size={16} className="w-4 h-4" />
           </Link>
         </div>
       </div>
@@ -115,99 +115,99 @@ export const PlatformDashboardPage: React.FC = () => {
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* MRR */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div className="bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-6 shadow-sm transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Monthly Recurring (MRR)</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-              <TrendingUp className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <TrendingUp size={18} className="w-4.5 h-4.5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-white">
+            <div className="text-3xl font-extrabold text-white tracking-tight">
               {formatNaira(kpis?.mrr_cents || 0)}
             </div>
-            <p className="text-xs text-slate-500 mt-1">Contracted normalized monthly run-rate</p>
+            <p className="text-xs text-slate-500 mt-1.5">Contracted normalized monthly run-rate</p>
           </div>
         </div>
 
         {/* ARR */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div className="bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-6 shadow-sm transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Annual Run-Rate (ARR)</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400">
-              <DollarSign className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+              <DollarSign size={18} className="w-4.5 h-4.5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-white">
+            <div className="text-3xl font-extrabold text-white tracking-tight">
               {formatNaira(kpis?.arr_cents || 0)}
             </div>
-            <p className="text-xs text-slate-500 mt-1">Projected annual recurring subscription revenue</p>
+            <p className="text-xs text-slate-500 mt-1.5">Projected annual recurring subscription revenue</p>
           </div>
         </div>
 
         {/* Active Practices */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div className="bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-6 shadow-sm transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Active Paid Tenants</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-              <CheckCircle2 className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <CheckCircle2 size={18} className="w-4.5 h-4.5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-white">{kpis?.active_practices ?? 0}</div>
-            <p className="text-xs text-slate-500 mt-1">Subscribed practices in good standing</p>
+            <div className="text-3xl font-extrabold text-white tracking-tight">{kpis?.active_practices ?? 0}</div>
+            <p className="text-xs text-slate-500 mt-1.5">Subscribed practices in good standing</p>
           </div>
         </div>
 
         {/* Total Practices */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div className="bg-slate-900/90 border border-slate-800 hover:border-slate-700/80 rounded-2xl p-6 shadow-sm transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Total Registered</span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400">
-              <Building2 className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+              <Building2 size={18} className="w-4.5 h-4.5" />
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold text-white">{kpis?.total_practices ?? 0}</div>
-            <p className="text-xs text-slate-500 mt-1">Total clinics on Physenra platform</p>
+            <div className="text-3xl font-extrabold text-white tracking-tight">{kpis?.total_practices ?? 0}</div>
+            <p className="text-xs text-slate-500 mt-1.5">Total clinics on Physenra platform</p>
           </div>
         </div>
       </div>
 
       {/* Secondary Status Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5">
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400">
-              <Clock className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 shrink-0">
+              <Clock size={20} className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-medium text-slate-400">14-Day Evaluation Trials</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">14-Day Evaluation Trials</p>
               <p className="text-xl font-bold text-white mt-0.5">{kpis?.trialing_practices ?? 0} Practices</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5">
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-400">
-              <AlertTriangle className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+              <AlertTriangle size={20} className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-medium text-slate-400">Past Due / Grace Period</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Past Due / Grace Period</p>
               <p className="text-xl font-bold text-white mt-0.5">{kpis?.past_due_practices ?? 0} Practices</p>
             </div>
           </div>
         </div>
 
-        <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-5">
+        <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-400">
-              <AlertTriangle className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+              <AlertTriangle size={20} className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-xs font-medium text-slate-400">Suspended / Expired</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Suspended / Expired</p>
               <p className="text-xl font-bold text-white mt-0.5">{kpis?.suspended_practices ?? 0} Practices</p>
             </div>
           </div>
@@ -221,7 +221,7 @@ export const PlatformDashboardPage: React.FC = () => {
           <div>
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div className="flex items-center gap-2.5">
-                <Clock className="w-5 h-5 text-cyan-400" />
+                <Clock size={18} className="w-5 h-5 text-cyan-400" />
                 <h2 className="text-base font-bold text-white">Expiring Trials Feed</h2>
               </div>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
@@ -255,7 +255,7 @@ export const PlatformDashboardPage: React.FC = () => {
                       <span className="px-2 py-0.5 rounded text-xs font-medium bg-cyan-500/10 text-cyan-400">
                         {trial.daysRemaining === 0 ? 'Today' : `${trial.daysRemaining}d remaining`}
                       </span>
-                      <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-slate-300" />
+                      <ChevronRight size={16} className="w-4 h-4 text-slate-600 group-hover:text-slate-300" />
                     </div>
                   </Link>
                 ))}
@@ -270,7 +270,7 @@ export const PlatformDashboardPage: React.FC = () => {
                 className="text-xs text-cyan-400 hover:text-cyan-300 inline-flex items-center gap-1"
               >
                 <span>View all ({expiringTrials.length})</span>
-                <ChevronRight className="w-3.5 h-3.5" />
+                <ChevronRight size={14} className="w-3.5 h-3.5" />
               </Link>
             </div>
           )}
@@ -281,7 +281,7 @@ export const PlatformDashboardPage: React.FC = () => {
           <div>
             <div className="flex items-center justify-between pb-4 border-b border-slate-800">
               <div className="flex items-center gap-2.5">
-                <AlertTriangle className="w-5 h-5 text-amber-400" />
+                <AlertTriangle size={18} className="w-5 h-5 text-amber-400" />
                 <h2 className="text-base font-bold text-white">Overdue & Dunning Watchlist</h2>
               </div>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
@@ -352,9 +352,9 @@ export const PlatformDashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-400">
-              <Building2 className="w-5 h-5" />
+              <Building2 size={20} className="w-5 h-5" />
             </div>
-            <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
+            <ArrowRight size={16} className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
           </div>
           <h2 className="text-base font-semibold text-white group-hover:text-emerald-300 transition-colors">
             Practice Directory
@@ -370,9 +370,9 @@ export const PlatformDashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400">
-              <Layers className="w-5 h-5" />
+              <Layers size={20} className="w-5 h-5" />
             </div>
-            <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
+            <ArrowRight size={16} className="w-4 h-4 text-slate-500 group-hover:text-blue-400 transition-colors" />
           </div>
           <h2 className="text-base font-semibold text-white group-hover:text-blue-300 transition-colors">
             SaaS Plan Catalog
@@ -388,9 +388,9 @@ export const PlatformDashboardPage: React.FC = () => {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400">
-              <DollarSign className="w-5 h-5" />
+              <DollarSign size={20} className="w-5 h-5" />
             </div>
-            <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition-colors" />
+            <ArrowRight size={16} className="w-4 h-4 text-slate-500 group-hover:text-purple-400 transition-colors" />
           </div>
           <h2 className="text-base font-semibold text-white group-hover:text-purple-300 transition-colors">
             Billing & Invoices

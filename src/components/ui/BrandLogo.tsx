@@ -45,6 +45,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           src={logoSrc}
           alt="Physenra"
           className={`${heightClass} w-auto object-contain block`}
+          style={{ maxHeight: size === 'sm' ? 28 : size === 'lg' ? 44 : 36, width: 'auto' }}
           onError={(e) => {
             // Graceful fallback to CSS styled mark if asset fails to load
             const target = e.currentTarget;

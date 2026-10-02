@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { usePractice } from '../../hooks/usePractice';
+import { BrandLogo } from '../ui/BrandLogo';
 import {
   LayoutDashboard,
   Building2,
@@ -11,7 +12,6 @@ import {
   Settings,
   ArrowLeft,
   LogOut,
-  Shield,
 } from 'lucide-react';
 
 export const PlatformLayout: React.FC = () => {
@@ -44,21 +44,23 @@ export const PlatformLayout: React.FC = () => {
           <div className="p-5 border-b border-slate-800 flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-emerald-400" />
-                </div>
-                <span className="font-bold text-lg tracking-tight text-white">Physenra</span>
+                <BrandLogo theme="dark" size="sm" to="/platform/dashboard" />
               </div>
-              <div className="mt-1 text-xs font-semibold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded inline-block border border-emerald-500/20">
+              <div className="mt-2 text-[10px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded inline-block border border-emerald-500/20">
                 Platform Console
               </div>
             </div>
           </div>
 
           {/* Privacy Firewall Notice */}
-          <div className="mx-3 my-3 p-2.5 rounded-lg bg-slate-800/60 border border-slate-700/60 text-xs text-slate-400">
-            <span className="font-medium text-emerald-400 block mb-0.5">Clinical Privacy Firewall Active</span>
-            Platform admin view. Zero access to patient medical records or PHI.
+          <div className="mx-3 my-3 p-3 rounded-xl bg-slate-800/60 border border-slate-700/60 text-xs text-slate-400 shadow-sm">
+            <div className="flex items-center gap-1.5 font-semibold text-emerald-400 mb-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Clinical Privacy Firewall Active</span>
+            </div>
+            <p className="text-[11px] leading-relaxed text-slate-400">
+              Platform admin view. Zero access to patient medical records or PHI.
+            </p>
           </div>
 
           {/* Nav links */}
@@ -77,7 +79,7 @@ export const PlatformLayout: React.FC = () => {
                     }`
                   }
                 >
-                  <Icon className="w-4 h-4 shrink-0" />
+                  <Icon size={18} className="w-4.5 h-4.5 shrink-0" />
                   <span>{item.label}</span>
                 </NavLink>
               );
@@ -93,7 +95,7 @@ export const PlatformLayout: React.FC = () => {
               className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 hover:text-emerald-200 text-xs font-semibold border border-emerald-800/60 transition-colors"
               title="Return to Clinical Practice Dashboard"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft size={14} className="w-3.5 h-3.5" />
               <span>Return to Clinical Workspace</span>
             </Link>
           ) : (
@@ -102,33 +104,62 @@ export const PlatformLayout: React.FC = () => {
               className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-medium border border-slate-700 transition-colors"
               title="No clinical practice associated with this account"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ArrowLeft size={14} className="w-3.5 h-3.5" />
               <span>Return to Clinical Workspace</span>
             </Link>
           )}
 
           <div className="flex items-center justify-between pt-2">
-            <div className="text-xs truncate max-w-[140px]">
-              <p className="font-semibold text-slate-200 truncate">
-                {profile?.display_name || `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Platform Admin'}
-              </p>
-              <p className="text-slate-500 truncate text-[11px]">{profile ? 'Verified Admin' : 'admin@physenra.com'}</p>
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
+                {profile?.first_name?.[0]?.toUpperCase() || 'A'}
+              </div>
+              <div className="text-xs truncate max-w-[130px]">
+                <p className="font-semibold text-slate-200 truncate">
+                  {profile?.display_name || `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Platform Admin'}
+                </p>
+                <div className="flex items-center gap-1 text-slate-500 text-[11px]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="truncate">Administrator</span>
+                </div>
+              </div>
             </div>
             <button
               onClick={handleSignOut}
               className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-red-400 transition-colors"
               title="Sign Out"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut size={16} className="w-4 h-4" />
             </button>
           </div>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto min-h-screen bg-slate-950 p-6 md:p-8">
-        <div className="max-w-7xl mx-auto">
-          <Outlet />
+      <main className="flex-1 overflow-y-auto min-h-screen bg-slate-950 flex flex-col">
+        {/* Top Header Bar */}
+        <header className="h-14 border-b border-slate-800/80 bg-slate-900/50 backdrop-blur px-6 md:px-8 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <span className="font-semibold text-slate-300">Platform Operations</span>
+            <span>/</span>
+            <span className="text-emerald-400 font-medium">Executive Console</span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-medium text-emerald-400">
+              <ShieldCheck size={13} className="text-emerald-400" />
+              <span>Zero PHI Access Enforced</span>
+            </div>
+            <div className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 border border-slate-700">
+              Administrator
+            </div>
+          </div>
+        </header>
+
+        <div className="p-6 md:p-8 flex-1">
+          <div className="max-w-7xl mx-auto">
+            <Outlet />
+          </div>
         </div>
       </main>
     </div>
