@@ -96,13 +96,51 @@ import { PracticeInvoiceDetailPage } from './pages/billing/PracticeInvoiceDetail
 import { NoPracticePage } from './pages/error/NoPracticePage';
 import { NotFoundPage } from './pages/error/NotFoundPage';
 
+import {
+  HomePageShell,
+  FeaturesHubShell,
+  FeatureDetailShell,
+  SecurityPageShell,
+  AboutPageShell,
+  ContactPageShell,
+  FAQPageShell,
+  TermsPageShell,
+  PrivacyPageShell,
+  withPublicSuspense,
+} from './public/routes/publicRoutes';
+
 export const App: React.FC = () => {
   return (
     <Routes>
       {/* Public Routes */}
+      {/* Public Commercial Website Root (Phase 1A Scaffold) */}
+      <Route path="/" element={withPublicSuspense(HomePageShell)} />
+      {/* Pre-Distribution compatibility reference: path="/" element={<Navigate to="/app/dashboard" replace />} */}
+
+      {/* Public Features Hub & Specialized Clinical Sub-Routes */}
+      <Route path="/features" element={withPublicSuspense(FeaturesHubShell)} />
+      <Route path="/features/physiotherapy-emr" element={withPublicSuspense(FeatureDetailShell)} />
+      <Route path="/features/patient-management" element={withPublicSuspense(FeatureDetailShell)} />
+      <Route path="/features/appointments" element={withPublicSuspense(FeatureDetailShell)} />
+      <Route path="/features/clinical-documentation" element={withPublicSuspense(FeatureDetailShell)} />
+      <Route path="/features/treatment-plans" element={withPublicSuspense(FeatureDetailShell)} />
+      <Route path="/features/treatment-packages" element={withPublicSuspense(FeatureDetailShell)} />
+      <Route path="/features/billing" element={withPublicSuspense(FeatureDetailShell)} />
+      <Route path="/features/medical-imaging" element={withPublicSuspense(FeatureDetailShell)} />
+      <Route path="/features/practice-management" element={withPublicSuspense(FeatureDetailShell)} />
+
+      {/* Commercial, Trust, Legal & Company Routes */}
+      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/about" element={withPublicSuspense(AboutPageShell)} />
+      <Route path="/contact" element={withPublicSuspense(ContactPageShell)} />
+      <Route path="/faq" element={withPublicSuspense(FAQPageShell)} />
+      <Route path="/security" element={withPublicSuspense(SecurityPageShell)} />
+      <Route path="/terms" element={withPublicSuspense(TermsPageShell)} />
+      <Route path="/privacy" element={withPublicSuspense(PrivacyPageShell)} />
+
+      {/* Application Bridges */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignUpPage />} />
-      <Route path="/pricing" element={<PricingPage />} />
       <Route path="/register-practice" element={<RegisterPracticePage />} />
 
       {/* Platform Administration Console */}
@@ -126,9 +164,6 @@ export const App: React.FC = () => {
 
       {/* Authenticated user with no practice assigned */}
       <Route path="/no-practice" element={<NoPracticePage />} />
-
-      {/* Root redirection to dashboard */}
-      <Route path="/" element={<Navigate to="/app/dashboard" replace />} />
 
       {/* Protected Practice Application Routes */}
       <Route
