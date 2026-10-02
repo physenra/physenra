@@ -852,4 +852,130 @@ export const saasSubscriptionService = {
 
     return data as unknown as { status: string; invoice_id: string; payment_id?: string; new_period_end?: string };
   },
+
+  // ----------------------------------------------------------------------------
+  // 5. PRACTICE OWNER SELF-SERVICE BILLING (PHASE 4A)
+  // ----------------------------------------------------------------------------
+
+  /**
+   * Generates or retrieves an authoritative SaaS invoice for subscription payment.
+   * Callable strictly by verified practice_owner.
+   */
+  async initiatePracticeSubscriptionPayment(
+    practiceId: string,
+    planCode: string,
+    billingInterval: 'monthly' | 'annual' = 'monthly'
+  ): Promise<{
+    success: boolean;
+    is_reused: boolean;
+    invoice_id: string;
+    invoice_number: string;
+    amount_cents: number;
+    currency: string;
+    plan_code: string;
+    plan_name: string;
+    billing_interval: string;
+    seat_limit: number;
+    due_date: string;
+    status: string;
+  }> {
+    const { data, error } = await supabase.rpc('initiate_practice_subscription_payment', {
+      p_practice_id: practiceId,
+      p_plan_code: planCode,
+      p_billing_interval: billingInterval,
+    });
+
+    if (error) {
+      throw new Error(`Payment initiation failed: ${error.message}`);
+    }
+
+    return data as any;
+  },
+
+  /**
+   * Adjusts subscription plan for practice owner (immediate for trial, scheduled for paid downgrade, invoice for upgrade).
+   * Callable strictly by verified practice_owner.
+   */
+  async selfServiceChangePlan(
+    practiceId: string,
+    planCode: string,
+    billingInterval: 'monthly' | 'annual' = 'monthly',
+    reason?: string
+  ): Promise<{
+    success: boolean;
+    action: string;
+    plan_code?: string;
+    target_plan_code?: string;
+    target_plan_name?: string;
+    invoice_id?: string;
+    invoice_number?: string;
+    amount_cents?: number;
+    effective_at?: string;
+    message?: string;
+  }> {
+    const { data, error } = await supabase.rpc('self_service_change_plan', {
+      p_practice_id: practiceId,
+      p_plan_code: planCode,
+      p_billing_interval: billingInterval,
+      p_reason: reason?.trim() || 'Practice owner requested plan adjustment',
+    });
+
+    if (error) {
+      throw new Error(`Plan change failed: ${error.message}`);
+    }
+
+    return data as any;
+  },
+
+  /**
+   * Cancels subscription (immediate for trial, end-of-period for active paid subscription).
+   * Callable strictly by verified practice_owner.
+   */
+  async cancelPracticeSubscription(
+    practiceId: string,
+    reason?: string
+  ): Promise<{
+    success: boolean;
+    status: string;
+    cancel_at_period_end: boolean;
+    effective_at?: string;
+    message?: string;
+  }> {
+    const { data, error } = await supabase.rpc('cancel_practice_subscription', {
+      p_practice_id: practiceId,
+      p_reason: reason?.trim() || 'Practice owner requested cancellation',
+    });
+
+    if (error) {
+      throw new Error(`Cancellation failed: ${error.message}`);
+    }
+
+    return data as any;
+  },
+
+  /**
+   * Reactivates a subscription that has cancel_at_period_end = true before the period expires.
+   * Callable strictly by verified practice_owner.
+   */
+  async reactivatePracticeSubscription(
+    practiceId: string,
+    reason?: string
+  ): Promise<{
+    success: boolean;
+    status: string;
+    cancel_at_period_end?: boolean;
+    requires_payment?: boolean;
+    message?: string;
+  }> {
+    const { data, error } = await supabase.rpc('reactivate_practice_subscription', {
+      p_practice_id: practiceId,
+      p_reason: reason?.trim() || 'Practice owner requested reactivation',
+    });
+
+    if (error) {
+      throw new Error(`Reactivation failed: ${error.message}`);
+    }
+
+    return data as any;
+  },
 };

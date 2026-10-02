@@ -406,6 +406,8 @@ export interface Database {
           gateway_customer_code: string | null;
           gateway_subscription_code: string | null;
           gateway_auth_token: string | null;
+          pending_plan_id: string | null;
+          pending_billing_interval: SaasBillingInterval | null;
           created_at: string;
           updated_at: string;
         };
@@ -430,6 +432,8 @@ export interface Database {
           gateway_customer_code?: string | null;
           gateway_subscription_code?: string | null;
           gateway_auth_token?: string | null;
+          pending_plan_id?: string | null;
+          pending_billing_interval?: SaasBillingInterval | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -454,6 +458,8 @@ export interface Database {
           gateway_customer_code?: string | null;
           gateway_subscription_code?: string | null;
           gateway_auth_token?: string | null;
+          pending_plan_id?: string | null;
+          pending_billing_interval?: SaasBillingInterval | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -4533,6 +4539,37 @@ export interface Database {
           p_practice_id: string;
           p_plan_code: string;
           p_seat_limit?: number | null;
+          p_reason?: string;
+        };
+        Returns: Json;
+      };
+      initiate_practice_subscription_payment: {
+        Args: {
+          p_practice_id: string;
+          p_plan_code: string;
+          p_billing_interval?: string;
+        };
+        Returns: Json;
+      };
+      self_service_change_plan: {
+        Args: {
+          p_practice_id: string;
+          p_plan_code: string;
+          p_billing_interval?: string;
+          p_reason?: string;
+        };
+        Returns: Json;
+      };
+      cancel_practice_subscription: {
+        Args: {
+          p_practice_id: string;
+          p_reason?: string;
+        };
+        Returns: Json;
+      };
+      reactivate_practice_subscription: {
+        Args: {
+          p_practice_id: string;
           p_reason?: string;
         };
         Returns: Json;
