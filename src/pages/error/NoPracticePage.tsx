@@ -1,13 +1,22 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { usePractice } from '../../hooks/usePractice';
 import { Building2, LogOut, RefreshCw, AlertCircle, ShieldCheck } from 'lucide-react';
 
 export const NoPracticePage: React.FC = () => {
   const { user, profile, signOut } = useAuth();
-  const { refreshPractices } = usePractice();
+  const { memberships, refreshPractices } = usePractice();
   const [refreshing, setRefreshing] = useState(false);
+  const navigate = useNavigate();
+
+  // If user acquires active practice memberships (e.g. practice registration completed, invitation accepted),
+  // automatically transition into practice dashboard
+  useEffect(() => {
+    if (memberships.length > 0) {
+      navigate('/app/dashboard', { replace: true });
+    }
+  }, [memberships, navigate]);
 
   const handleRefresh = async () => {
     try {

@@ -14,6 +14,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { usePractice } from '../../hooks/usePractice';
 import { saasSubscriptionService } from '../../services/saasSubscriptionService';
 import { setActivePracticeHeader } from '../../lib/supabase';
 import { BrandLogo } from '../../components/ui/BrandLogo';
@@ -66,6 +67,7 @@ export const RegisterPracticePage: React.FC = () => {
   const [success, setSuccess] = useState<boolean>(false);
 
   const { user, signUp, signOut } = useAuth();
+  const { refreshPractices } = usePractice();
 
   // Load authoritative public plans on mount
   useEffect(() => {
@@ -184,6 +186,15 @@ export const RegisterPracticePage: React.FC = () => {
 
       // 4. Establish practice context header immediately
       setActivePracticeHeader(result.practice_id);
+      setStatusMessage('Practice initialized! Establishing workspace context...');
+
+      // Authoritatively refresh PracticeContext before routing to prevent zero-practice race
+      try {
+        await refreshPractices();
+      } catch (refreshErr) {
+        console.warn('Physenra: Background practice refresh notice:', refreshErr);
+      }
+
       setStatusMessage('Practice initialized! Redirecting to clinical workspace...');
       setSuccess(true);
 
@@ -199,7 +210,8 @@ export const RegisterPracticePage: React.FC = () => {
       } else if (rawMsg.includes('insufficient_privilege') || rawMsg.includes('Authentication required')) {
         setError('Authentication required. Please sign in to complete practice registration.');
       } else {
-        setError(rawMsg);
+        const sanitized = rawMsg.replace(/RPC failed: |Database error: /gi, '');
+        setError(sanitized);
       }
     } finally {
       setSubmitting(false);

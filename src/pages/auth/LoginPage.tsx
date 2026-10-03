@@ -20,7 +20,18 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/app/dashboard';
+  const searchParams = new URLSearchParams(location.search);
+  const stateFrom = (location.state as { from?: { pathname: string } })?.from?.pathname;
+  const queryFrom = searchParams.get('from');
+
+  // Validate internal redirect path to prevent open redirect vulnerabilities
+  const isValidInternalPath = (path?: string | null) =>
+    Boolean(path && path.startsWith('/') && !path.startsWith('//'));
+
+  const from =
+    (isValidInternalPath(stateFrom) ? stateFrom : null) ||
+    (isValidInternalPath(queryFrom) ? queryFrom : null) ||
+    '/app/dashboard';
 
   useEffect(() => {
     if (!loading && user) {

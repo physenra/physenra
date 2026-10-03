@@ -17,7 +17,7 @@ interface PracticeContextType {
 const PracticeContext = createContext<PracticeContextType | undefined>(undefined);
 
 export const PracticeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [memberships, setMemberships] = useState<UserPracticeMembership[]>([]);
   const [activeMembership, setActiveMembership] = useState<UserPracticeMembership | null>(null);
   const [activePractice, setActivePractice] = useState<Practice | null>(null);
@@ -25,6 +25,11 @@ export const PracticeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [error, setError] = useState<string | null>(null);
 
   const fetchMemberships = useCallback(async (): Promise<UserPracticeMembership[]> => {
+    if (authLoading) {
+      // Auth initialization is in flight; preserve stored practice header and remain in loading state
+      return [];
+    }
+
     if (!user) {
       setMemberships([]);
       setActiveMembership(null);
@@ -89,7 +94,16 @@ export const PracticeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // Determine active practice context
       let selected: UserPracticeMembership | null = null;
-      const storedPracticeId = getActivePracticeHeader();
+      let storedPracticeId = getActivePracticeHeader();
+
+      // Fallback: Check ?registered=<practice_id> query param if landing after registration
+      if (!storedPracticeId && typeof window !== 'undefined' && window.location.search) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const registeredParam = urlParams.get('registered');
+        if (registeredParam) {
+          storedPracticeId = registeredParam;
+        }
+      }
 
       if (storedPracticeId) {
         selected = activeList.find((m) => m.practiceId === storedPracticeId) ?? null;
@@ -129,11 +143,13 @@ export const PracticeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, authLoading]);
 
   useEffect(() => {
-    fetchMemberships();
-  }, [fetchMemberships]);
+    if (!authLoading) {
+      fetchMemberships();
+    }
+  }, [authLoading, fetchMemberships]);
 
   const switchPractice = useCallback(async (practiceId: string) => {
     const target = memberships.find((m) => m.practiceId === practiceId);
