@@ -9,6 +9,7 @@ import { packageService } from '../../services/packageService';
 import { clinicalAssessmentService } from '../../services/clinicalAssessmentService';
 import { supabase } from '../../lib/supabase';
 import { Ticket } from 'lucide-react';
+import { useRole } from '../../hooks/useRole';
 import { NeurologyAssessmentForm } from '../../components/clinical/NeurologyAssessmentForm';
 import { NeurologyLongitudinalView } from '../../components/clinical/NeurologyLongitudinalView';
 import { PaediatricAssessmentForm } from '../../components/clinical/PaediatricAssessmentForm';
@@ -19,6 +20,7 @@ import type {
   ClinicalVisitLocationMode,
   ClinicalNoteWithRelations,
   OutcomeMeasureAssessmentWithRelations,
+  ClinicalAssessmentDefinition,
   ClinicalAssessmentInstanceWithRelations,
   HomeExerciseProgramWithRelations,
   TreatmentPlanWithRelations,
@@ -43,8 +45,14 @@ export const ClinicalVisitDetailPage: React.FC = () => {
   const [clinicalNote, setClinicalNote] = useState<ClinicalNoteWithRelations | null>(null);
   const [outcomeAssessments, setOutcomeAssessments] = useState<OutcomeMeasureAssessmentWithRelations[]>([]);
   const [clinicalAssessments, setClinicalAssessments] = useState<ClinicalAssessmentInstanceWithRelations[]>([]);
+  const [definitions, setDefinitions] = useState<ClinicalAssessmentDefinition[]>([]);
   const [homeExercisePrograms, setHomeExercisePrograms] = useState<HomeExerciseProgramWithRelations[]>([]);
   const [treatmentPlans, setTreatmentPlans] = useState<TreatmentPlanWithRelations[]>([]);
+
+  // Practice Role Authorization (practice_owner, practice_manager, physiotherapist can edit; receptionist, accountant read-only)
+  const { role } = useRole();
+  const isReadOnlyRole = role === 'receptionist' || role === 'accountant';
+  const canEditSpecialty = !isReadOnlyRole;
 
   // Neurology Assessment Workflow State
   const [isNeuroModalOpen, setIsNeuroModalOpen] = useState(false);
@@ -97,6 +105,13 @@ export const ClinicalVisitDetailPage: React.FC = () => {
           setClinicalAssessments(cAssessments);
         } catch (caErr) {
           console.warn('Could not load clinical assessments for visit:', caErr);
+        }
+
+        try {
+          const defs = await clinicalAssessmentService.getDefinitions();
+          setDefinitions(defs);
+        } catch (defErr) {
+          console.warn('Could not load clinical assessment definitions:', defErr);
         }
 
         try {
@@ -997,215 +1012,552 @@ export const ClinicalVisitDetailPage: React.FC = () => {
         )}
       </div>
 
-      {/* Structured Clinical Assessments (Multi-Specialty Extension) Card */}
-      <div
-        style={{
-          backgroundColor: '#ffffff',
-          padding: '1.5rem',
-          borderRadius: '8px',
-          border: '1px solid #e2e8f0',
-          marginTop: '1.5rem',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '0.75rem',
-            borderBottom: '1px solid #f1f5f9',
-            paddingBottom: '0.5rem',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, color: '#0f172a' }}>
-              Structured Clinical Assessments (Specialty Extension)
-            </h2>
-            <span
-              style={{
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                padding: '0.15rem 0.5rem',
-                borderRadius: '9999px',
-                backgroundColor: clinicalAssessments.length > 0 ? '#f3e8ff' : '#f1f5f9',
-                color: clinicalAssessments.length > 0 ? '#7c3aed' : '#475569',
-              }}
-            >
-              {clinicalAssessments.length} Recorded
-            </span>
-          </div>
+      {/* Specialty Assessments (Neurology & Paediatrics Extension) Card */}
+      {(() => {
+        const neuroDef = definitions.find(
+          (d) => d.code === 'NEURO_EXAMINATION_V1' || d.specialty === 'neurological'
+        ) || null;
+        const paedsDef = definitions.find(
+          (d) => d.code === 'PAEDS_EXAMINATION_V1' || d.specialty === 'paediatric'
+        ) || null;
 
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingAssessment(null);
-                setIsNeuroModalOpen(true);
-              }}
-              style={{
-                padding: '0.35rem 0.75rem',
-                backgroundColor: '#7c3aed',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              + Document Neurological Exam
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsNeuroLongitudinalOpen(true)}
-              style={{
-                padding: '0.35rem 0.75rem',
-                backgroundColor: '#ffffff',
-                color: '#6d28d9',
-                border: '1px solid #ddd6fe',
-                borderRadius: '6px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              View Longitudinal Neurology
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setEditingPaedsAssessment(null);
-                setIsPaedsModalOpen(true);
-              }}
-              style={{
-                padding: '0.35rem 0.75rem',
-                backgroundColor: '#059669',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              + Document Paediatric Exam
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsPaedsLongitudinalOpen(true)}
-              style={{
-                padding: '0.35rem 0.75rem',
-                backgroundColor: '#ffffff',
-                color: '#047857',
-                border: '1px solid #a7f3d0',
-                borderRadius: '6px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              View Longitudinal Paediatrics
-            </button>
-          </div>
-        </div>
+        const neuroAssessment = clinicalAssessments.find(
+          (ca) => ca.definition?.code === 'NEURO_EXAMINATION_V1' || ca.definition?.specialty === 'neurological'
+        ) || null;
+        const paedsAssessment = clinicalAssessments.find(
+          (ca) => ca.definition?.code === 'PAEDS_EXAMINATION_V1' || ca.definition?.specialty === 'paediatric'
+        ) || null;
 
-        {clinicalAssessments.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {clinicalAssessments.map((ca) => (
+        return (
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              padding: '1.5rem',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0',
+              marginTop: '1.5rem',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '0.75rem',
+                borderBottom: '1px solid #f1f5f9',
+                paddingBottom: '0.75rem',
+                flexWrap: 'wrap',
+                gap: '0.75rem',
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                  <h2 style={{ fontSize: '1.125rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>
+                    SPECIALTY ASSESSMENTS — Structured Clinical Assessments (Specialty Extension)
+                  </h2>
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      padding: '0.15rem 0.5rem',
+                      borderRadius: '9999px',
+                      backgroundColor: clinicalAssessments.length > 0 ? '#f3e8ff' : '#f1f5f9',
+                      color: clinicalAssessments.length > 0 ? '#7c3aed' : '#475569',
+                    }}
+                  >
+                    {clinicalAssessments.length} Recorded
+                  </span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.8125rem', color: '#64748b' }}>
+                  Structured specialty assessments are optional clinical extensions. The SOAP note remains the primary medico-legal clinical record (SOAP documentation remains the primary medico-legal clinical record).
+                </p>
+              </div>
+            </div>
+
+            {/* Specialty Modules Grid */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: '1rem',
+                marginTop: '1rem',
+              }}
+            >
+              {/* 1. Neurological Assessment Module */}
               <div
-                key={ca.id}
                 style={{
+                  padding: '1.25rem',
+                  backgroundColor: '#faf5ff',
+                  borderRadius: '8px',
+                  border: '1px solid #ede9fe',
                   display: 'flex',
+                  flexDirection: 'column',
                   justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '0.75rem 1rem',
-                  backgroundColor: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '6px',
                 }}
               >
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                    <span
-                      style={{
-                        color: ca.definition?.specialty === 'paediatric' || ca.definition?.code === 'PAEDS_EXAMINATION_V1' ? '#059669' : '#7c3aed',
-                        fontWeight: 700,
-                        fontSize: '0.875rem',
-                      }}
-                    >
-                      {ca.assessment_identifier}
-                    </span>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0f172a' }}>
-                      {ca.definition?.name || 'Structured Assessment'}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '0.6875rem',
-                        fontWeight: 600,
-                        padding: '0.1rem 0.4rem',
-                        borderRadius: '4px',
-                        textTransform: 'uppercase',
-                        backgroundColor: ca.definition?.specialty === 'paediatric' || ca.definition?.code === 'PAEDS_EXAMINATION_V1' ? '#d1fae5' : '#ede9fe',
-                        color: ca.definition?.specialty === 'paediatric' || ca.definition?.code === 'PAEDS_EXAMINATION_V1' ? '#047857' : '#6d28d9',
-                      }}
-                    >
-                      {ca.definition?.specialty || 'General'}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '0.6875rem',
-                        fontWeight: 600,
-                        padding: '0.1rem 0.4rem',
-                        borderRadius: '4px',
-                        textTransform: 'capitalize',
-                        backgroundColor: ca.status === 'draft' ? '#fef3c7' : '#dcfce7',
-                        color: ca.status === 'draft' ? '#92400e' : '#166534',
-                      }}
-                    >
-                      {ca.status}
-                    </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                    <div>
+                      <span
+                        style={{
+                          fontSize: '0.6875rem',
+                          fontWeight: 700,
+                          color: '#7c3aed',
+                          backgroundColor: '#ede9fe',
+                          padding: '0.1rem 0.4rem',
+                          borderRadius: '4px',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Neurology
+                      </span>
+                      <h3 style={{ margin: '0.25rem 0 0', fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
+                        {neuroDef?.name || 'Structured Neurological Examination (V1)'}
+                      </h3>
+                    </div>
+                    {/* State Badge */}
+                    {neuroAssessment ? (
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: '4px',
+                          textTransform: 'capitalize',
+                          backgroundColor:
+                            neuroAssessment.status === 'draft'
+                              ? '#fef3c7'
+                              : neuroAssessment.status === 'finalized'
+                              ? '#dcfce7'
+                              : '#ede9fe',
+                          color:
+                            neuroAssessment.status === 'draft'
+                              ? '#92400e'
+                              : neuroAssessment.status === 'finalized'
+                              ? '#166534'
+                              : '#6d28d9',
+                        }}
+                      >
+                        {neuroAssessment.status}
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 500,
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: '4px',
+                          backgroundColor: '#f1f5f9',
+                          color: '#64748b',
+                        }}
+                      >
+                        Not Started (Optional)
+                      </span>
+                    )}
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                    Performed: {formatTimestamp(ca.performed_at)} &bull; Assessor: {ca.assessor?.display_name || 'Clinician'}
-                    {ca.summary_findings && ` &bull; ${ca.summary_findings}`}
-                  </div>
+
+                  <p style={{ margin: '0.25rem 0 0.75rem', fontSize: '0.8125rem', color: '#64748b' }}>
+                    {neuroAssessment
+                      ? `${neuroAssessment.assessment_identifier} • Performed: ${formatTimestamp(neuroAssessment.performed_at)}`
+                      : 'MAS spasticity, reflexes, sensory modalities, coordination, balance & gait.'}
+                  </p>
+                  {neuroAssessment?.summary_findings && (
+                    <div style={{ padding: '0.5rem 0.75rem', backgroundColor: '#ffffff', borderRadius: '6px', border: '1px solid #e9d5ff', fontSize: '0.75rem', color: '#475569', marginBottom: '0.75rem' }}>
+                      {neuroAssessment.summary_findings}
+                    </div>
+                  )}
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                  {/* Four Explicit Detection States for Neurology */}
+                  {!neuroAssessment ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!canEditSpecialty) return;
+                        setEditingAssessment(null);
+                        setIsNeuroModalOpen(true);
+                      }}
+                      disabled={!canEditSpecialty}
+                      style={{
+                        minHeight: '44px',
+                        padding: '0.5rem 1rem',
+                        backgroundColor: canEditSpecialty ? '#7c3aed' : '#cbd5e1',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.8125rem',
+                        fontWeight: 600,
+                        cursor: canEditSpecialty ? 'pointer' : 'not-allowed',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flex: '1 1 auto',
+                      }}
+                    >
+                      {canEditSpecialty ? '+ Document Neurological Exam (Start Assessment)' : 'Start Assessment (Clinicians Only)'}
+                    </button>
+                  ) : neuroAssessment.status === 'draft' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAssessment(neuroAssessment);
+                        setIsNeuroModalOpen(true);
+                      }}
+                      style={{
+                        minHeight: '44px',
+                        padding: '0.5rem 1rem',
+                        backgroundColor: '#d97706',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.8125rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flex: '1 1 auto',
+                      }}
+                    >
+                      {canEditSpecialty ? 'Continue Draft' : 'View Draft'}
+                    </button>
+                  ) : neuroAssessment.status === 'finalized' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAssessment(neuroAssessment);
+                        setIsNeuroModalOpen(true);
+                      }}
+                      style={{
+                        minHeight: '44px',
+                        padding: '0.5rem 1rem',
+                        backgroundColor: '#16a34a',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.8125rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flex: '1 1 auto',
+                      }}
+                    >
+                      View Finalized Assessment
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAssessment(neuroAssessment);
+                        setIsNeuroModalOpen(true);
+                      }}
+                      style={{
+                        minHeight: '44px',
+                        padding: '0.5rem 1rem',
+                        backgroundColor: '#7c3aed',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.8125rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flex: '1 1 auto',
+                      }}
+                    >
+                      View Current Assessment / Amendment History
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    onClick={() => {
-                      if (ca.definition?.code === 'PAEDS_EXAMINATION_V1' || ca.definition?.specialty === 'paediatric') {
-                        setEditingPaedsAssessment(ca);
-                        setIsPaedsModalOpen(true);
-                      } else {
-                        setEditingAssessment(ca);
-                        setIsNeuroModalOpen(true);
-                      }
-                    }}
+                    onClick={() => setIsNeuroLongitudinalOpen(true)}
                     style={{
-                      padding: '0.3rem 0.6rem',
-                      borderRadius: '4px',
-                      border: '1px solid #cbd5e1',
+                      minHeight: '44px',
+                      padding: '0.5rem 0.875rem',
                       backgroundColor: '#ffffff',
-                      color: '#475569',
-                      fontSize: '0.75rem',
-                      fontWeight: 500,
+                      color: '#6d28d9',
+                      border: '1px solid #ddd6fe',
+                      borderRadius: '6px',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
                       cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
                     }}
                   >
-                    {ca.status === 'draft' ? 'Edit Draft' : 'View Findings'}
+                    View Longitudinal History
                   </button>
                 </div>
               </div>
-            ))}
+
+              {/* 2. Paediatric Assessment Module */}
+              <div
+                style={{
+                  padding: '1.25rem',
+                  backgroundColor: '#ecfdf5',
+                  borderRadius: '8px',
+                  border: '1px solid #d1fae5',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                    <div>
+                      <span
+                        style={{
+                          fontSize: '0.6875rem',
+                          fontWeight: 700,
+                          color: '#059669',
+                          backgroundColor: '#d1fae5',
+                          padding: '0.1rem 0.4rem',
+                          borderRadius: '4px',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Paediatrics
+                      </span>
+                      <h3 style={{ margin: '0.25rem 0 0', fontSize: '1rem', fontWeight: 700, color: '#064e3b' }}>
+                        {paedsDef?.name || 'Structured Paediatric Physiotherapy Examination (V1)'}
+                      </h3>
+                    </div>
+                    {/* State Badge */}
+                    {paedsAssessment ? (
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: '4px',
+                          textTransform: 'capitalize',
+                          backgroundColor:
+                            paedsAssessment.status === 'draft'
+                              ? '#fef3c7'
+                              : paedsAssessment.status === 'finalized'
+                              ? '#dcfce7'
+                              : '#ede9fe',
+                          color:
+                            paedsAssessment.status === 'draft'
+                              ? '#92400e'
+                              : paedsAssessment.status === 'finalized'
+                              ? '#166534'
+                              : '#6d28d9',
+                        }}
+                      >
+                        {paedsAssessment.status}
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          fontWeight: 500,
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: '4px',
+                          backgroundColor: '#f1f5f9',
+                          color: '#64748b',
+                        }}
+                      >
+                        Not Started (Optional)
+                      </span>
+                    )}
+                  </div>
+
+                  <p style={{ margin: '0.25rem 0 0.75rem', fontSize: '0.8125rem', color: '#047857' }}>
+                    {paedsAssessment
+                      ? `${paedsAssessment.assessment_identifier} • Performed: ${formatTimestamp(paedsAssessment.performed_at)}`
+                      : 'Developmental milestones, GMFCS, tone quality, posture, alignment, balance & play.'}
+                  </p>
+                  {paedsAssessment?.summary_findings && (
+                    <div style={{ padding: '0.5rem 0.75rem', backgroundColor: '#ffffff', borderRadius: '6px', border: '1px solid #a7f3d0', fontSize: '0.75rem', color: '#065f46', marginBottom: '0.75rem' }}>
+                      {paedsAssessment.summary_findings}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
+                  {/* Four Explicit Detection States for Paediatrics */}
+                  {!paedsAssessment ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!canEditSpecialty) return;
+                        setEditingPaedsAssessment(null);
+                        setIsPaedsModalOpen(true);
+                      }}
+                      disabled={!canEditSpecialty}
+                      style={{
+                        minHeight: '44px',
+                        padding: '0.5rem 1rem',
+                        backgroundColor: canEditSpecialty ? '#059669' : '#cbd5e1',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.8125rem',
+                        fontWeight: 600,
+                        cursor: canEditSpecialty ? 'pointer' : 'not-allowed',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flex: '1 1 auto',
+                      }}
+                    >
+                      {canEditSpecialty ? '+ Document Paediatric Exam (Start Assessment)' : 'Start Assessment (Clinicians Only)'}
+                    </button>
+                  ) : paedsAssessment.status === 'draft' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPaedsAssessment(paedsAssessment);
+                        setIsPaedsModalOpen(true);
+                      }}
+                      style={{
+                        minHeight: '44px',
+                        padding: '0.5rem 1rem',
+                        backgroundColor: '#d97706',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.8125rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flex: '1 1 auto',
+                      }}
+                    >
+                      {canEditSpecialty ? 'Continue Draft' : 'View Draft'}
+                    </button>
+                  ) : paedsAssessment.status === 'finalized' ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPaedsAssessment(paedsAssessment);
+                        setIsPaedsModalOpen(true);
+                      }}
+                      style={{
+                        minHeight: '44px',
+                        padding: '0.5rem 1rem',
+                        backgroundColor: '#16a34a',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.8125rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flex: '1 1 auto',
+                      }}
+                    >
+                      View Finalized Assessment
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPaedsAssessment(paedsAssessment);
+                        setIsPaedsModalOpen(true);
+                      }}
+                      style={{
+                        minHeight: '44px',
+                        padding: '0.5rem 1rem',
+                        backgroundColor: '#059669',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '0.8125rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flex: '1 1 auto',
+                      }}
+                    >
+                      View Current Assessment / Amendment History
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setIsPaedsLongitudinalOpen(true)}
+                    style={{
+                      minHeight: '44px',
+                      padding: '0.5rem 0.875rem',
+                      backgroundColor: '#ffffff',
+                      color: '#047857',
+                      border: '1px solid #a7f3d0',
+                      borderRadius: '6px',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    View Longitudinal History (View Longitudinal Paediatrics)
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Additional recorded clinical assessments if any (e.g. screening tools) */}
+            {clinicalAssessments.filter(
+              (ca) =>
+                ca.id !== neuroAssessment?.id &&
+                ca.id !== paedsAssessment?.id
+            ).length > 0 && (
+              <div style={{ marginTop: '1.25rem', borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
+                <h4 style={{ fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.5rem' }}>
+                  Other Structured Assessments
+                </h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {clinicalAssessments
+                    .filter(
+                      (ca) =>
+                        ca.id !== neuroAssessment?.id &&
+                        ca.id !== paedsAssessment?.id
+                    )
+                    .map((ca) => (
+                      <div
+                        key={ca.id}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '0.625rem 0.875rem',
+                          backgroundColor: '#f8fafc',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0',
+                        }}
+                      >
+                        <div>
+                          <span style={{ fontWeight: 600, fontSize: '0.8125rem', color: '#0f172a' }}>
+                            {ca.assessment_identifier} &bull; {ca.definition?.name}
+                          </span>
+                          <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: '#64748b' }}>
+                            ({ca.status})
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
-        ) : (
-          <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
-            No structured specialty assessments recorded for this encounter. (SOAP documentation remains the primary medico-legal clinical record).
-          </p>
-        )}
-      </div>
+        );
+      })()}
 
       {/* Home Exercise Programs (HEP) Card */}
       <div
@@ -1749,6 +2101,7 @@ export const ClinicalVisitDetailPage: React.FC = () => {
               initialAssessmentId={editingAssessment?.id}
               initialData={editingAssessment?.structured_data as Record<string, any>}
               initialStatus={editingAssessment?.status}
+              readOnly={isReadOnlyRole}
               onSuccess={handleNeuroSaved}
               onCancel={() => {
                 setIsNeuroModalOpen(false);
@@ -1801,6 +2154,7 @@ export const ClinicalVisitDetailPage: React.FC = () => {
                 type="button"
                 onClick={() => setIsNeuroLongitudinalOpen(false)}
                 style={{
+                  minHeight: '44px',
                   padding: '0.35rem 0.75rem',
                   borderRadius: '6px',
                   border: '1px solid #cbd5e1',
@@ -1808,6 +2162,9 @@ export const ClinicalVisitDetailPage: React.FC = () => {
                   fontSize: '0.8125rem',
                   fontWeight: 500,
                   cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
                 Close
@@ -1846,12 +2203,15 @@ export const ClinicalVisitDetailPage: React.FC = () => {
           <div style={{ maxWidth: '960px', width: '100%', maxHeight: '92vh', overflowY: 'auto', borderRadius: '8px' }}>
             <PaediatricAssessmentForm
               patientId={visit.patient_id}
+              patientDob={visit.patient?.date_of_birth}
+              patientName={visit.patient ? `${visit.patient.first_name} ${visit.patient.last_name}` : undefined}
               visitId={visit.id}
               episodeId={visit.episode_id}
               assessorId={currentUserId || visit.physiotherapist_id}
               initialAssessmentId={editingPaedsAssessment?.id}
               initialData={editingPaedsAssessment?.structured_data as Record<string, any>}
               initialStatus={editingPaedsAssessment?.status}
+              readOnly={isReadOnlyRole}
               onSuccess={handlePaedsSaved}
               onCancel={() => {
                 setIsPaedsModalOpen(false);

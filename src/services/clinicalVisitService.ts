@@ -75,7 +75,8 @@ export const clinicalVisitService = {
           first_name,
           last_name,
           phone,
-          email
+          email,
+          date_of_birth
         ),
         episode:episodes_of_care!fk_clinical_visits_episode_patient_practice (
           id,
@@ -191,7 +192,8 @@ export const clinicalVisitService = {
           first_name,
           last_name,
           phone,
-          email
+          email,
+          date_of_birth
         ),
         episode:episodes_of_care!fk_clinical_visits_episode_patient_practice (
           id,

@@ -17,6 +17,15 @@
 -- ==============================================================================
 
 -- ------------------------------------------------------------------------------
+-- 0. PRACTICE MEMBERS VIEW (COMPATIBILITY LAYER OVER PRACTICE_MEMBERSHIPS)
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE VIEW public.practice_members AS
+  SELECT id, practice_id, user_id, role, status, joined_at, created_at, updated_at
+  FROM public.practice_memberships;
+
+GRANT SELECT ON public.practice_members TO authenticated, anon;
+
+-- ------------------------------------------------------------------------------
 -- 1. ASSESSMENT DEFINITIONS TABLE
 -- ------------------------------------------------------------------------------
 CREATE TABLE public.clinical_assessment_definitions (
@@ -69,7 +78,7 @@ CREATE UNIQUE INDEX uq_assessment_defs_practice_code_version
   ON public.clinical_assessment_definitions (practice_id, code, version)
   WHERE practice_id IS NOT NULL;
 
-CREATE INDEX idx_assessment_defs_specialty ON public.clinical_assessment_definitions (specialty, is_system, is_active);
+CREATE INDEX idx_assessment_defs_specialty ON public.clinical_assessment_definitions (specialty, is_system, status);
 CREATE INDEX idx_assessment_defs_practice ON public.clinical_assessment_definitions (practice_id);
 
 ALTER TABLE public.clinical_assessment_definitions ENABLE ROW LEVEL SECURITY;

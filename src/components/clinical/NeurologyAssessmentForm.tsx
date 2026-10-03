@@ -16,6 +16,7 @@ export interface NeurologyAssessmentFormProps {
   initialAssessmentId?: string;
   initialData?: Record<string, any>;
   initialStatus?: 'draft' | 'finalized' | 'amended';
+  readOnly?: boolean;
   onSuccess?: (assessment: ClinicalAssessmentInstance) => void;
   onCancel?: () => void;
 }
@@ -117,6 +118,7 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
   initialAssessmentId,
   initialData = {},
   initialStatus = 'draft',
+  readOnly = false,
   onSuccess,
   onCancel,
 }) => {
@@ -126,6 +128,15 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('general');
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+
+  // Controlled Amendment Workflow State
+  const isFinalizedOrAmended = initialStatus === 'finalized' || initialStatus === 'amended';
+  const [isAmending, setIsAmending] = useState(false);
+  const [showAmendModal, setShowAmendModal] = useState(false);
+  const [amendmentReason, setAmendmentReason] = useState(initialData.amendment_reason || '');
+  const [amendError, setAmendError] = useState<string | null>(null);
+
+  const isReadOnly = (isFinalizedOrAmended && !isAmending) || Boolean(readOnly);
 
   // Authoritative outcome measure references (BBS, TUG)
   const [availableOutcomes, setAvailableOutcomes] = useState<any[]>([]);
@@ -241,7 +252,43 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
   }, [visitId]);
 
   const updateField = (key: string, value: any) => {
+    if (isReadOnly) return;
     setFormData((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleSaveAmendment = async () => {
+    if (!initialAssessmentId) {
+      setError('Cannot amend: Missing assessment identifier.');
+      return;
+    }
+    if (!amendmentReason.trim()) {
+      setError('An explicit clinical amendment reason is mandatory.');
+      return;
+    }
+
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const summaryText = `Alert: ${formData.alertness_participation} | MAS Biceps: ${formData.biceps_tone_left}/${formData.biceps_tone_right} | Motor: ${formData.selective_motor_control} | Gait: ${formData.gait_assistance_level}`;
+
+      const result = await clinicalAssessmentService.amendAssessment(initialAssessmentId, {
+        amendment_reason: amendmentReason.trim(),
+        structured_data: formData,
+        summary_findings: summaryText,
+        clinical_notes: clinicalNotes || null,
+      });
+
+      setIsAmending(false);
+      setShowAmendModal(false);
+      if (onSuccess) {
+        onSuccess(result);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to save amendment.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSave = async (finalize: boolean) => {
@@ -361,13 +408,14 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {onCancel && (
             <button
               type="button"
               onClick={onCancel}
               disabled={isSubmitting}
               style={{
+                minHeight: '44px',
                 padding: '0.5rem 1rem',
                 borderRadius: '6px',
                 border: '1px solid #cbd5e1',
@@ -376,47 +424,273 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
                 fontSize: '0.875rem',
                 fontWeight: 500,
                 cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              Cancel
+              {isReadOnly ? 'Close' : 'Cancel'}
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => handleSave(false)}
-            disabled={isSubmitting}
-            style={{
-              padding: '0.5rem 1rem',
-              borderRadius: '6px',
-              border: '1px solid #7c3aed',
-              backgroundColor: '#ffffff',
-              color: '#7c3aed',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-            }}
-          >
-            Save Draft
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowFinalizeModal(true)}
-            disabled={isSubmitting}
-            style={{
-              padding: '0.5rem 1.25rem',
-              borderRadius: '6px',
-              border: 'none',
-              backgroundColor: '#7c3aed',
-              color: '#ffffff',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-            }}
-          >
-            Finalize Examination
-          </button>
+
+          {initialStatus === 'finalized' && !isAmending && !readOnly && (
+            <button
+              type="button"
+              onClick={() => setShowAmendModal(true)}
+              disabled={isSubmitting}
+              style={{
+                minHeight: '44px',
+                padding: '0.5rem 1.25rem',
+                borderRadius: '6px',
+                border: '1px solid #dc2626',
+                backgroundColor: '#ef4444',
+                color: '#ffffff',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              Amend Assessment
+            </button>
+          )}
+
+          {isAmending && (
+            <>
+              <button
+                type="button"
+                onClick={() => setIsAmending(false)}
+                disabled={isSubmitting}
+                style={{
+                  minHeight: '44px',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  color: '#475569',
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                Cancel Amendment
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAmendment}
+                disabled={isSubmitting}
+                style={{
+                  minHeight: '44px',
+                  padding: '0.5rem 1.25rem',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: '#b45309',
+                  color: '#ffffff',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {isSubmitting ? 'Saving...' : 'Save Official Amendment'}
+              </button>
+            </>
+          )}
+
+          {!isFinalizedOrAmended && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleSave(false)}
+                disabled={isSubmitting}
+                style={{
+                  minHeight: '44px',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '6px',
+                  border: '1px solid #7c3aed',
+                  backgroundColor: '#ffffff',
+                  color: '#7c3aed',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                Save Draft
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFinalizeModal(true)}
+                disabled={isSubmitting}
+                style={{
+                  minHeight: '44px',
+                  padding: '0.5rem 1.25rem',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: '#7c3aed',
+                  color: '#ffffff',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                Finalize Examination
+              </button>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Medico-Legal Status Banners */}
+      {initialStatus === 'finalized' && !isAmending && (
+        <div
+          style={{
+            margin: '1rem 1.5rem 0',
+            padding: '1rem 1.25rem',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '6px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+          }}
+        >
+          <div>
+            <div style={{ color: '#991b1b', fontWeight: 700, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>🔒 Finalized Clinical Record (Locked)</span>
+            </div>
+            <p style={{ margin: '0.25rem 0 0', color: '#7f1d1d', fontSize: '0.8125rem' }}>
+              Structured clinical findings are immutable for medico-legal integrity. Corrections require a controlled clinical amendment with documented rationale.
+            </p>
+          </div>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => setShowAmendModal(true)}
+              style={{
+                minHeight: '44px',
+                padding: '0.5rem 1.25rem',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: '#dc2626',
+                color: '#ffffff',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              Amend Assessment
+            </button>
+          )}
+        </div>
+      )}
+
+      {isAmending && (
+        <div
+          style={{
+            margin: '1rem 1.5rem 0',
+            padding: '1rem 1.25rem',
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: '6px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+          }}
+        >
+          <div>
+            <div style={{ color: '#92400e', fontWeight: 700, fontSize: '0.875rem' }}>
+              ⚠️ Amendment Mode Active
+            </div>
+            <p style={{ margin: '0.25rem 0 0', color: '#78350f', fontSize: '0.8125rem' }}>
+              Documented Clinical Rationale: <strong>{amendmentReason}</strong>
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAmending(false);
+                setAmendmentReason('');
+              }}
+              style={{
+                minHeight: '44px',
+                padding: '0.5rem 1rem',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                backgroundColor: '#ffffff',
+                color: '#475569',
+                fontSize: '0.875rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              Cancel Amendment
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveAmendment}
+              disabled={isSubmitting}
+              style={{
+                minHeight: '44px',
+                padding: '0.5rem 1.25rem',
+                borderRadius: '6px',
+                border: 'none',
+                backgroundColor: '#b45309',
+                color: '#ffffff',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {isSubmitting ? 'Saving...' : 'Save Official Amendment'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {initialStatus === 'amended' && (
+        <div
+          style={{
+            margin: '1rem 1.5rem 0',
+            padding: '1rem 1.25rem',
+            backgroundColor: '#faf5ff',
+            border: '1px solid #e9d5ff',
+            borderRadius: '6px',
+          }}
+        >
+          <div style={{ color: '#6b21a8', fontWeight: 700, fontSize: '0.875rem' }}>
+            📜 Amended Clinical Record (Official History)
+          </div>
+          <p style={{ margin: '0.25rem 0 0', color: '#581c87', fontSize: '0.8125rem' }}>
+            This assessment has been formally amended. Medico-legal provenance is preserved.
+            {initialData.amendment_reason ? ` (Amendment Rationale: "${initialData.amendment_reason}")` : ''}
+          </p>
+        </div>
+      )}
 
       {/* Error alert */}
       {error && (
@@ -444,6 +718,7 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
               type="button"
               onClick={() => setActiveTab(sec.id)}
               style={{
+                minHeight: '44px',
                 padding: '0.5rem 0.875rem',
                 fontSize: '0.8125rem',
                 fontWeight: isActive ? 600 : 500,
@@ -457,6 +732,8 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
                 marginBottom: '-1px',
+                display: 'inline-flex',
+                alignItems: 'center',
               }}
             >
               {sec.label}
@@ -465,7 +742,8 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
         })}
       </div>
 
-      {/* Form Content Body */}
+      {/* Form Content Body wrapped with fieldset for readOnly protection */}
+      <fieldset disabled={isReadOnly} style={{ border: 'none', padding: 0, margin: 0, display: 'block', minInlineSize: 'auto' }}>
       <div style={{ padding: '1.5rem' }}>
         {/* Section 1: General Observation */}
         {activeTab === 'general' && (
@@ -1336,8 +1614,9 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
           </div>
         )}
       </div>
+      </fieldset>
 
-      {/* Footer Navigation Bar */}
+      {/* Form Bottom Bar */}
       <div
         style={{
           padding: '1rem 1.5rem',
@@ -1346,19 +1625,22 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
         }}
       >
         <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
           * Indicates required observational field in structured neurological screen.
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {onCancel && (
             <button
               type="button"
               onClick={onCancel}
               disabled={isSubmitting}
               style={{
+                minHeight: '44px',
                 padding: '0.5rem 1rem',
                 borderRadius: '6px',
                 border: '1px solid #cbd5e1',
@@ -1367,45 +1649,134 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
                 fontSize: '0.875rem',
                 fontWeight: 500,
                 cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              Cancel
+              {isReadOnly ? 'Close' : 'Cancel'}
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => handleSave(false)}
-            disabled={isSubmitting}
-            style={{
-              padding: '0.5rem 1.25rem',
-              borderRadius: '6px',
-              border: '1px solid #7c3aed',
-              backgroundColor: '#ffffff',
-              color: '#7c3aed',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-            }}
-          >
-            Save as Draft
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowFinalizeModal(true)}
-            disabled={isSubmitting}
-            style={{
-              padding: '0.5rem 1.25rem',
-              borderRadius: '6px',
-              border: 'none',
-              backgroundColor: '#7c3aed',
-              color: '#ffffff',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-            }}
-          >
-            Finalize Examination
-          </button>
+
+          {initialStatus === 'finalized' && !isAmending && !readOnly && (
+            <button
+              type="button"
+              onClick={() => setShowAmendModal(true)}
+              disabled={isSubmitting}
+              style={{
+                minHeight: '44px',
+                padding: '0.5rem 1.25rem',
+                borderRadius: '6px',
+                border: '1px solid #dc2626',
+                backgroundColor: '#ef4444',
+                color: '#ffffff',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              Amend Assessment
+            </button>
+          )}
+
+          {isAmending && (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAmending(false);
+                  setAmendmentReason('');
+                }}
+                disabled={isSubmitting}
+                style={{
+                  minHeight: '44px',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  color: '#475569',
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                Cancel Amendment
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAmendment}
+                disabled={isSubmitting}
+                style={{
+                  minHeight: '44px',
+                  padding: '0.5rem 1.25rem',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: '#b45309',
+                  color: '#ffffff',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {isSubmitting ? 'Saving...' : 'Save Official Amendment'}
+              </button>
+            </>
+          )}
+
+          {!isFinalizedOrAmended && !isReadOnly && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleSave(false)}
+                disabled={isSubmitting}
+                style={{
+                  minHeight: '44px',
+                  padding: '0.5rem 1.25rem',
+                  borderRadius: '6px',
+                  border: '1px solid #7c3aed',
+                  backgroundColor: '#ffffff',
+                  color: '#7c3aed',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                Save as Draft
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowFinalizeModal(true)}
+                disabled={isSubmitting}
+                style={{
+                  minHeight: '44px',
+                  padding: '0.5rem 1.25rem',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: '#7c3aed',
+                  color: '#ffffff',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                Finalize Examination
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1449,6 +1820,7 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
                 onClick={() => setShowFinalizeModal(false)}
                 disabled={isSubmitting}
                 style={{
+                  minHeight: '44px',
                   padding: '0.5rem 1rem',
                   borderRadius: '6px',
                   border: '1px solid #cbd5e1',
@@ -1456,6 +1828,9 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
                   color: '#475569',
                   fontSize: '0.875rem',
                   cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
                 Continue Editing
@@ -1465,6 +1840,7 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
                 onClick={() => handleSave(true)}
                 disabled={isSubmitting}
                 style={{
+                  minHeight: '44px',
                   padding: '0.5rem 1rem',
                   borderRadius: '6px',
                   border: 'none',
@@ -1473,9 +1849,127 @@ export const NeurologyAssessmentForm: React.FC<NeurologyAssessmentFormProps> = (
                   fontSize: '0.875rem',
                   fontWeight: 600,
                   cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
                 {isSubmitting ? 'Finalizing...' : 'Confirm & Finalize'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Controlled Clinical Amendment Modal */}
+      {showAmendModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem',
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '8px',
+              maxWidth: '520px',
+              width: '100%',
+              padding: '1.5rem',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            }}
+          >
+            <h3 style={{ marginTop: 0, color: '#0f172a', fontSize: '1.125rem', fontWeight: 600 }}>
+              Amend Finalized Neurological Examination
+            </h3>
+            <p style={{ color: '#475569', fontSize: '0.875rem', lineHeight: 1.5, marginBottom: '1rem' }}>
+              Medical record compliance requires an explicit clinical rationale before correcting a finalized record. The original assessment provenance will be permanently preserved.
+            </p>
+
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.375rem' }}>
+                Amendment Clinical Reason / Justification *
+              </label>
+              <textarea
+                rows={3}
+                value={amendmentReason}
+                onChange={(e) => setAmendmentReason(e.target.value)}
+                placeholder="e.g., Patient rested and re-evaluated; MAS tone score corrected..."
+                style={{
+                  width: '100%',
+                  padding: '0.5rem',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.875rem',
+                  boxSizing: 'border-box',
+                }}
+              />
+              {amendError && (
+                <p style={{ margin: '0.25rem 0 0', color: '#dc2626', fontSize: '0.75rem' }}>
+                  {amendError}
+                </p>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAmendModal(false);
+                  setAmendError(null);
+                }}
+                style={{
+                  minHeight: '44px',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  color: '#475569',
+                  fontSize: '0.875rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!amendmentReason.trim()) {
+                    setAmendError('An explicit amendment reason is mandatory.');
+                    return;
+                  }
+                  setShowAmendModal(false);
+                  setIsAmending(true);
+                  setAmendError(null);
+                }}
+                style={{
+                  minHeight: '44px',
+                  padding: '0.5rem 1.25rem',
+                  borderRadius: '6px',
+                  border: 'none',
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                Proceed to Edit Findings
               </button>
             </div>
           </div>
