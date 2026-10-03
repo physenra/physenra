@@ -463,6 +463,13 @@ export const AppointmentListPage: React.FC = () => {
                           <div className="text-xs text-gray-400 font-mono">
                             {appt.patient.patient_identifier}
                           </div>
+                          {appt.episode && (
+                            <div className="text-xs text-teal-600 dark:text-teal-400 mt-0.5 truncate max-w-xs">
+                              <Link to={`/app/episodes/${appt.episode.id}`} className="hover:underline">
+                                📁 {appt.episode.title}
+                              </Link>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <span className="text-gray-400">Unknown Patient</span>
@@ -484,10 +491,38 @@ export const AppointmentListPage: React.FC = () => {
                         {appt.status.replace('_', ' ')}
                       </span>
                     </td>
-                    <td className="py-3 px-4 whitespace-nowrap text-right">
+                    <td className="py-3 px-4 whitespace-nowrap text-right space-x-1.5">
+                      {(appt.status === 'scheduled' || appt.status === 'confirmed' || appt.status === 'arrived') && (
+                        <Link
+                          to={`/app/visits/new?appointment_id=${appt.id}`}
+                          className="btn btn-primary px-2.5 py-1 text-xs"
+                          style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+                        >
+                          Start Visit
+                        </Link>
+                      )}
+                      {appt.status === 'in_progress' && (
+                        <Link
+                          to={`/app/visits/new?appointment_id=${appt.id}`}
+                          className="btn px-2.5 py-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+                          style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+                        >
+                          Resume Visit
+                        </Link>
+                      )}
+                      {(appt.status === 'completed' || appt.status === 'documentation_completed') && (
+                        <Link
+                          to={`/app/appointments/new?patientId=${appt.patient_id}&episodeId=${appt.episode_id || ''}&clinicianId=${appt.physiotherapist_id}`}
+                          className="btn btn-secondary px-2.5 py-1 text-xs text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                          style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+                        >
+                          + Follow-up
+                        </Link>
+                      )}
                       <Link
                         to={`/app/appointments/${appt.id}`}
                         className="btn btn-secondary px-2.5 py-1 text-xs"
+                        style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
                       >
                         View
                       </Link>

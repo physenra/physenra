@@ -3,11 +3,19 @@ import { useParams, Link } from 'react-router-dom';
 import { patientService } from '../../services/patientService';
 import { episodeService } from '../../services/episodeService';
 import { appointmentService } from '../../services/appointmentService';
+import { clinicalVisitService } from '../../services/clinicalVisitService';
 import { walletService } from '../../services/walletService';
 import { membershipService } from '../../services/membershipService';
 import { useRole } from '../../hooks/useRole';
 import { usePractice } from '../../hooks/usePractice';
-import type { Patient, EpisodeWithPatient, AppointmentWithRelations, PatientWalletWithBalance, PatientMembershipWithRelations } from '../../types/models';
+import type {
+  Patient,
+  EpisodeWithPatient,
+  AppointmentWithRelations,
+  PatientWalletWithBalance,
+  PatientMembershipWithRelations,
+  ClinicalVisitWithRelations,
+} from '../../types/models';
 import {
   ArrowLeft,
   Edit,
@@ -40,6 +48,7 @@ export const PatientProfilePage: React.FC = () => {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [episodes, setEpisodes] = useState<EpisodeWithPatient[]>([]);
   const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
+  const [visits, setVisits] = useState<ClinicalVisitWithRelations[]>([]);
   const [wallet, setWallet] = useState<PatientWalletWithBalance | null>(null);
   const [memberships, setMemberships] = useState<PatientMembershipWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,10 +62,18 @@ export const PatientProfilePage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [patientData, episodeResult, appointmentResult, walletData, membershipsData] = await Promise.all([
+      const [
+        patientData,
+        episodeResult,
+        appointmentResult,
+        visitsResult,
+        walletData,
+        membershipsData,
+      ] = await Promise.all([
         patientService.getPatientById(patientId),
         episodeService.getEpisodes({ patientId, status: 'all', limit: 100 }),
         appointmentService.getAppointments({ patientId, limit: 100 }),
+        clinicalVisitService.getClinicalVisits({ patientId, limit: 50 }).catch(() => ({ visits: [], totalCount: 0 })),
         activePractice
           ? walletService.getWalletByPatientId(patientId, activePractice.id).catch(() => null)
           : Promise.resolve(null),
@@ -71,6 +88,7 @@ export const PatientProfilePage: React.FC = () => {
         setPatient(patientData);
         setEpisodes(episodeResult.episodes);
         setAppointments(appointmentResult.appointments);
+        setVisits((visitsResult as any).visits || []);
         setWallet(walletData);
         setMemberships(membershipsData);
       }
@@ -708,19 +726,105 @@ export const PatientProfilePage: React.FC = () => {
         )}
       </div>
 
-      {/* Scope Boundary Notification */}
-      <div className="info-banner mt-6">
-        <div className="info-banner-icon">
-          <Activity size={24} />
+      {/* Clinical Visits & Encounters Section */}
+      <div className="patient-episodes-section mt-6">
+        <div className="section-header-bar">
+          <div className="section-header-title">
+            <Activity size={20} className="text-blue-600" />
+            <h3>Clinical Encounters &amp; Visits</h3>
+            <span className="count-badge">{visits.length}</span>
+          </div>
+          {canEdit && patient.status !== 'archived' && (
+            <Link
+              to={`/app/visits/new?patient_id=${patient.id}`}
+              className="btn-primary"
+              style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+            >
+              <Activity size={16} />
+              <span>+ Record Visit</span>
+            </Link>
+          )}
         </div>
-        <div className="info-banner-content">
-          <h4 className="info-banner-title">Clinical Care Hierarchy Established</h4>
-          <p className="info-banner-text">
-            Patient Identity (<strong>{patient.patient_identifier}</strong>), Episodes of Care,
-            and Scheduled Appointments are active. Subsequent modules (Clinical Visits and SOAP Progress Notes)
-            will attach to specific care episodes in future development phases.
-          </p>
-        </div>
+
+        {visits.length === 0 ? (
+          <div className="empty-episodes-card">
+            <Activity size={36} className="empty-state-icon" />
+            <h4>No Clinical Encounters Recorded</h4>
+            <p>
+              This patient has no clinical encounters documented yet in this practice.
+            </p>
+            {canEdit && patient.status !== 'archived' && (
+              <Link
+                to={`/app/visits/new?patient_id=${patient.id}`}
+                className="btn-secondary mt-4"
+                style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+              >
+                <Activity size={16} />
+                <span>Record First Clinical Visit</span>
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="patient-table-container mt-4">
+            <table className="patient-table">
+              <thead>
+                <tr>
+                  <th>Encounter ID</th>
+                  <th>Date &amp; Time</th>
+                  <th>Duration</th>
+                  <th>Mode</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visits.map((v) => (
+                  <tr key={v.id} className="patient-row">
+                    <td>
+                      <Link to={`/app/visits/${v.id}`} className="identifier-link">
+                        {v.visit_identifier}
+                      </Link>
+                    </td>
+                    <td>
+                      <div className="cell-date">
+                        <Calendar size={12} />
+                        <span>
+                          {new Date(v.actual_start || v.created_at).toLocaleDateString([], {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          })}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span>{v.duration_minutes ? `${v.duration_minutes} mins` : '—'}</span>
+                    </td>
+                    <td>
+                      <span className="capitalize text-xs text-gray-500">
+                        {v.location_mode.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`status-pill status-${v.status}`}>
+                        <span className="capitalize">{v.status.replace('_', ' ')}</span>
+                      </span>
+                    </td>
+                    <td>
+                      <Link
+                        to={`/app/visits/${v.id}`}
+                        className="btn-table-action"
+                        style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+                      >
+                        {v.status === 'in_progress' ? 'Resume' : 'View'}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Archive Confirmation Modal */}

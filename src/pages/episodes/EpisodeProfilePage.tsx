@@ -2,8 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { episodeService, ClinicianOption } from '../../services/episodeService';
 import { appointmentService } from '../../services/appointmentService';
+import { clinicalVisitService } from '../../services/clinicalVisitService';
+import { clinicalNoteService } from '../../services/clinicalNoteService';
+import { treatmentPlanService } from '../../services/treatmentPlanService';
+import { hepService } from '../../services/hepService';
+import { supabase } from '../../lib/supabase';
 import { useRole } from '../../hooks/useRole';
 import { usePractice } from '../../hooks/usePractice';
+import { PatientContextBar } from '../../components/clinical/PatientContextBar';
 import type { EpisodeWithPatient, EpisodeStatus, AppointmentWithRelations } from '../../types/models';
 import {
   ArrowLeft,
@@ -33,6 +39,16 @@ export const EpisodeProfilePage: React.FC = () => {
   const [episode, setEpisode] = useState<EpisodeWithPatient | null>(null);
   const [clinicians, setClinicians] = useState<ClinicianOption[]>([]);
   const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
+  const [hubCounts, setHubCounts] = useState({
+    visitsCount: 0,
+    notesCount: 0,
+    plansCount: 0,
+    activePlansCount: 0,
+    hepCount: 0,
+    activeHepCount: 0,
+    progressReviewsCount: 0,
+    dischargeStatus: 'Not Started',
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -46,10 +62,26 @@ export const EpisodeProfilePage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const [data, clinicianList, apptResult] = await Promise.all([
+      const [
+        data,
+        clinicianList,
+        apptResult,
+        visitsResult,
+        notesResult,
+        plansResult,
+        hepResult,
+        progressResult,
+        dischargeResult,
+      ] = await Promise.all([
         episodeService.getEpisodeById(episodeId),
         episodeService.getPracticeClinicians(),
         appointmentService.getAppointments({ episodeId, limit: 100 }),
+        clinicalVisitService.getClinicalVisits({ episodeId, limit: 100 }).catch(() => ({ visits: [], totalCount: 0 })),
+        clinicalNoteService.getClinicalNotes({ episodeId, limit: 100 }).catch(() => ({ notes: [], totalCount: 0 })),
+        treatmentPlanService.getPlans({ episodeId, limit: 100 }).catch(() => ({ plans: [], totalCount: 0 })),
+        hepService.getPrograms({ episodeId, limit: 100 }).catch(() => ({ programs: [], totalCount: 0 })),
+        supabase.from('progress_reviews').select('id', { count: 'exact' }).eq('episode_id', episodeId),
+        supabase.from('discharge_summaries').select('id, status').eq('episode_id', episodeId).maybeSingle(),
       ]);
 
       if (!data) {
@@ -58,6 +90,24 @@ export const EpisodeProfilePage: React.FC = () => {
         setEpisode(data);
         setClinicians(clinicianList);
         setAppointments(apptResult.appointments);
+
+        const activePlans = plansResult.plans ? plansResult.plans.filter((p: any) => p.status === 'active').length : 0;
+        const activeHeps = hepResult.programs ? hepResult.programs.filter((h: any) => h.status === 'active').length : 0;
+        let dischargeStatus = 'Not Started';
+        if (dischargeResult?.data) {
+          dischargeStatus = dischargeResult.data.status === 'finalized' ? 'Finalized' : 'Draft';
+        }
+
+        setHubCounts({
+          visitsCount: (visitsResult as any).totalCount || (visitsResult as any).visits?.length || 0,
+          notesCount: (notesResult as any).totalCount || (notesResult as any).notes?.length || 0,
+          plansCount: (plansResult as any).totalCount || (plansResult as any).plans?.length || 0,
+          activePlansCount: activePlans,
+          hepCount: (hepResult as any).totalCount || (hepResult as any).programs?.length || 0,
+          activeHepCount: activeHeps,
+          progressReviewsCount: progressResult?.count || 0,
+          dischargeStatus,
+        });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to load episode of care.';
@@ -165,6 +215,16 @@ export const EpisodeProfilePage: React.FC = () => {
           </Link>
         )}
       </div>
+
+      {/* Patient Context Bar */}
+      {episode.patients && (
+        <PatientContextBar
+          patient={episode.patients}
+          episode={episode}
+          clinicianName={clinicianName}
+          currentSection="episode"
+        />
+      )}
 
       {/* Header Card */}
       <div className="profile-header-card">
@@ -539,72 +599,146 @@ export const EpisodeProfilePage: React.FC = () => {
         </p>
 
         <div className="staged-grid">
+          {/* Card 1: Appointments */}
           <div className="staged-card">
-            <div className="staged-card-badge">Active Domain</div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="staged-card-badge">Active Domain</span>
+              <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-100 text-blue-800">
+                {appointments.length}
+              </span>
+            </div>
             <h4>Appointments &amp; Scheduling</h4>
             <p>Calendar bookings, schedule management, and practitioner conflict checks.</p>
             <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
-              <Link to={`/app/appointments/new?patientId=${episode.patient_id}&episodeId=${episode.id}`} className="btn-table-action">
+              <Link
+                to={`/app/appointments/new?patientId=${episode.patient_id}&episodeId=${episode.id}`}
+                className="btn-table-action"
+                style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+              >
                 + Book
               </Link>
-              <Link to={`/app/appointments?episodeId=${episode.id}`} className="btn-table-action">
-                View All
+              <Link
+                to={`/app/appointments?episodeId=${episode.id}`}
+                className="btn-table-action"
+                style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+              >
+                View ({appointments.length})
               </Link>
             </div>
           </div>
 
+          {/* Card 2: Clinical Visits */}
           <div className="staged-card">
-            <div className="staged-card-badge">Active Domain</div>
-            <h4>Clinical Visits &amp; Attendance</h4>
+            <div className="flex items-center justify-between mb-1">
+              <span className="staged-card-badge">Active Domain</span>
+              <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-indigo-100 text-indigo-800">
+                {hubCounts.visitsCount}
+              </span>
+            </div>
+            <h4>Clinical Visits &amp; Encounters</h4>
             <p>Physical encounter execution, check-in verification, and encounter duration.</p>
             <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
-              <Link to={`/app/visits/new?patient_id=${episode.patient_id}&episode_id=${episode.id}`} className="btn-table-action">
+              <Link
+                to={`/app/visits/new?patient_id=${episode.patient_id}&episode_id=${episode.id}`}
+                className="btn-table-action"
+                style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+              >
                 + Start Visit
               </Link>
-              <Link to={`/app/visits?episodeId=${episode.id}`} className="btn-table-action">
-                View Visits
+              <Link
+                to={`/app/visits?episodeId=${episode.id}`}
+                className="btn-table-action"
+                style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+              >
+                Visits ({hubCounts.visitsCount})
               </Link>
             </div>
           </div>
 
+          {/* Card 3: SOAP Clinical Notes */}
           <div className="staged-card">
-            <div className="staged-card-badge">Active Domain</div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="staged-card-badge">Active Domain</span>
+              <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800">
+                {hubCounts.notesCount}
+              </span>
+            </div>
             <h4>SOAP &amp; Clinical Notes</h4>
             <p>Subjective, Objective, Assessment, and Plan clinical encounter records.</p>
             <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
-              <Link to={`/app/clinical-notes?episodeId=${episode.id}`} className="btn-table-action">
-                View Notes
+              <Link
+                to={`/app/clinical-notes?episodeId=${episode.id}`}
+                className="btn-table-action"
+                style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+              >
+                View Notes ({hubCounts.notesCount})
               </Link>
             </div>
           </div>
 
+          {/* Card 4: Treatment Plans & Goals */}
           <div className="staged-card">
-            <div className="staged-card-badge">Active Domain</div>
-            <h4>Treatment Plans &amp; Goals</h4>
+            <div className="flex items-center justify-between mb-1">
+              <span className="staged-card-badge">Active Domain</span>
+              <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-teal-100 text-teal-800">
+                {hubCounts.plansCount} Plan{hubCounts.plansCount !== 1 ? 's' : ''}{hubCounts.activePlansCount > 0 ? ' • Active' : ''}
+              </span>
+            </div>
+            <h4>Treatment Plans, Goals &amp; HEP</h4>
             <p>Care plans, exercise prescriptions, and objective outcome measure tracking.</p>
-            <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
-              <Link to={`/app/treatment-plans?episodeId=${episode.id}`} className="btn-table-action">
-                Plans
+            <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <Link
+                to={`/app/treatment-plans?episodeId=${episode.id}`}
+                className="btn-table-action"
+                style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+              >
+                Plans ({hubCounts.plansCount})
               </Link>
-              <Link to={`/app/hep?episodeId=${episode.id}`} className="btn-table-action">
-                HEP
+              <Link
+                to={`/app/hep?episodeId=${episode.id}`}
+                className="btn-table-action"
+                style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+              >
+                HEP ({hubCounts.hepCount})
               </Link>
-              <Link to={`/app/outcome-measures?episodeId=${episode.id}`} className="btn-table-action">
+              <Link
+                to={`/app/outcome-measures?episodeId=${episode.id}`}
+                className="btn-table-action"
+                style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+              >
                 Outcomes
               </Link>
             </div>
           </div>
 
+          {/* Card 5: Progress & Discharge */}
           <div className="staged-card">
-            <div className="staged-card-badge">Active Domain</div>
-            <h4>Progress &amp; Discharge</h4>
-            <p>Formal care milestone reviews and discharge summaries.</p>
+            <div className="flex items-center justify-between mb-1">
+              <span className="staged-card-badge">Active Domain</span>
+              <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${
+                hubCounts.dischargeStatus === 'Finalized'
+                  ? 'bg-purple-100 text-purple-800'
+                  : 'bg-slate-100 text-slate-700'
+              }`}>
+                Discharge: {hubCounts.dischargeStatus}
+              </span>
+            </div>
+            <h4>Progress Reviews &amp; Discharge</h4>
+            <p>Formal care milestone reviews and episode discharge transitions.</p>
             <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
-              <Link to={`/app/progress-reviews?episodeId=${episode.id}`} className="btn-table-action">
-                Reviews
+              <Link
+                to={`/app/progress-reviews?episodeId=${episode.id}`}
+                className="btn-table-action"
+                style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+              >
+                Reviews ({hubCounts.progressReviewsCount})
               </Link>
-              <Link to={`/app/discharge-summaries?episodeId=${episode.id}`} className="btn-table-action">
-                Discharge
+              <Link
+                to={`/app/discharge-summaries?episodeId=${episode.id}`}
+                className="btn-table-action"
+                style={{ minHeight: '44px', display: 'inline-flex', alignItems: 'center' }}
+              >
+                Discharge Summary
               </Link>
             </div>
           </div>

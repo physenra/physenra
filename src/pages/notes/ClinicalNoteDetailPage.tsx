@@ -239,10 +239,39 @@ export const ClinicalNoteDetailPage: React.FC = () => {
   return (
     <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
       {/* Top Navigation */}
-      <div style={{ marginBottom: '1rem' }}>
-        <Link to="/app/clinical-notes" style={{ color: '#0284c7', textDecoration: 'none', fontSize: '0.875rem' }}>
-          ← Back to Clinical Notes
-        </Link>
+      {/* Top Navigation with Smart Context Return */}
+      <div style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+        {note.clinical_visit_id ? (
+          <Link
+            to={`/app/visits/${note.clinical_visit_id}`}
+            style={{ color: '#0284c7', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 600, display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}
+          >
+            ← Back to Encounter ({note.clinical_visit?.visit_identifier || 'Visit'})
+          </Link>
+        ) : (
+          <Link
+            to="/app/clinical-notes"
+            style={{ color: '#0284c7', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 500, display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}
+          >
+            ← Back to Clinical Notes
+          </Link>
+        )}
+        {note.patient_id && (
+          <Link
+            to={`/app/patients/${note.patient_id}`}
+            style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.8125rem', display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}
+          >
+            Patient Profile
+          </Link>
+        )}
+        {note.episode_id && (
+          <Link
+            to={`/app/episodes/${note.episode_id}`}
+            style={{ color: '#0d9488', textDecoration: 'none', fontSize: '0.8125rem', display: 'inline-flex', alignItems: 'center', minHeight: '44px' }}
+          >
+            Episode Hub
+          </Link>
+        )}
       </div>
 
       {/* Header Profile Bar */}

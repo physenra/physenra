@@ -14,6 +14,8 @@ import { NeurologyAssessmentForm } from '../../components/clinical/NeurologyAsse
 import { NeurologyLongitudinalView } from '../../components/clinical/NeurologyLongitudinalView';
 import { PaediatricAssessmentForm } from '../../components/clinical/PaediatricAssessmentForm';
 import { PaediatricLongitudinalView } from '../../components/clinical/PaediatricLongitudinalView';
+import { PatientContextBar } from '../../components/clinical/PatientContextBar';
+import { ClinicalStatusBadge } from '../../components/clinical/ClinicalStatusBadge';
 import type {
   ClinicalVisitWithRelations,
   ClinicalVisitStatus,
@@ -381,6 +383,23 @@ export const ClinicalVisitDetailPage: React.FC = () => {
         </Link>
       </div>
 
+      {/* Patient Context Bar */}
+      {visit.patient && (
+        <PatientContextBar
+          patient={visit.patient}
+          episode={visit.episode}
+          visitDate={visit.actual_start || visit.created_at}
+          clinicianName={
+            visit.physiotherapist?.display_name ||
+            (visit.physiotherapist?.first_name
+              ? `${visit.physiotherapist.first_name} ${visit.physiotherapist.last_name || ''}`
+              : 'Assigned Clinician')
+          }
+          currentEncounterId={visit.id}
+          currentSection="visit"
+        />
+      )}
+
       {/* Header Banner */}
       <div
         style={{
@@ -601,6 +620,140 @@ export const ClinicalVisitDetailPage: React.FC = () => {
               </Link>
             )
           )}
+        </div>
+      </div>
+
+      {/* Clinician Encounter Overview & Documentation Checklist Card */}
+      <div
+        className="clinical-documentation-checklist-card"
+        style={{
+          backgroundColor: '#fff',
+          borderRadius: '8px',
+          border: '1px solid #e2e8f0',
+          padding: '1.25rem',
+          marginBottom: '1.5rem',
+          boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+        }}
+        aria-label="Encounter Documentation Checklist"
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div>
+            <h2 style={{ fontSize: '0.9375rem', fontWeight: 700, margin: 0, color: '#0f172a' }}>
+              Encounter Documentation Checklist
+            </h2>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>
+              Authoritative documentation status for {visit.visit_identifier}. SOAP Clinical Note is mandatory for encounter closure.
+            </p>
+          </div>
+          {visit.status === 'in_progress' && (
+            <button
+              onClick={() => {
+                setCompleteEndTime(new Date().toISOString().slice(0, 16));
+                setIsCompleteModalOpen(true);
+              }}
+              className="btn btn-primary"
+              style={{
+                backgroundColor: '#16a34a',
+                color: '#fff',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '6px',
+                fontWeight: 600,
+                fontSize: '0.8125rem',
+                minHeight: '44px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+              }}
+            >
+              Complete Encounter...
+            </button>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem' }}>
+          {/* Item 1: SOAP Note (REQUIRED) */}
+          <div style={{ padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155' }}>SOAP NOTE</span>
+              <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#dc2626', backgroundColor: '#fee2e2', padding: '1px 5px', borderRadius: '3px' }}>
+                REQUIRED
+              </span>
+            </div>
+            <div style={{ marginTop: '0.375rem' }}>
+              {clinicalNote?.status === 'finalized' || clinicalNote?.status === 'amended' ? (
+                <ClinicalStatusBadge state="COMPLETE" label={clinicalNote.status === 'amended' ? 'Amended' : 'Finalized'} size="sm" />
+              ) : clinicalNote?.status === 'draft' ? (
+                <ClinicalStatusBadge state="DRAFT" label="Draft Note" size="sm" />
+              ) : (
+                <ClinicalStatusBadge state="ACTION_REQUIRED" label="Missing SOAP" size="sm" />
+              )}
+            </div>
+          </div>
+
+          {/* Item 2: Specialty Assessment (OPTIONAL) */}
+          <div style={{ padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155' }}>SPECIALTY</span>
+              <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b' }}>OPTIONAL</span>
+            </div>
+            <div style={{ marginTop: '0.375rem' }}>
+              {clinicalAssessments.length > 0 ? (
+                clinicalAssessments.some(a => a.status === 'draft') ? (
+                  <ClinicalStatusBadge state="DRAFT" label={`${clinicalAssessments.length} (Draft)`} size="sm" />
+                ) : (
+                  <ClinicalStatusBadge state="COMPLETE" label={`${clinicalAssessments.length} Finalized`} size="sm" />
+                )
+              ) : (
+                <ClinicalStatusBadge state="NOT_APPLICABLE" label="— None" size="sm" />
+              )}
+            </div>
+          </div>
+
+          {/* Item 3: Outcome Measures (OPTIONAL) */}
+          <div style={{ padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155' }}>OUTCOMES</span>
+              <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b' }}>OPTIONAL</span>
+            </div>
+            <div style={{ marginTop: '0.375rem' }}>
+              {outcomeAssessments.length > 0 ? (
+                <ClinicalStatusBadge state="COMPLETE" label={`${outcomeAssessments.length} Recorded`} size="sm" />
+              ) : (
+                <ClinicalStatusBadge state="NOT_APPLICABLE" label="— Not Recorded" size="sm" />
+              )}
+            </div>
+          </div>
+
+          {/* Item 4: Treatment Plan (OPTIONAL) */}
+          <div style={{ padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155' }}>CARE PLAN</span>
+              <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b' }}>OPTIONAL</span>
+            </div>
+            <div style={{ marginTop: '0.375rem' }}>
+              {treatmentPlans.length > 0 ? (
+                <ClinicalStatusBadge state="COMPLETE" label={`${treatmentPlans.length} Linked`} size="sm" />
+              ) : (
+                <ClinicalStatusBadge state="NOT_APPLICABLE" label="— Not Linked" size="sm" />
+              )}
+            </div>
+          </div>
+
+          {/* Item 5: Home Exercise Program (OPTIONAL) */}
+          <div style={{ padding: '0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
+              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#334155' }}>HEP PROGRAM</span>
+              <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#64748b' }}>OPTIONAL</span>
+            </div>
+            <div style={{ marginTop: '0.375rem' }}>
+              {homeExercisePrograms.length > 0 ? (
+                <ClinicalStatusBadge state="COMPLETE" label={`${homeExercisePrograms.length} Prescribed`} size="sm" />
+              ) : (
+                <ClinicalStatusBadge state="NOT_APPLICABLE" label="— Not Prescribed" size="sm" />
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

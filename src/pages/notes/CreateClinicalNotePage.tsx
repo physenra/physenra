@@ -8,7 +8,7 @@ import type { ClinicalVisitWithRelations } from '../../types/models';
 export const CreateClinicalNotePage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const initialVisitId = searchParams.get('visitId') || '';
+  const initialVisitId = searchParams.get('visitId') || searchParams.get('visit_id') || '';
 
   const [visits, setVisits] = useState<ClinicalVisitWithRelations[]>([]);
   const [selectedVisitId, setSelectedVisitId] = useState(initialVisitId);
