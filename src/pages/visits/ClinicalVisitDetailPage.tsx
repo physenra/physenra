@@ -11,6 +11,8 @@ import { supabase } from '../../lib/supabase';
 import { Ticket } from 'lucide-react';
 import { NeurologyAssessmentForm } from '../../components/clinical/NeurologyAssessmentForm';
 import { NeurologyLongitudinalView } from '../../components/clinical/NeurologyLongitudinalView';
+import { PaediatricAssessmentForm } from '../../components/clinical/PaediatricAssessmentForm';
+import { PaediatricLongitudinalView } from '../../components/clinical/PaediatricLongitudinalView';
 import type {
   ClinicalVisitWithRelations,
   ClinicalVisitStatus,
@@ -49,6 +51,11 @@ export const ClinicalVisitDetailPage: React.FC = () => {
   const [isNeuroLongitudinalOpen, setIsNeuroLongitudinalOpen] = useState(false);
   const [editingAssessment, setEditingAssessment] = useState<ClinicalAssessmentInstanceWithRelations | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string>('');
+
+  // Paediatric Assessment Workflow State
+  const [isPaedsModalOpen, setIsPaedsModalOpen] = useState(false);
+  const [isPaedsLongitudinalOpen, setIsPaedsLongitudinalOpen] = useState(false);
+  const [editingPaedsAssessment, setEditingPaedsAssessment] = useState<ClinicalAssessmentInstanceWithRelations | null>(null);
 
   // Package Settlement State
   const [consumedPackage, setConsumedPackage] = useState<any | null>(null);
@@ -160,6 +167,19 @@ export const ClinicalVisitDetailPage: React.FC = () => {
   const handleNeuroSaved = async () => {
     setIsNeuroModalOpen(false);
     setEditingAssessment(null);
+    if (visitId) {
+      try {
+        const cAssessments = await clinicalAssessmentService.getAssessmentsForVisit(visitId);
+        setClinicalAssessments(cAssessments);
+      } catch (caErr) {
+        console.warn('Could not reload assessments:', caErr);
+      }
+    }
+  };
+
+  const handlePaedsSaved = async () => {
+    setIsPaedsModalOpen(false);
+    setEditingPaedsAssessment(null);
     if (visitId) {
       try {
         const cAssessments = await clinicalAssessmentService.getAssessmentsForVisit(visitId);
@@ -1051,6 +1071,41 @@ export const ClinicalVisitDetailPage: React.FC = () => {
             >
               View Longitudinal Neurology
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingPaedsAssessment(null);
+                setIsPaedsModalOpen(true);
+              }}
+              style={{
+                padding: '0.35rem 0.75rem',
+                backgroundColor: '#059669',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              + Document Paediatric Exam
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsPaedsLongitudinalOpen(true)}
+              style={{
+                padding: '0.35rem 0.75rem',
+                backgroundColor: '#ffffff',
+                color: '#047857',
+                border: '1px solid #a7f3d0',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              View Longitudinal Paediatrics
+            </button>
           </div>
         </div>
 
@@ -1071,7 +1126,13 @@ export const ClinicalVisitDetailPage: React.FC = () => {
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                    <span style={{ color: '#7c3aed', fontWeight: 700, fontSize: '0.875rem' }}>
+                    <span
+                      style={{
+                        color: ca.definition?.specialty === 'paediatric' || ca.definition?.code === 'PAEDS_EXAMINATION_V1' ? '#059669' : '#7c3aed',
+                        fontWeight: 700,
+                        fontSize: '0.875rem',
+                      }}
+                    >
                       {ca.assessment_identifier}
                     </span>
                     <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0f172a' }}>
@@ -1084,8 +1145,8 @@ export const ClinicalVisitDetailPage: React.FC = () => {
                         padding: '0.1rem 0.4rem',
                         borderRadius: '4px',
                         textTransform: 'uppercase',
-                        backgroundColor: '#ede9fe',
-                        color: '#6d28d9',
+                        backgroundColor: ca.definition?.specialty === 'paediatric' || ca.definition?.code === 'PAEDS_EXAMINATION_V1' ? '#d1fae5' : '#ede9fe',
+                        color: ca.definition?.specialty === 'paediatric' || ca.definition?.code === 'PAEDS_EXAMINATION_V1' ? '#047857' : '#6d28d9',
                       }}
                     >
                       {ca.definition?.specialty || 'General'}
@@ -1114,8 +1175,13 @@ export const ClinicalVisitDetailPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      setEditingAssessment(ca);
-                      setIsNeuroModalOpen(true);
+                      if (ca.definition?.code === 'PAEDS_EXAMINATION_V1' || ca.definition?.specialty === 'paediatric') {
+                        setEditingPaedsAssessment(ca);
+                        setIsPaedsModalOpen(true);
+                      } else {
+                        setEditingAssessment(ca);
+                        setIsNeuroModalOpen(true);
+                      }
                     }}
                     style={{
                       padding: '0.3rem 0.6rem',
@@ -1753,6 +1819,109 @@ export const ClinicalVisitDetailPage: React.FC = () => {
                 setIsNeuroLongitudinalOpen(false);
                 setEditingAssessment(a);
                 setIsNeuroModalOpen(true);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Paediatric Assessment Form Modal */}
+      {isPaedsModalOpen && visit && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem',
+            overflowY: 'auto',
+          }}
+        >
+          <div style={{ maxWidth: '960px', width: '100%', maxHeight: '92vh', overflowY: 'auto', borderRadius: '8px' }}>
+            <PaediatricAssessmentForm
+              patientId={visit.patient_id}
+              visitId={visit.id}
+              episodeId={visit.episode_id}
+              assessorId={currentUserId || visit.physiotherapist_id}
+              initialAssessmentId={editingPaedsAssessment?.id}
+              initialData={editingPaedsAssessment?.structured_data as Record<string, any>}
+              initialStatus={editingPaedsAssessment?.status}
+              onSuccess={handlePaedsSaved}
+              onCancel={() => {
+                setIsPaedsModalOpen(false);
+                setEditingPaedsAssessment(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Patient Longitudinal Paediatric History Modal */}
+      {isPaedsLongitudinalOpen && visit && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem',
+          }}
+        >
+          <div
+            style={{
+              maxWidth: '920px',
+              width: '100%',
+              maxHeight: '85vh',
+              overflowY: 'auto',
+              backgroundColor: '#ffffff',
+              borderRadius: '8px',
+              padding: '1.5rem',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700, color: '#0f172a' }}>
+                  Patient Longitudinal Paediatric Review
+                </h3>
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: '#64748b' }}>
+                  Historical paediatric developmental observations across clinical encounters.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPaedsLongitudinalOpen(false)}
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  fontSize: '0.8125rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <PaediatricLongitudinalView
+              patientId={visit.patient_id}
+              onSelectAssessment={(a) => {
+                setIsPaedsLongitudinalOpen(false);
+                setEditingPaedsAssessment(a);
+                setIsPaedsModalOpen(true);
               }}
             />
           </div>

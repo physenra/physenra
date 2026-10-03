@@ -887,3 +887,37 @@ export const clinicalAssessmentService = {
 export const NEURO_EXAMINATION_DEFINITION_CODE = 'NEURO_EXAMINATION_V1';
 export const NEURO_MOTOR_SPASTICITY_SCREEN_CODE = 'NEURO_MOTOR_SPASTICITY_SCREEN';
 
+export const PAEDS_EXAMINATION_DEFINITION_CODE = 'PAEDS_EXAMINATION_V1';
+export const PAEDS_GROSS_MOTOR_SCREEN_CODE = 'PAEDS_GROSS_MOTOR_SCREEN';
+
+/**
+ * Accurately derive age representation from authoritative patient date of birth.
+ * Formats infants in days/weeks/months and children in years/months without storing duplicate calculated age.
+ */
+export function formatPaediatricAge(dob: string | null | undefined, referenceDate: Date = new Date()): string {
+  if (!dob) return 'Age unknown';
+  const birth = new Date(dob);
+  if (isNaN(birth.getTime())) return 'Age unknown';
+
+  const diffMs = referenceDate.getTime() - birth.getTime();
+  if (diffMs < 0) return 'Newborn';
+
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (days < 30) {
+    return days <= 1 ? '1 day' : `${days} days`;
+  }
+
+  const months = Math.floor(days / 30.4375);
+  if (months < 24) {
+    return months === 1 ? '1 month' : `${months} months`;
+  }
+
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+  if (remainingMonths === 0) {
+    return `${years} years`;
+  }
+  return `${years}y ${remainingMonths}m`;
+}
+
+
