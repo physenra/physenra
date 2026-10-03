@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import type { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase, setActivePracticeHeader } from '../lib/supabase';
+import { getAuthRedirectUrl } from '../lib/authRedirect';
 import type { Profile } from '../types/models';
 
 export interface SignUpMetadata {
@@ -24,6 +25,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string, metadata?: SignUpMetadata) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
+  resetPasswordForEmail: (email: string) => Promise<{ error: AuthError | null }>;
   refreshProfile: () => Promise<void>;
   clearError: () => void;
 }
@@ -143,10 +145,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const displayName = metadata?.display_name?.trim() ||
         (metadata?.first_name ? `${metadata.first_name.trim()} ${(metadata?.last_name || '').trim()}`.trim() : trimmedEmail);
 
+      const redirectUrl = getAuthRedirectUrl('/login');
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: trimmedEmail,
         password,
         options: {
+          emailRedirectTo: redirectUrl,
           data: {
             first_name: metadata?.first_name?.trim() || null,
             last_name: metadata?.last_name?.trim() || null,
@@ -192,6 +196,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const resetPasswordForEmail = useCallback(async (email: string): Promise<{ error: AuthError | null }> => {
+    setError(null);
+    try {
+      const redirectUrl = getAuthRedirectUrl('/login');
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: redirectUrl,
+      });
+      if (resetError) {
+        setError(resetError.message);
+        return { error: resetError };
+      }
+      return { error: null };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to send password reset email';
+      setError(message);
+      return { error: err as AuthError };
+    }
+  }, []);
+
   const refreshProfile = useCallback(async () => {
     if (user) {
       await fetchProfile(user.id);
@@ -211,9 +234,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     signUp,
     signOut,
+    resetPasswordForEmail,
     refreshProfile,
     clearError,
-  }), [user, session, profile, loading, error, signIn, signUp, signOut, refreshProfile, clearError]);
+  }), [user, session, profile, loading, error, signIn, signUp, signOut, resetPasswordForEmail, refreshProfile, clearError]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
