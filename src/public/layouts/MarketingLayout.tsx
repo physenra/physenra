@@ -74,6 +74,65 @@ export const MarketingLayout: React.FC<MarketingLayoutProps> = ({
     upsertMeta('name', 'twitter:title', resolvedOgTitle);
     upsertMeta('name', 'twitter:description', resolvedOgDesc);
     upsertMeta('name', 'twitter:image', resolvedOgImage);
+
+    // 5. Factual Structured Data (JSON-LD)
+    const structuredData = {
+      '@context': 'https://schema.org',
+      '@graph': [
+        {
+          '@type': 'Organization',
+          '@id': 'https://physenra.com/#organization',
+          name: 'Physenra Platform Technologies',
+          url: 'https://physenra.com',
+          logo: 'https://physenra.com/branding/physenra-logo.png',
+        },
+        {
+          '@type': 'WebSite',
+          '@id': 'https://physenra.com/#website',
+          url: 'https://physenra.com',
+          name: 'Physenra',
+          publisher: {
+            '@id': 'https://physenra.com/#organization',
+          },
+        },
+        {
+          '@type': 'SoftwareApplication',
+          name: 'Physenra',
+          applicationCategory: 'HealthCareApplication',
+          operatingSystem: 'Web Browser',
+          description:
+            'Electronic Medical Records (EMR) and practice management platform purpose-built for physiotherapy clinics.',
+          offers: [
+            {
+              '@type': 'Offer',
+              name: 'Solo Practice',
+              price: '15000',
+              priceCurrency: 'NGN',
+            },
+            {
+              '@type': 'Offer',
+              name: 'Professional Clinic',
+              price: '30000',
+              priceCurrency: 'NGN',
+            },
+            {
+              '@type': 'Offer',
+              name: 'Comprehensive Clinic',
+              price: '50000',
+              priceCurrency: 'NGN',
+            },
+          ],
+        },
+      ],
+    };
+
+    let scriptTag = document.querySelector('script[type="application/ld+json"]');
+    if (!scriptTag) {
+      scriptTag = document.createElement('script');
+      scriptTag.setAttribute('type', 'application/ld+json');
+      document.head.appendChild(scriptTag);
+    }
+    scriptTag.textContent = JSON.stringify(structuredData);
   }, [location.pathname, title, description]);
 
   return (

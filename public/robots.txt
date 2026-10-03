@@ -1,0 +1,25 @@
+# Physenra Public Website robots.txt
+# Domain: https://physenra.com
+
+User-agent: *
+Allow: /
+Allow: /features
+Allow: /features/*
+Allow: /pricing
+Allow: /about
+Allow: /contact
+Allow: /faq
+Allow: /security
+Allow: /terms
+Allow: /privacy
+
+# Disallow authenticated application workspaces and onboarding screens
+Disallow: /app/
+Disallow: /platform/
+Disallow: /login
+Disallow: /signup
+Disallow: /register-practice
+Disallow: /no-practice
+
+# Sitemap index
+Sitemap: https://physenra.com/sitemap.xml

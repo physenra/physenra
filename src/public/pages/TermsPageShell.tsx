@@ -35,7 +35,7 @@ export const TermsPageShell: React.FC = () => {
                 Commercial Service Agreement
               </h2>
               <p className="mt-2 text-sm text-slate-600 leading-relaxed">
-                Terms of Service content will be published here before public launch.
+                Terms of Service content will be published here before public launch. Formal Terms of Service content is pending legal review and publication.
               </p>
               <p className="mt-4 text-xs text-slate-500 leading-relaxed">
                 The authoritative terms will outline practice tenant responsibilities, multi-user seat subscriptions, billing cycles, data sovereignty commitments, and service availability.

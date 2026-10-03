@@ -15,11 +15,22 @@ export const MarketingHeader: React.FC = () => {
   const [featuresDropdownOpen, setFeaturesDropdownOpen] = useState(false);
   const location = useLocation();
 
-  // Close menus on route change
+  // Close menus on route change or Escape key press
   useEffect(() => {
     setMobileMenuOpen(false);
     setFeaturesDropdownOpen(false);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMobileMenuOpen(false);
+        setFeaturesDropdownOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md transition-all">

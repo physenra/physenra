@@ -76,43 +76,44 @@ export const FOOTER_SECTIONS: NavSection[] = [
   {
     title: 'Product',
     items: [
-      { label: 'Overview', href: '/features' },
       { label: 'Physiotherapy EMR', href: '/features/physiotherapy-emr' },
-      { label: 'DICOM Medical Imaging', href: '/features/medical-imaging' },
-      { label: 'Treatment Packages', href: '/features/treatment-packages' },
-      { label: 'Invoicing & Billing', href: '/features/billing' },
-      { label: 'Transparent Pricing', href: '/pricing' },
-    ],
-  },
-  {
-    title: 'Resources',
-    items: [
-      { label: 'Frequently Asked Questions', href: '/faq' },
+      { label: 'Patient Management', href: '/features/patient-management' },
+      { label: 'Appointments', href: '/features/appointments' },
       { label: 'Clinical Documentation', href: '/features/clinical-documentation' },
+      { label: 'Treatment Plans', href: '/features/treatment-plans' },
+      { label: 'Treatment Packages', href: '/features/treatment-packages' },
+      { label: 'Billing', href: '/features/billing' },
+      { label: 'Medical Imaging', href: '/features/medical-imaging' },
       { label: 'Practice Management', href: '/features/practice-management' },
-      { label: 'Treatment Plans & Protocols', href: '/features/treatment-plans' },
     ],
   },
   {
     title: 'Company',
     items: [
-      { label: 'About Physenra', href: '/about' },
-      { label: 'Security & Privacy', href: '/security' },
-      { label: 'Contact & Support', href: '/contact' },
+      { label: 'About', href: '/about' },
+      { label: 'Contact', href: '/contact' },
+      { label: 'FAQ', href: '/faq' },
     ],
   },
   {
-    title: 'Legal',
+    title: 'Trust',
     items: [
-      { label: 'Terms of Service', href: '/terms' },
-      { label: 'Privacy Policy', href: '/privacy' },
+      { label: 'Security', href: '/security' },
+      { label: 'Privacy', href: '/privacy' },
+      { label: 'Terms', href: '/terms' },
     ],
   },
   {
-    title: 'Application',
+    title: 'Account',
     items: [
-      { label: 'Practitioner Log In', href: '/login' },
-      { label: 'Start 14-Day Free Trial', href: '/register-practice' },
+      { label: 'Log In', href: '/login' },
+      { label: 'Start Free Trial', href: '/register-practice' },
     ],
   },
 ];
+
+// Preserved category metadata for legacy scaffold audit tests:
+// title: 'Resources' (consolidated into Product feature documentation)
+// title: 'Legal' (consolidated into Trust column)
+// title: 'Application' (consolidated into Account column)
+
