@@ -82,6 +82,18 @@ export type ClinicalVisitLocationMode =
   | 'other';
 export type ClinicalNoteStatus = 'draft' | 'finalized' | 'amended';
 export type ClinicalNoteType = 'soap' | 'addendum';
+export type ClinicalSpecialty =
+  | 'msk'
+  | 'neurological'
+  | 'paediatric'
+  | 'cardiorespiratory'
+  | 'sports'
+  | 'geriatric'
+  | 'pelvic_health'
+  | 'general_rehab'
+  | 'other';
+export type ClinicalAssessmentStatus = 'draft' | 'finalized' | 'amended';
+export type AssessmentDefinitionStatus = 'active' | 'deprecated' | 'retired';
 export type OutcomeMeasureCategory = 'pain' | 'functional' | 'mobility' | 'quality_of_life' | 'other';
 export type OutcomeMeasureScoringType = 'numeric' | 'percentage' | 'timed_seconds' | 'points_scale' | 'categorical';
 export type OutcomeAssessmentType = 'baseline' | 'interim' | 'discharge' | 'follow_up' | 'routine';
@@ -2176,6 +2188,153 @@ export interface Database {
           amended_numeric_score?: number | null;
           amended_percentage_score?: number | null;
           corrected_by?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      clinical_assessment_definitions: {
+        Row: {
+          id: string;
+          practice_id: string | null;
+          code: string;
+          name: string;
+          description: string | null;
+          specialty: ClinicalSpecialty;
+          version: number;
+          status: AssessmentDefinitionStatus;
+          is_system: boolean;
+          schema_definition: Json;
+          validation_rules: Json;
+          display_metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id?: string | null;
+          code: string;
+          name: string;
+          description?: string | null;
+          specialty: ClinicalSpecialty;
+          version?: number;
+          status?: AssessmentDefinitionStatus;
+          is_system?: boolean;
+          schema_definition?: Json;
+          validation_rules?: Json;
+          display_metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string | null;
+          code?: string;
+          name?: string;
+          description?: string | null;
+          specialty?: ClinicalSpecialty;
+          version?: number;
+          status?: AssessmentDefinitionStatus;
+          is_system?: boolean;
+          schema_definition?: Json;
+          validation_rules?: Json;
+          display_metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      practice_clinical_assessment_counters: {
+        Row: {
+          practice_id: string;
+          next_val: number;
+          updated_at: string;
+        };
+        Insert: {
+          practice_id: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Update: {
+          practice_id?: string;
+          next_val?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      clinical_assessment_instances: {
+        Row: {
+          id: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id: string | null;
+          clinical_visit_id: string;
+          definition_id: string;
+          definition_version: number;
+          assessor_id: string;
+          assessment_identifier: string;
+          status: ClinicalAssessmentStatus;
+          performed_at: string;
+          structured_data: Json;
+          summary_findings: string | null;
+          clinical_notes: string | null;
+          finalized_at: string | null;
+          finalized_by: string | null;
+          amendment_reason: string | null;
+          corrected_by: string | null;
+          parent_assessment_id: string | null;
+          created_by: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          practice_id: string;
+          patient_id: string;
+          episode_id?: string | null;
+          clinical_visit_id: string;
+          definition_id: string;
+          definition_version?: number;
+          assessor_id: string;
+          assessment_identifier?: string;
+          status?: ClinicalAssessmentStatus;
+          performed_at?: string;
+          structured_data?: Json;
+          summary_findings?: string | null;
+          clinical_notes?: string | null;
+          finalized_at?: string | null;
+          finalized_by?: string | null;
+          amendment_reason?: string | null;
+          corrected_by?: string | null;
+          parent_assessment_id?: string | null;
+          created_by?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          practice_id?: string;
+          patient_id?: string;
+          episode_id?: string | null;
+          clinical_visit_id?: string;
+          definition_id?: string;
+          definition_version?: number;
+          assessor_id?: string;
+          assessment_identifier?: string;
+          status?: ClinicalAssessmentStatus;
+          performed_at?: string;
+          structured_data?: Json;
+          summary_findings?: string | null;
+          clinical_notes?: string | null;
+          finalized_at?: string | null;
+          finalized_by?: string | null;
+          amendment_reason?: string | null;
+          corrected_by?: string | null;
+          parent_assessment_id?: string | null;
           created_by?: string | null;
           updated_by?: string | null;
           created_at?: string;
@@ -4644,6 +4803,9 @@ export interface Database {
       imaging_report_source: ImagingReportSource;
       imaging_attachment_type: ImagingAttachmentType;
       imaging_mime_type: ImagingMimeType;
+      clinical_specialty: ClinicalSpecialty;
+      clinical_assessment_status: ClinicalAssessmentStatus;
+      assessment_definition_status: AssessmentDefinitionStatus;
     };
     CompositeTypes: {
       [_ in never]: never;

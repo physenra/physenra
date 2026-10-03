@@ -6,6 +6,7 @@ import { outcomeMeasureService } from '../../services/outcomeMeasureService';
 import { hepService } from '../../services/hepService';
 import { treatmentPlanService } from '../../services/treatmentPlanService';
 import { packageService } from '../../services/packageService';
+import { clinicalAssessmentService } from '../../services/clinicalAssessmentService';
 import { supabase } from '../../lib/supabase';
 import { Ticket } from 'lucide-react';
 import type {
@@ -14,6 +15,7 @@ import type {
   ClinicalVisitLocationMode,
   ClinicalNoteWithRelations,
   OutcomeMeasureAssessmentWithRelations,
+  ClinicalAssessmentInstanceWithRelations,
   HomeExerciseProgramWithRelations,
   TreatmentPlanWithRelations,
   PackageEntitlementWithRelations,
@@ -36,6 +38,7 @@ export const ClinicalVisitDetailPage: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [clinicalNote, setClinicalNote] = useState<ClinicalNoteWithRelations | null>(null);
   const [outcomeAssessments, setOutcomeAssessments] = useState<OutcomeMeasureAssessmentWithRelations[]>([]);
+  const [clinicalAssessments, setClinicalAssessments] = useState<ClinicalAssessmentInstanceWithRelations[]>([]);
   const [homeExercisePrograms, setHomeExercisePrograms] = useState<HomeExerciseProgramWithRelations[]>([]);
   const [treatmentPlans, setTreatmentPlans] = useState<TreatmentPlanWithRelations[]>([]);
 
@@ -72,6 +75,13 @@ export const ClinicalVisitDetailPage: React.FC = () => {
           setOutcomeAssessments(assessments);
         } catch (oaErr) {
           console.warn('Could not load outcome assessments for visit:', oaErr);
+        }
+
+        try {
+          const cAssessments = await clinicalAssessmentService.getAssessmentsForVisit(visitId);
+          setClinicalAssessments(cAssessments);
+        } catch (caErr) {
+          console.warn('Could not load clinical assessments for visit:', caErr);
         }
 
         try {
@@ -937,6 +947,110 @@ export const ClinicalVisitDetailPage: React.FC = () => {
         ) : (
           <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
             No standardized outcome measures administered during this encounter.
+          </p>
+        )}
+      </div>
+
+      {/* Structured Clinical Assessments (Multi-Specialty Extension) Card */}
+      <div
+        style={{
+          backgroundColor: '#ffffff',
+          padding: '1.5rem',
+          borderRadius: '8px',
+          border: '1px solid #e2e8f0',
+          marginTop: '1.5rem',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '0.75rem',
+            borderBottom: '1px solid #f1f5f9',
+            paddingBottom: '0.5rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, color: '#0f172a' }}>
+              Structured Clinical Assessments (Specialty Extension)
+            </h2>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '0.15rem 0.5rem',
+                borderRadius: '9999px',
+                backgroundColor: clinicalAssessments.length > 0 ? '#f3e8ff' : '#f1f5f9',
+                color: clinicalAssessments.length > 0 ? '#7c3aed' : '#475569',
+              }}
+            >
+              {clinicalAssessments.length} Recorded
+            </span>
+          </div>
+        </div>
+
+        {clinicalAssessments.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {clinicalAssessments.map((ca) => (
+              <div
+                key={ca.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '0.75rem 1rem',
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <span style={{ color: '#7c3aed', fontWeight: 700, fontSize: '0.875rem' }}>
+                      {ca.assessment_identifier}
+                    </span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#0f172a' }}>
+                      {ca.definition?.name || 'Structured Assessment'}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.6875rem',
+                        fontWeight: 600,
+                        padding: '0.1rem 0.4rem',
+                        borderRadius: '4px',
+                        textTransform: 'uppercase',
+                        backgroundColor: '#ede9fe',
+                        color: '#6d28d9',
+                      }}
+                    >
+                      {ca.definition?.specialty || 'General'}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.6875rem',
+                        fontWeight: 600,
+                        padding: '0.1rem 0.4rem',
+                        borderRadius: '4px',
+                        textTransform: 'capitalize',
+                        backgroundColor: ca.status === 'draft' ? '#fef3c7' : '#dcfce7',
+                        color: ca.status === 'draft' ? '#92400e' : '#166534',
+                      }}
+                    >
+                      {ca.status}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                    Performed: {formatTimestamp(ca.performed_at)} &bull; Assessor: {ca.assessor?.display_name || 'Clinician'}
+                    {ca.summary_findings && ` &bull; ${ca.summary_findings}`}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p style={{ margin: 0, color: '#64748b', fontSize: '0.875rem' }}>
+            No structured specialty assessments recorded for this encounter. (SOAP documentation remains the primary medico-legal clinical record).
           </p>
         )}
       </div>

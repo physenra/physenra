@@ -416,6 +416,80 @@ export const CreateClinicalNotePage: React.FC = () => {
         </div>
       </div>
 
+      {/* Optional Structured Assessment Extension Panel */}
+      <div
+        style={{
+          backgroundColor: '#f8fafc',
+          borderRadius: '8px',
+          border: '1px solid #e2e8f0',
+          padding: '1.5rem',
+          marginBottom: '1.5rem',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+          <div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, color: '#0f172a' }}>
+              Structured Clinical Assessments (Optional Specialty Extension)
+            </h3>
+            <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8125rem', color: '#64748b' }}>
+              SOAP documentation remains the primary medico-legal record. Pluggable structured assessments can be attached to this encounter without disrupting the core note.
+            </p>
+          </div>
+          {selectedVisit && (
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                padding: '0.25rem 0.625rem',
+                borderRadius: '9999px',
+                backgroundColor: '#e0f2fe',
+                color: '#0369a1',
+              }}
+            >
+              Optional Extension
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
+          <div style={{ backgroundColor: '#ffffff', padding: '1rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.875rem', color: '#0f172a', marginBottom: '0.25rem' }}>
+              Neurological Motor & Spasticity Screen
+            </div>
+            <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', color: '#64748b' }}>
+              Modified Ashworth Scale (0-4), tendon reflexes, clonus, and motor control patterns.
+            </p>
+            <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#7c3aed', backgroundColor: '#f3e8ff', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+              Neurology Foundation
+            </span>
+          </div>
+
+          <div style={{ backgroundColor: '#ffffff', padding: '1rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.875rem', color: '#0f172a', marginBottom: '0.25rem' }}>
+              Paediatric Gross Motor & Postural Screen
+            </div>
+            <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', color: '#64748b' }}>
+              Postural control, developmental milestones, movement symmetry, and GMFCS classification.
+            </p>
+            <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#059669', backgroundColor: '#ecfdf5', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+              Paediatric Foundation
+            </span>
+          </div>
+
+          <div style={{ backgroundColor: '#ffffff', padding: '1rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+            <div style={{ fontWeight: 600, fontSize: '0.875rem', color: '#0f172a', marginBottom: '0.25rem' }}>
+              Standardized Clinical Outcome Measures
+            </div>
+            <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', color: '#64748b' }}>
+              NPRS, VAS, LEFS, QuickDASH, ODI, NDI, TUG, PSFS, BBS psychometric scales.
+            </p>
+            <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#0284c7', backgroundColor: '#f0f9ff', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
+              Evidence-Based
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* Action Buttons */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', alignItems: 'center' }}>
         <Link

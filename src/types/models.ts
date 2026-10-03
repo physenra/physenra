@@ -13,6 +13,9 @@ import type {
   ClinicalVisitLocationMode,
   ClinicalNoteStatus,
   ClinicalNoteType,
+  ClinicalSpecialty,
+  ClinicalAssessmentStatus,
+  AssessmentDefinitionStatus,
   OutcomeMeasureCategory,
   OutcomeMeasureScoringType,
   OutcomeAssessmentType,
@@ -89,6 +92,12 @@ export type {
   SaasInvoiceStatus,
   SaasPaymentStatus,
   SaasPaymentGateway,
+};
+
+export type {
+  ClinicalSpecialty,
+  ClinicalAssessmentStatus,
+  AssessmentDefinitionStatus,
 };
 
 export type SaasPlan = Database['public']['Tables']['saas_plans']['Row'];
@@ -187,6 +196,15 @@ export type OutcomeMeasureDefinitionUpdate = Database['public']['Tables']['outco
 export type OutcomeMeasureAssessment = Database['public']['Tables']['outcome_measure_assessments']['Row'];
 export type OutcomeMeasureAssessmentInsert = Database['public']['Tables']['outcome_measure_assessments']['Insert'];
 export type OutcomeMeasureAssessmentUpdate = Database['public']['Tables']['outcome_measure_assessments']['Update'];
+
+export type ClinicalAssessmentDefinition = Database['public']['Tables']['clinical_assessment_definitions']['Row'];
+export type ClinicalAssessmentDefinitionInsert = Database['public']['Tables']['clinical_assessment_definitions']['Insert'];
+export type ClinicalAssessmentDefinitionUpdate = Database['public']['Tables']['clinical_assessment_definitions']['Update'];
+export type PracticeClinicalAssessmentCounter = Database['public']['Tables']['practice_clinical_assessment_counters']['Row'];
+
+export type ClinicalAssessmentInstance = Database['public']['Tables']['clinical_assessment_instances']['Row'];
+export type ClinicalAssessmentInstanceInsert = Database['public']['Tables']['clinical_assessment_instances']['Insert'];
+export type ClinicalAssessmentInstanceUpdate = Database['public']['Tables']['clinical_assessment_instances']['Update'];
 
 export type Exercise = Database['public']['Tables']['exercises']['Row'];
 export type ExerciseInsert = Database['public']['Tables']['exercises']['Insert'];
@@ -370,6 +388,27 @@ export interface OutcomeMeasureFilters {
   assessorId?: string;
   assessmentType?: OutcomeAssessmentType | 'all';
   status?: OutcomeAssessmentStatus | 'all';
+  searchQuery?: string;
+}
+
+export interface ClinicalAssessmentInstanceWithRelations extends ClinicalAssessmentInstance {
+  patient?: Pick<Patient, 'id' | 'patient_identifier' | 'first_name' | 'last_name' | 'phone' | 'email'> | null;
+  episode?: Pick<EpisodeOfCare, 'id' | 'episode_identifier' | 'title' | 'status'> | null;
+  clinical_visit?: Pick<ClinicalVisit, 'id' | 'visit_identifier' | 'status' | 'actual_start' | 'actual_end'> | null;
+  definition?: ClinicalAssessmentDefinition | null;
+  assessor?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  finalizer?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  corrector?: Pick<Profile, 'id' | 'display_name' | 'first_name' | 'last_name'> | null;
+  parent_assessment?: Pick<ClinicalAssessmentInstance, 'id' | 'assessment_identifier' | 'status'> | null;
+}
+
+export interface ClinicalAssessmentFilters {
+  patientId?: string;
+  episodeId?: string;
+  visitId?: string;
+  definitionId?: string;
+  specialty?: ClinicalSpecialty | 'all';
+  status?: ClinicalAssessmentStatus | 'all';
   searchQuery?: string;
 }
 
