@@ -13,9 +13,9 @@ export const CreateClinicalVisitPage: React.FC = () => {
   const { activePractice } = usePractice();
 
   // Query parameter pre-fills
-  const initialAppointmentId = searchParams.get('appointment_id') || '';
-  const initialPatientId = searchParams.get('patient_id') || '';
-  const initialEpisodeId = searchParams.get('episode_id') || '';
+  const initialAppointmentId = searchParams.get('appointment_id') || searchParams.get('appointmentId') || '';
+  const initialPatientId = searchParams.get('patient_id') || searchParams.get('patientId') || '';
+  const initialEpisodeId = searchParams.get('episode_id') || searchParams.get('episodeId') || '';
 
   // Options Data
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -45,6 +45,19 @@ export const CreateClinicalVisitPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
+        // If pre-filled appointment, check idempotency first to prevent duplicate encounters
+        if (initialAppointmentId) {
+          try {
+            const existingVisit = await clinicalVisitService.getClinicalVisitByAppointmentId(initialAppointmentId);
+            if (existingVisit) {
+              navigate(`/app/visits/${existingVisit.id}`, { replace: true });
+              return;
+            }
+          } catch (checkErr) {
+            console.warn('Could not check existing visit for appointment:', checkErr);
+          }
+        }
+
         // Load patients and clinicians in parallel
         const [patientRes, clinicianList] = await Promise.all([
           patientService.getPatients({ limit: 100 }),

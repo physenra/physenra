@@ -528,15 +528,14 @@ export const EpisodeProfilePage: React.FC = () => {
         )}
       </div>
 
-      {/* Staged Future Clinical Encounters Area */}
+      {/* Active Clinical Documentation & Care Hub */}
       <div className="staged-clinical-modules-container mt-6">
         <div className="staged-header">
           <Sparkles size={18} className="text-teal-600" />
-          <h3>Subsequent Clinical Modules (Staged Anchor)</h3>
+          <h3>Clinical Care &amp; Documentation Hub</h3>
         </div>
         <p className="staged-desc">
-          This episode anchors scheduled appointments and future clinical workflows.
-          Appointments are administrative scheduling slots; clinical encounters and documentation will follow.
+          This episode anchors scheduled appointments, clinical encounters, and full longitudinal documentation.
         </p>
 
         <div className="staged-grid">
@@ -544,24 +543,70 @@ export const EpisodeProfilePage: React.FC = () => {
             <div className="staged-card-badge">Active Domain</div>
             <h4>Appointments &amp; Scheduling</h4>
             <p>Calendar bookings, schedule management, and practitioner conflict checks.</p>
+            <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+              <Link to={`/app/appointments/new?patientId=${episode.patient_id}&episodeId=${episode.id}`} className="btn-table-action">
+                + Book
+              </Link>
+              <Link to={`/app/appointments?episodeId=${episode.id}`} className="btn-table-action">
+                View All
+              </Link>
+            </div>
           </div>
 
           <div className="staged-card">
-            <div className="staged-card-badge">Upcoming Milestone</div>
+            <div className="staged-card-badge">Active Domain</div>
             <h4>Clinical Visits &amp; Attendance</h4>
-            <p>Physical encounter execution, check-in verification, and duration.</p>
+            <p>Physical encounter execution, check-in verification, and encounter duration.</p>
+            <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+              <Link to={`/app/visits/new?patient_id=${episode.patient_id}&episode_id=${episode.id}`} className="btn-table-action">
+                + Start Visit
+              </Link>
+              <Link to={`/app/visits?episodeId=${episode.id}`} className="btn-table-action">
+                View Visits
+              </Link>
+            </div>
           </div>
 
           <div className="staged-card">
-            <div className="staged-card-badge">Upcoming Milestone</div>
-            <h4>SOAP &amp; Progress Notes</h4>
-            <p>Subjective, Objective, Assessment, and Plan clinical documentation.</p>
+            <div className="staged-card-badge">Active Domain</div>
+            <h4>SOAP &amp; Clinical Notes</h4>
+            <p>Subjective, Objective, Assessment, and Plan clinical encounter records.</p>
+            <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+              <Link to={`/app/clinical-notes?episodeId=${episode.id}`} className="btn-table-action">
+                View Notes
+              </Link>
+            </div>
           </div>
 
           <div className="staged-card">
-            <div className="staged-card-badge">Upcoming Milestone</div>
-            <h4>Treatment Plans &amp; Outcomes</h4>
+            <div className="staged-card-badge">Active Domain</div>
+            <h4>Treatment Plans &amp; Goals</h4>
             <p>Care plans, exercise prescriptions, and objective outcome measure tracking.</p>
+            <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+              <Link to={`/app/treatment-plans?episodeId=${episode.id}`} className="btn-table-action">
+                Plans
+              </Link>
+              <Link to={`/app/hep?episodeId=${episode.id}`} className="btn-table-action">
+                HEP
+              </Link>
+              <Link to={`/app/outcome-measures?episodeId=${episode.id}`} className="btn-table-action">
+                Outcomes
+              </Link>
+            </div>
+          </div>
+
+          <div className="staged-card">
+            <div className="staged-card-badge">Active Domain</div>
+            <h4>Progress &amp; Discharge</h4>
+            <p>Formal care milestone reviews and discharge summaries.</p>
+            <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem' }}>
+              <Link to={`/app/progress-reviews?episodeId=${episode.id}`} className="btn-table-action">
+                Reviews
+              </Link>
+              <Link to={`/app/discharge-summaries?episodeId=${episode.id}`} className="btn-table-action">
+                Discharge
+              </Link>
+            </div>
           </div>
         </div>
       </div>

@@ -20,13 +20,14 @@ export const CreateAppointmentPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { activePractice } = usePractice();
 
-  const preselectedPatientId = searchParams.get('patientId');
-  const preselectedEpisodeId = searchParams.get('episodeId');
+  const preselectedPatientId = searchParams.get('patientId') || searchParams.get('patient_id');
+  const preselectedEpisodeId = searchParams.get('episodeId') || searchParams.get('episode_id');
+  const preselectedClinicianId = searchParams.get('clinicianId') || searchParams.get('clinician_id');
 
   // Form states
   const [patientId, setPatientId] = useState<string>(preselectedPatientId || '');
   const [episodeId, setEpisodeId] = useState<string>(preselectedEpisodeId || '');
-  const [physiotherapistId, setPhysiotherapistId] = useState<string>('');
+  const [physiotherapistId, setPhysiotherapistId] = useState<string>(preselectedClinicianId || '');
   const [appointmentType, setAppointmentType] = useState<AppointmentType>('follow_up');
   const [locationMode, setLocationMode] = useState<AppointmentLocationMode>('clinic');
   const [appointmentDate, setAppointmentDate] = useState<string>(
@@ -65,7 +66,11 @@ export const CreateAppointmentPage: React.FC = () => {
         setClinicians(clinResult);
 
         if (clinResult.length > 0 && !physiotherapistId) {
-          setPhysiotherapistId(clinResult[0].userId);
+          if (preselectedClinicianId && clinResult.some((c) => c.userId === preselectedClinicianId)) {
+            setPhysiotherapistId(preselectedClinicianId);
+          } else {
+            setPhysiotherapistId(clinResult[0].userId);
+          }
         }
       } catch (err: any) {
         setFormError(err.message || 'Failed to load prerequisite data.');

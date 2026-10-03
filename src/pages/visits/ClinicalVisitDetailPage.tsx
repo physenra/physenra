@@ -544,6 +544,26 @@ export const ClinicalVisitDetailPage: React.FC = () => {
             </span>
           )}
 
+          {visit.status === 'completed' && (
+            <Link
+              to={`/app/appointments/new?patientId=${visit.patient_id}&episodeId=${visit.episode_id || ''}&clinicianId=${visit.physiotherapist_id}`}
+              style={{
+                backgroundColor: '#059669',
+                color: '#fff',
+                padding: '0.5rem 1rem',
+                borderRadius: '6px',
+                textDecoration: 'none',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.375rem',
+              }}
+            >
+              <span>📅 Schedule Follow-up Appointment</span>
+            </Link>
+          )}
+
           {clinicalNote ? (
             <Link
               to={`/app/clinical-notes/${clinicalNote.id}`}
@@ -583,6 +603,50 @@ export const ClinicalVisitDetailPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Completed Encounter Follow-up Banner */}
+      {visit.status === 'completed' && (
+        <div
+          style={{
+            backgroundColor: '#ecfdf5',
+            border: '1px solid #a7f3d0',
+            borderRadius: '8px',
+            padding: '1rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '1rem',
+          }}
+        >
+          <div>
+            <strong style={{ color: '#065f46', display: 'block', fontSize: '0.9375rem', marginBottom: '0.25rem' }}>
+              ✓ Clinical Encounter Completed
+            </strong>
+            <p style={{ margin: 0, color: '#047857', fontSize: '0.8125rem' }}>
+              Duration: {visit.duration_minutes ? `${visit.duration_minutes} minutes` : 'Recorded'}. Encounter record is locked. You can schedule the patient's next appointment or review documentation.
+            </p>
+          </div>
+          <Link
+            to={`/app/appointments/new?patientId=${visit.patient_id}&episodeId=${visit.episode_id || ''}&clinicianId=${visit.physiotherapist_id}`}
+            style={{
+              backgroundColor: '#059669',
+              color: '#ffffff',
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              textDecoration: 'none',
+              fontSize: '0.8125rem',
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.375rem',
+            }}
+          >
+            <span>+ Book Follow-up</span>
+          </Link>
+        </div>
+      )}
 
       {/* Domain Separation Notice */}
       <div
@@ -1963,10 +2027,127 @@ export const ClinicalVisitDetailPage: React.FC = () => {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1000,
+            padding: '1rem',
           }}
         >
-          <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '8px', width: '100%', maxWidth: '500px' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: 0, marginBottom: '1rem' }}>Complete Encounter</h2>
+          <div style={{ backgroundColor: '#fff', padding: '1.75rem', borderRadius: '8px', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: 0, marginBottom: '0.375rem', color: '#0f172a' }}>
+              Complete Clinical Encounter
+            </h2>
+            <p style={{ fontSize: '0.8125rem', color: '#64748b', marginBottom: '1.25rem' }}>
+              Review documentation status before finalizing this encounter. Completed encounters become immutable.
+            </p>
+
+            {/* Pre-completion Clinical Checklist */}
+            <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '1rem', marginBottom: '1.25rem' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#475569', marginBottom: '0.75rem' }}>
+                Pre-Completion Clinical Checklist
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', fontSize: '0.8125rem' }}>
+                {/* SOAP Note - Primary medico-legal */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.5rem', borderBottom: '1px solid #f1f5f9' }}>
+                  <div>
+                    <span style={{ fontWeight: 600, color: '#1e293b' }}>SOAP Clinical Note</span>
+                    <span style={{ marginLeft: '0.5rem', fontSize: '0.6875rem', fontWeight: 700, color: '#dc2626', backgroundColor: '#fee2e2', padding: '0.125rem 0.375rem', borderRadius: '4px' }}>
+                      REQUIRED
+                    </span>
+                  </div>
+                  <div>
+                    {clinicalNote ? (
+                      clinicalNote.status === 'finalized' || clinicalNote.status === 'amended' ? (
+                        <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ Finalized ({clinicalNote.note_identifier})</span>
+                      ) : (
+                        <span style={{ color: '#d97706', fontWeight: 600 }}>⚠ Draft Note ({clinicalNote.note_identifier})</span>
+                      )
+                    ) : (
+                      <span style={{ color: '#ef4444', fontWeight: 600 }}>✕ Missing (Not Documented)</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Specialty Assessment */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.5rem', borderBottom: '1px solid #f1f5f9' }}>
+                  <div>
+                    <span style={{ fontWeight: 600, color: '#1e293b' }}>Specialty Assessment</span>
+                    <span style={{ marginLeft: '0.5rem', fontSize: '0.6875rem', color: '#64748b' }}>
+                      OPTIONAL
+                    </span>
+                  </div>
+                  <div>
+                    {clinicalAssessments.length > 0 ? (
+                      clinicalAssessments.some((a) => a.status === 'draft') ? (
+                        <span style={{ color: '#d97706', fontWeight: 600 }}>
+                          ⚠ {clinicalAssessments.length} Recorded ({clinicalAssessments.filter((a) => a.status === 'draft').length} draft)
+                        </span>
+                      ) : (
+                        <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {clinicalAssessments.length} Finalized</span>
+                      )
+                    ) : (
+                      <span style={{ color: '#64748b' }}>— None</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Outcome Measures */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.5rem', borderBottom: '1px solid #f1f5f9' }}>
+                  <div>
+                    <span style={{ fontWeight: 600, color: '#1e293b' }}>Outcome Measures</span>
+                    <span style={{ marginLeft: '0.5rem', fontSize: '0.6875rem', color: '#64748b' }}>
+                      OPTIONAL
+                    </span>
+                  </div>
+                  <div>
+                    {outcomeAssessments.length > 0 ? (
+                      <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {outcomeAssessments.length} Recorded</span>
+                    ) : (
+                      <span style={{ color: '#64748b' }}>— Not Recorded</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Treatment Plan */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.5rem', borderBottom: '1px solid #f1f5f9' }}>
+                  <div>
+                    <span style={{ fontWeight: 600, color: '#1e293b' }}>Treatment Plan</span>
+                    <span style={{ marginLeft: '0.5rem', fontSize: '0.6875rem', color: '#64748b' }}>
+                      OPTIONAL
+                    </span>
+                  </div>
+                  <div>
+                    {treatmentPlans.length > 0 ? (
+                      <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {treatmentPlans.length} Active / Linked</span>
+                    ) : (
+                      <span style={{ color: '#64748b' }}>— Not Linked</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Home Exercise Program */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontWeight: 600, color: '#1e293b' }}>Home Exercise Program (HEP)</span>
+                    <span style={{ marginLeft: '0.5rem', fontSize: '0.6875rem', color: '#64748b' }}>
+                      OPTIONAL
+                    </span>
+                  </div>
+                  <div>
+                    {homeExercisePrograms.length > 0 ? (
+                      <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {homeExercisePrograms.length} Prescribed</span>
+                    ) : (
+                      <span style={{ color: '#64748b' }}>— Not Prescribed</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {!clinicalNote && (
+                <div style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', backgroundColor: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '6px', fontSize: '0.75rem', color: '#92400e' }}>
+                  <strong>Notice:</strong> No SOAP note is linked to this visit. While encounter completion is permitted, SOAP notes are the primary medico-legal clinical record.
+                </div>
+              )}
+            </div>
+
             <form onSubmit={handleCompleteEncounter}>
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.25rem' }}>
@@ -2005,7 +2186,7 @@ export const ClinicalVisitDetailPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isUpdating}
-                  style={{ backgroundColor: '#16a34a', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', fontWeight: 600 }}
+                  style={{ backgroundColor: '#16a34a', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', border: 'none', fontWeight: 600, cursor: isUpdating ? 'not-allowed' : 'pointer' }}
                 >
                   {isUpdating ? 'Completing...' : 'Confirm Completion'}
                 </button>
