@@ -55,6 +55,22 @@ export interface ValidationResult {
   errors: string[];
 }
 
+export interface BalanceOutcomeReference {
+  id: string;
+  assessment_identifier: string;
+  numeric_score: number | null;
+  score_category: string | null;
+  score_interpretation: string | null;
+  performed_at: string;
+  status: string;
+  definition?: {
+    id: string;
+    code: string;
+    name: string;
+    category: string;
+  } | null;
+}
+
 /**
  * Valid allowed state transitions for Clinical Assessments.
  */
@@ -796,4 +812,78 @@ export const clinicalAssessmentService = {
 
     return amended;
   },
+
+  /**
+   * Fetch authoritative balance outcome measures (BBS, TUG) for visit.
+   * Enables neurological examination to reference authoritative outcome measure records without duplicating scores.
+   */
+  async getBalanceOutcomeMeasuresForVisit(visitId: string): Promise<BalanceOutcomeReference[]> {
+    const activePracticeId = getActivePracticeHeader();
+    if (!activePracticeId) return [];
+
+    const { data, error } = await supabase
+      .from('outcome_measure_assessments')
+      .select(`
+        id,
+        assessment_identifier,
+        numeric_score,
+        score_category,
+        score_interpretation,
+        performed_at,
+        status,
+        definition:outcome_measure_definitions (
+          id,
+          code,
+          name,
+          category
+        )
+      `)
+      .eq('practice_id', activePracticeId)
+      .eq('clinical_visit_id', visitId);
+
+    if (error || !data) return [];
+    const list = (data as any) || [];
+    return list.filter((item: any) =>
+      item.definition?.code === 'BBS' || item.definition?.code === 'TUG'
+    );
+  },
+
+  /**
+   * Fetch authoritative balance outcome measures (BBS, TUG) for patient.
+   */
+  async getBalanceOutcomeMeasuresForPatient(patientId: string): Promise<BalanceOutcomeReference[]> {
+    const activePracticeId = getActivePracticeHeader();
+    if (!activePracticeId) return [];
+
+    const { data, error } = await supabase
+      .from('outcome_measure_assessments')
+      .select(`
+        id,
+        assessment_identifier,
+        numeric_score,
+        score_category,
+        score_interpretation,
+        performed_at,
+        status,
+        definition:outcome_measure_definitions (
+          id,
+          code,
+          name,
+          category
+        )
+      `)
+      .eq('practice_id', activePracticeId)
+      .eq('patient_id', patientId)
+      .order('performed_at', { ascending: false });
+
+    if (error || !data) return [];
+    const list = (data as any) || [];
+    return list.filter((item: any) =>
+      item.definition?.code === 'BBS' || item.definition?.code === 'TUG'
+    );
+  },
 };
+
+export const NEURO_EXAMINATION_DEFINITION_CODE = 'NEURO_EXAMINATION_V1';
+export const NEURO_MOTOR_SPASTICITY_SCREEN_CODE = 'NEURO_MOTOR_SPASTICITY_SCREEN';
+

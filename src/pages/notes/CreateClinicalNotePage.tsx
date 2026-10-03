@@ -454,13 +454,13 @@ export const CreateClinicalNotePage: React.FC = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
           <div style={{ backgroundColor: '#ffffff', padding: '1rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
             <div style={{ fontWeight: 600, fontSize: '0.875rem', color: '#0f172a', marginBottom: '0.25rem' }}>
-              Neurological Motor & Spasticity Screen
+              Comprehensive Neurological Examination V1
             </div>
             <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.75rem', color: '#64748b' }}>
-              Modified Ashworth Scale (0-4), tendon reflexes, clonus, and motor control patterns.
+              10 structured clinical domains: Alertness, Tone (MAS), Reflexes, Clonus, Sensation, Coordination, Motor Control, Balance (BBS/TUG), Gait, and Transfers.
             </p>
             <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#7c3aed', backgroundColor: '#f3e8ff', padding: '0.15rem 0.5rem', borderRadius: '4px' }}>
-              Neurology Foundation
+              Neurology Module V1
             </span>
           </div>
 

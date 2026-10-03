@@ -9,6 +9,8 @@ import { packageService } from '../../services/packageService';
 import { clinicalAssessmentService } from '../../services/clinicalAssessmentService';
 import { supabase } from '../../lib/supabase';
 import { Ticket } from 'lucide-react';
+import { NeurologyAssessmentForm } from '../../components/clinical/NeurologyAssessmentForm';
+import { NeurologyLongitudinalView } from '../../components/clinical/NeurologyLongitudinalView';
 import type {
   ClinicalVisitWithRelations,
   ClinicalVisitStatus,
@@ -41,6 +43,12 @@ export const ClinicalVisitDetailPage: React.FC = () => {
   const [clinicalAssessments, setClinicalAssessments] = useState<ClinicalAssessmentInstanceWithRelations[]>([]);
   const [homeExercisePrograms, setHomeExercisePrograms] = useState<HomeExerciseProgramWithRelations[]>([]);
   const [treatmentPlans, setTreatmentPlans] = useState<TreatmentPlanWithRelations[]>([]);
+
+  // Neurology Assessment Workflow State
+  const [isNeuroModalOpen, setIsNeuroModalOpen] = useState(false);
+  const [isNeuroLongitudinalOpen, setIsNeuroLongitudinalOpen] = useState(false);
+  const [editingAssessment, setEditingAssessment] = useState<ClinicalAssessmentInstanceWithRelations | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
 
   // Package Settlement State
   const [consumedPackage, setConsumedPackage] = useState<any | null>(null);
@@ -142,7 +150,25 @@ export const ClinicalVisitDetailPage: React.FC = () => {
 
   useEffect(() => {
     loadVisit();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user?.id) {
+        setCurrentUserId(data.user.id);
+      }
+    });
   }, [visitId]);
+
+  const handleNeuroSaved = async () => {
+    setIsNeuroModalOpen(false);
+    setEditingAssessment(null);
+    if (visitId) {
+      try {
+        const cAssessments = await clinicalAssessmentService.getAssessmentsForVisit(visitId);
+        setClinicalAssessments(cAssessments);
+      } catch (caErr) {
+        console.warn('Could not reload assessments:', caErr);
+      }
+    }
+  };
 
   const handleStartEncounter = async () => {
     if (!visit) return;
@@ -988,6 +1014,44 @@ export const ClinicalVisitDetailPage: React.FC = () => {
               {clinicalAssessments.length} Recorded
             </span>
           </div>
+
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingAssessment(null);
+                setIsNeuroModalOpen(true);
+              }}
+              style={{
+                padding: '0.35rem 0.75rem',
+                backgroundColor: '#7c3aed',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              + Document Neurological Exam
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsNeuroLongitudinalOpen(true)}
+              style={{
+                padding: '0.35rem 0.75rem',
+                backgroundColor: '#ffffff',
+                color: '#6d28d9',
+                border: '1px solid #ddd6fe',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              View Longitudinal Neurology
+            </button>
+          </div>
         </div>
 
         {clinicalAssessments.length > 0 ? (
@@ -1044,6 +1108,28 @@ export const ClinicalVisitDetailPage: React.FC = () => {
                     Performed: {formatTimestamp(ca.performed_at)} &bull; Assessor: {ca.assessor?.display_name || 'Clinician'}
                     {ca.summary_findings && ` &bull; ${ca.summary_findings}`}
                   </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingAssessment(ca);
+                      setIsNeuroModalOpen(true);
+                    }}
+                    style={{
+                      padding: '0.3rem 0.6rem',
+                      borderRadius: '4px',
+                      border: '1px solid #cbd5e1',
+                      backgroundColor: '#ffffff',
+                      color: '#475569',
+                      fontSize: '0.75rem',
+                      fontWeight: 500,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {ca.status === 'draft' ? 'Edit Draft' : 'View Findings'}
+                  </button>
                 </div>
               </div>
             ))}
@@ -1566,6 +1652,109 @@ export const ClinicalVisitDetailPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Neurology Structured Examination Modal */}
+      {isNeuroModalOpen && visit && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem',
+            overflowY: 'auto',
+          }}
+        >
+          <div style={{ maxWidth: '960px', width: '100%', maxHeight: '92vh', overflowY: 'auto', borderRadius: '8px' }}>
+            <NeurologyAssessmentForm
+              patientId={visit.patient_id}
+              visitId={visit.id}
+              episodeId={visit.episode_id}
+              assessorId={currentUserId || visit.physiotherapist_id}
+              initialAssessmentId={editingAssessment?.id}
+              initialData={editingAssessment?.structured_data as Record<string, any>}
+              initialStatus={editingAssessment?.status}
+              onSuccess={handleNeuroSaved}
+              onCancel={() => {
+                setIsNeuroModalOpen(false);
+                setEditingAssessment(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Patient Longitudinal Neurology History Modal */}
+      {isNeuroLongitudinalOpen && visit && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1rem',
+          }}
+        >
+          <div
+            style={{
+              maxWidth: '920px',
+              width: '100%',
+              maxHeight: '85vh',
+              overflowY: 'auto',
+              backgroundColor: '#ffffff',
+              borderRadius: '8px',
+              padding: '1.5rem',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 700, color: '#0f172a' }}>
+                  Patient Longitudinal Neurological Review
+                </h3>
+                <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: '#64748b' }}>
+                  Historical neurological documentation across clinical encounters.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsNeuroLongitudinalOpen(false)}
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '6px',
+                  border: '1px solid #cbd5e1',
+                  backgroundColor: '#ffffff',
+                  fontSize: '0.8125rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <NeurologyLongitudinalView
+              patientId={visit.patient_id}
+              onSelectAssessment={(a) => {
+                setIsNeuroLongitudinalOpen(false);
+                setEditingAssessment(a);
+                setIsNeuroModalOpen(true);
+              }}
+            />
           </div>
         </div>
       )}
