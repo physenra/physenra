@@ -47,7 +47,7 @@ const FEATURE_DATA: Record<string, FeatureModuleData> = {
     kicker: 'Clinical Musculoskeletal Charting',
     tagline: 'Document musculoskeletal assessments in minutes with specialized clinical fields.',
     description:
-      'Generic medical charts fail to capture the functional reality of physical therapy. Physenra provides specialized subjective intake fields, active and passive joint Range of Motion (ROM), Oxford scale Manual Muscle Testing (MMT 0-5), and automated functional outcome scale scoring.',
+      'Generic medical charts fail to capture the functional reality of physical therapy. Physenra provides specialized subjective intake fields, active and passive joint Range of Motion (ROM), Oxford scale Manual Muscle Testing (MMT 0-5), and standardized functional outcome measure scoring.',
     workflowTitle: 'Musculoskeletal Encounter Workflow',
     workflowDescription:
       'A structured, step-by-step documentation pathway designed to keep consultations efficient while ensuring thorough evidence-based charting.',
@@ -63,7 +63,7 @@ const FEATURE_DATA: Record<string, FeatureModuleData> = {
       'Structured musculoskeletal subjective intake with 24-hour symptom behavior',
       'Joint mapping and active vs. passive Range of Motion (ROM) assessment',
       'Oxford scale Manual Muscle Testing (MMT) with side-by-side comparison',
-      'Automated functional outcome scoring: VAS, NDI, ODI, LEFS, and QuickDASH',
+      'Standardized functional outcome scoring: VAS, NDI, ODI, LEFS, and QuickDASH',
       'Direct link between appointments, encounters, and longitudinal progress',
     ],
     practiceBenefits: [
@@ -205,7 +205,7 @@ const FEATURE_DATA: Record<string, FeatureModuleData> = {
       {
         title: 'Billing & Invoicing',
         slug: 'billing',
-        desc: 'Automated invoice generation from completed visits.',
+        desc: 'Itemized invoice generation from completed visits.',
       },
     ],
   },
@@ -343,7 +343,7 @@ const FEATURE_DATA: Record<string, FeatureModuleData> = {
       'Custom treatment session bundles (e.g. 6, 10, or 12 sessions)',
       'Atomic entitlement decrementing: sessions deduct automatically on visit completion',
       'Patient deposit wallets for advance payments and credit management',
-      'Automated overpayment conversion and split billing (cash + wallet credit)',
+      'Patient overpayment conversion to deposit wallet credit and flexible invoice settlement',
     ],
     practiceBenefits: [
       {
@@ -379,36 +379,36 @@ const FEATURE_DATA: Record<string, FeatureModuleData> = {
   },
 
   billing: {
-    title: 'Invoicing, Tax Receipts & Local Paystack Payments',
+    title: 'Itemized Invoicing, Proof-of-Payment Receipts & Practice Accounting',
     kicker: 'Financial & Practice Accounting',
-    tagline: 'Compliant tax invoices, official receipts, and automated card processing.',
+    tagline: 'Itemized invoices, numbered receipts, and multi-channel payment recording.',
     description:
-      'Full-cycle commercial billing tailored for private practices. Generate itemized invoices from clinical encounters, print numbered tax receipts, and accept card payments via Paystack with instant verification.',
+      'Structured commercial billing built for private practices. Generate itemized invoices directly from clinical encounters or fee schedules, record payments across cash, POS, and bank transfer, and issue official numbered receipts.',
     workflowTitle: 'Clinical Billing & Payment Lifecycle',
     workflowDescription:
       'Converting completed clinical care into clean invoices, settled payments, and official receipts.',
     workflowSteps: [
       'Select completed clinical visit, treatment package, or clinic consumable products.',
-      'Generate itemized tax invoice applying clinic VAT and discount rules if applicable.',
-      'Collect payment via cash, patient deposit wallet, direct bank transfer, or online card checkout.',
-      'Process online payments securely through integrated Paystack checkout with instant verification.',
-      'System generates and locks official numbered tax receipt (#RCT-XXXXX).',
-      'Print or export receipt for patient health insurance reimbursement.',
+      'Generate itemized invoice applying practice fee schedule rates and optional discounts.',
+      'Collect payment via cash, patient deposit wallet, direct bank transfer, or card terminal.',
+      'Authoritative database transaction allocates payment and marks invoice settled or partially paid.',
+      'System generates and locks official numbered proof-of-payment receipt (#REC-XXXXX).',
+      'Print or export PDF receipt for patient records or health insurance reimbursement.',
     ],
     highlights: [
       'Itemized billing from completed visits, packages, and clinic consumables',
-      'Online card checkout via secure Paystack payment gateway integration',
-      'Printable professional PDF tax invoices and official numbered receipts',
-      'End-of-day revenue reconciliation and overdue outstanding account aging',
+      'Multi-channel payment recording: Cash, POS Terminal, Bank Transfer, and Wallet',
+      'Printable professional PDF invoices and official numbered receipts (#REC-XXXXX)',
+      'Invoice balance tracking across draft, issued, partially paid, and paid states',
     ],
     practiceBenefits: [
       {
-        title: 'Zero Reconciliation Leakage',
-        desc: 'Every invoice is tied to clinical encounters or verified stock items, preventing unrecorded treatments.',
+        title: 'Accurate Clinical Provenance',
+        desc: 'Every invoice is tied to clinical encounters or verified stock items, preventing unbilled treatments.',
       },
       {
-        title: 'Fast Local Card Payments',
-        desc: 'Paystack integration enables quick checkout with Nigerian debit cards, bank transfers, and USSD.',
+        title: 'Multi-Channel Payment Recording',
+        desc: 'Easily record patient settlements across front-desk cash, bank transfers, or card terminals.',
       },
       {
         title: 'Insurance-Ready Tax Receipts',
@@ -537,7 +537,7 @@ const FEATURE_DATA: Record<string, FeatureModuleData> = {
       {
         title: 'Billing & Invoicing',
         slug: 'billing',
-        desc: 'Tax invoices, numbered receipts, and Paystack payments.',
+        desc: 'Itemized invoices, numbered receipts, and payment records.',
       },
       {
         title: 'Patient Management',
@@ -635,12 +635,12 @@ const renderFeatureVisual = (slug: string) => {
 
     case 'billing':
       return (
-        <BrowserFrame urlPath="physenra.com/platform/invoices/INV-2026-012" badge="Paystack Verified">
+        <BrowserFrame urlPath="physenra.com/platform/invoices/INV-2026-012" badge="Payment Settled">
           <div className="p-5 bg-white space-y-3 text-left">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div>
                 <div className="text-xs font-bold text-slate-900">Invoice #INV-2026-012</div>
-                <div className="text-[11px] text-slate-500">Adaeze N. • Paystack Checkout</div>
+                <div className="text-[11px] text-slate-500">Adaeze N. • POS Terminal Settlement</div>
               </div>
               <StatusBadge label="Paid in Full" variant="active" size="sm" />
             </div>
@@ -660,7 +660,7 @@ const renderFeatureVisual = (slug: string) => {
             </div>
             <div className="text-[10px] text-slate-500 flex items-center gap-1.5">
               <Receipt className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Official Tax Receipt #RCT-00042 Generated</span>
+              <span>Official Receipt #REC-00042 Generated</span>
             </div>
           </div>
         </BrowserFrame>

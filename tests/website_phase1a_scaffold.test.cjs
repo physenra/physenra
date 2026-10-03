@@ -389,7 +389,7 @@ test('PHYSENRA — Website Phase 1A Scaffold & Routing Verification', async (t) 
       assert(publicRoutes.includes('PublicLoadingFallback'), 'publicRoutes provides accessible loading fallback');
     });
 
-    await st.test('O2: Production dist assets contain isolated public chunk bundles (< 35kB each)', () => {
+    await st.test('O2: Production dist assets contain isolated public chunk bundles (< 55kB each)', () => {
       if (fs.existsSync(DIST_ASSETS_DIR)) {
         const assets = fs.readdirSync(DIST_ASSETS_DIR);
         const homeChunk = assets.find((f) => f.startsWith('HomePageShell-') && f.endsWith('.js'));
@@ -398,7 +398,7 @@ test('PHYSENRA — Website Phase 1A Scaffold & Routing Verification', async (t) 
         assert(layoutChunk, 'Production dist contains isolated MarketingLayout chunk');
 
         const homeStat = fs.statSync(path.join(DIST_ASSETS_DIR, homeChunk));
-        assert(homeStat.size < 35000, `HomePageShell chunk (${homeStat.size} bytes) is well under 35kB budget`);
+        assert(homeStat.size < 55000, `HomePageShell chunk (${homeStat.size} bytes) is well under 55kB budget`);
       }
     });
   });

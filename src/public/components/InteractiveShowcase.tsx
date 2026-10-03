@@ -35,7 +35,7 @@ const SHOWCASE_TABS: ShowcaseTabConfig[] = [
     icon: <Activity className="w-4 h-4 shrink-0" />,
     urlPath: 'physenra.com/platform/patients/PT-2026-08/visits/new',
     title: 'Musculoskeletal SOAP Charting & Functional Scales',
-    description: 'Document physical examinations, active/passive ROM, Oxford manual muscle tests, and automated VAS/ODI outcome scores in minutes.',
+    description: 'Document physical examinations, active/passive ROM, Oxford manual muscle tests, and standardized VAS/ODI outcome measures in minutes.',
   },
   {
     id: 'scheduling',
@@ -52,7 +52,7 @@ const SHOWCASE_TABS: ShowcaseTabConfig[] = [
     badge: 'Atomic Entitlement',
     icon: <Layers className="w-4 h-4 shrink-0" />,
     urlPath: 'physenra.com/platform/patients/PT-2026-08/packages',
-    title: 'Automated Session Decrementing & Patient Wallets',
+    title: 'Atomic Session Decrementing & Patient Wallets',
     description: 'Track prepaid session bundles with atomic entitlement deduction upon visit sign-off, plus immutable patient credit deposit ledgers.',
   },
   {

@@ -22,7 +22,7 @@ export const ROUTE_METADATA: Record<string, RouteMetadata> = {
   '/': {
     title: 'Physenra | Physiotherapy EMR & Practice Management Platform',
     description:
-      'The clinical EMR and practice operating system purpose-built for physiotherapy clinics. Musculoskeletal SOAP charting, built-in DICOM PACS, and automated package billing. Start 14-day free trial.',
+      'The clinical EMR and practice management platform purpose-built for physiotherapy clinics. Musculoskeletal SOAP charting, built-in DICOM PACS, and treatment package tracking. Start 14-day free trial.',
     canonical: 'https://physenra.com/',
     keywords: [
       'physiotherapy EMR',
@@ -62,7 +62,7 @@ export const ROUTE_METADATA: Record<string, RouteMetadata> = {
   '/features/physiotherapy-emr': {
     title: 'Physiotherapy EMR & SOAP Notes | Physenra',
     description:
-      'Specialized musculoskeletal charting: active and passive Range of Motion (ROM), Oxford Manual Muscle Testing (MMT), and automated functional outcome scores.',
+      'Specialized musculoskeletal charting: active and passive Range of Motion (ROM), Oxford Manual Muscle Testing (MMT), and standardized functional outcome scores.',
     canonical: 'https://physenra.com/features/physiotherapy-emr',
     keywords: [
       'physiotherapy SOAP notes',
@@ -175,19 +175,19 @@ export const ROUTE_METADATA: Record<string, RouteMetadata> = {
     twitterCard: 'summary_large_image',
   },
   '/features/billing': {
-    title: 'Invoicing, Receipts & Paystack Payment Processing | Physenra',
+    title: 'Physiotherapy Billing, Invoicing & Payments | Physenra',
     description:
-      'Compliant private practice invoicing, official numbered tax receipts, and integrated card and bank payments via Paystack with instant verification.',
+      'Compliant private practice invoicing, official numbered receipts, and multi-channel payment recording for physiotherapy clinics.',
     canonical: 'https://physenra.com/features/billing',
     keywords: [
       'physiotherapy billing software',
-      'Paystack medical billing',
-      'clinic tax invoices',
-      'practice payment processing',
+      'clinic invoices',
+      'practice payment recording',
+      'physiotherapy receipts',
     ],
-    ogTitle: 'Invoicing, Receipts & Paystack Payments | Physenra',
+    ogTitle: 'Invoicing, Receipts & Payment Tracking | Physenra',
     ogDescription:
-      'Itemized clinical invoices, printable tax receipts, and secure Paystack online card checkouts.',
+      'Itemized clinical invoices, printable proof-of-payment receipts, and multi-channel practice payment recording.',
     ogUrl: 'https://physenra.com/features/billing',
     ogType: 'website',
     ogImage: DEFAULT_OG_IMAGE,

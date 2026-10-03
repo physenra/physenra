@@ -44,7 +44,7 @@ const HOMEPAGE_FAQS: FAQItem[] = [
   {
     question: 'How do physiotherapy-specific SOAP notes work in Physenra?',
     answer:
-      'Physenra includes specialized subjective history fields (24-hour symptom cycle, aggravating and easing factors), objective Range of Motion (ROM) degrees, Oxford scale Manual Muscle Testing (MMT 0-5), orthopaedic special tests, and automated functional outcome score calculations.',
+      'Physenra includes specialized subjective history fields (24-hour symptom cycle, aggravating and easing factors), objective Range of Motion (ROM) degrees, Oxford scale Manual Muscle Testing (MMT 0-5), orthopaedic special tests, and standardized functional outcome measure scoring.',
   },
   {
     question: 'How does the built-in Web DICOM PACS medical imaging viewer work?',
@@ -143,8 +143,8 @@ export const HomePageShell: React.FC = () => {
             </div>
             <div className="flex flex-col items-center">
               <Wallet className="w-6 h-6 text-teal-700 mb-1" />
-              <div className="text-sm font-bold text-slate-900">Paystack Verified</div>
-              <div className="text-xs text-slate-500">Automated Naira Invoicing</div>
+              <div className="text-sm font-bold text-slate-900">Paystack Checkout</div>
+              <div className="text-xs text-slate-500">Self-Service Practice Billing</div>
             </div>
           </div>
         </div>
@@ -580,26 +580,26 @@ export const HomePageShell: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div className="lg:col-span-6 text-left">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider text-teal-800 bg-teal-50 border border-teal-200 mb-4">
-                Financial Operations & Paystack
+                Practice Financial Operations
               </div>
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-slate-900 leading-tight">
-                Itemized Invoicing, Tax Receipts & Local Paystack Rails.
+                Itemized Invoicing, Numbered Receipts & Payment Tracking.
               </h2>
               <p className="mt-4 text-base text-slate-600 leading-relaxed">
-                Physenra handles complete practice financial reconciliation. Generate itemized tax invoices from completed clinical encounters, print official receipts, and process online card and bank payments via Paystack with instant verification.
+                Physenra streamlines practice financial administration. Generate itemized invoices from completed clinical encounters, record settlements across front-desk card terminals, cash, or bank transfers, and issue official proof-of-payment receipts.
               </p>
               <div className="mt-6 space-y-3">
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                  <span className="text-sm text-slate-700">Automated itemized billing from visits, packages, and strapping consumables.</span>
+                  <span className="text-sm text-slate-700">Itemized billing directly from clinical visits, treatment packages, and consumables.</span>
                 </div>
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                  <span className="text-sm text-slate-700">Local payment rails: Nigerian debit/credit cards, bank transfers, and USSD.</span>
+                  <span className="text-sm text-slate-700">Multi-channel settlement: Front-desk POS terminals, cash, bank transfer, and deposit wallets.</span>
                 </div>
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-                  <span className="text-sm text-slate-700">Printable professional PDF tax invoices and official numbered receipts.</span>
+                  <span className="text-sm text-slate-700">Printable professional PDF invoices and official numbered proof-of-payment receipts.</span>
                 </div>
               </div>
               <div className="mt-8 flex items-center gap-4">
@@ -616,8 +616,8 @@ export const HomePageShell: React.FC = () => {
             <div className="lg:col-span-6 p-6 rounded-2xl bg-white border border-slate-200 shadow-sm text-left space-y-3">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div>
-                  <div className="text-xs font-bold text-slate-900">Tax Invoice #INV-2026-0042</div>
-                  <div className="text-[11px] text-slate-500">Adaeze N. • Paystack Verified</div>
+                  <div className="text-xs font-bold text-slate-900">Invoice #INV-2026-0042</div>
+                  <div className="text-[11px] text-slate-500">Adaeze N. • POS Terminal Settlement</div>
                 </div>
                 <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">Settled</span>
               </div>
@@ -637,7 +637,7 @@ export const HomePageShell: React.FC = () => {
               </div>
               <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
                 <FileText className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Official Tax Receipt #RCT-00042 Generated</span>
+                <span>Official Receipt #REC-00042 Generated</span>
               </div>
             </div>
           </div>
@@ -717,7 +717,7 @@ export const HomePageShell: React.FC = () => {
           <SectionHeading
             kicker="Healthcare Data Sovereignty"
             title="Enterprise Security. Absolute Clinical Privacy."
-            subtitle="Your clinical records belong entirely to your practice. Built with cryptographic Row-Level Security, Platform Admin firewalls, and non-punitive read-only access."
+            subtitle="Your clinical records belong entirely to your practice. Built with PostgreSQL Row-Level Security, Platform Admin firewalls, and non-punitive read-only access."
           />
 
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 text-left">

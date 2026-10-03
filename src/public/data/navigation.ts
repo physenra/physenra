@@ -53,12 +53,12 @@ export const FEATURE_SUB_NAV_ITEMS: NavItem[] = [
   {
     label: 'Treatment Packages & Wallets',
     href: '/features/treatment-packages',
-    description: 'Automated session decrementing and patient credit ledgers.',
+    description: 'Session balance decrementing and patient credit ledgers.',
   },
   {
     label: 'Invoicing & Local Billing',
     href: '/features/billing',
-    description: 'Paystack payments, automated tax invoices, and official receipts.',
+    description: 'Itemized invoices, numbered receipts, and payment records.',
   },
   {
     label: 'Medical Imaging & DICOM',

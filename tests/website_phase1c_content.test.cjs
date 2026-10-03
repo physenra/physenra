@@ -148,10 +148,10 @@ test('PHYSENRA — Website Phase 1C Conversion Content & SEO Verification', asyn
       assert(homepage.includes('Bay 1') && homepage.includes('Bay 2'), 'Treatment bays allocated');
     });
 
-    await st.test('A9: Section 9 (Billing & Payments) presents Paystack invoicing and receipts', () => {
-      assert(homepage.includes('Itemized Invoicing, Tax Receipts & Local Paystack Rails'), 'Billing section header');
-      assert(homepage.includes('Tax Invoice #INV-2026-0042'), 'Invoice mockup present');
-      assert(homepage.includes('Official Tax Receipt #RCT-00042 Generated'), 'Receipt indication');
+    await st.test('A9: Section 9 (Billing & Payments) presents itemized invoicing and receipts', () => {
+      assert(homepage.includes('Itemized Invoicing, Numbered Receipts & Payment Tracking'), 'Billing section header');
+      assert(homepage.includes('Invoice #INV-2026-0042'), 'Invoice mockup present');
+      assert(homepage.includes('Official Receipt #REC-00042 Generated'), 'Receipt indication');
     });
 
     await st.test('A10: Section 10 (Medical Imaging) presents browser DICOM and Cobb calipers', () => {

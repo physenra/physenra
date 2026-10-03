@@ -25,7 +25,7 @@ export const FeaturesHubShell: React.FC = () => {
   return (
     <MarketingLayout
       title="Platform Features | Physenra Physiotherapy Practice OS"
-      description="Explore the complete suite of specialized physiotherapy software modules: clinical EMR, DICOM imaging, session packages, and Paystack billing."
+      description="Explore the complete suite of specialized physiotherapy software modules: clinical EMR, DICOM imaging, session packages, and practice billing."
     >
       <div className="py-16 sm:py-24 bg-gradient-to-b from-slate-50 to-white border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -43,7 +43,7 @@ export const FeaturesHubShell: React.FC = () => {
             <FeatureCard
               icon={<Activity className="w-6 h-6" />}
               title="Physiotherapy EMR & SOAP Charting"
-              description="Rapid musculoskeletal examinations, active/passive ROM recording, Oxford manual muscle testing, and automated functional outcome scores."
+              description="Rapid musculoskeletal examinations, active/passive ROM recording, Oxford manual muscle testing, and standardized functional outcome scores."
               linkTo="/features/physiotherapy-emr"
               linkLabel="Explore EMR features"
             />
@@ -84,8 +84,8 @@ export const FeaturesHubShell: React.FC = () => {
             />
             <FeatureCard
               icon={<Receipt className="w-6 h-6" />}
-              title="Invoicing & Paystack Billing"
-              description="Automated patient invoicing, official numbered receipts, and seamless card and bank payments via verified Paystack rails."
+              title="Invoicing & Payment Records"
+              description="Itemized patient invoicing, official numbered receipts, and multi-channel payment recording for private clinics."
               linkTo="/features/billing"
               linkLabel="Explore Billing"
             />

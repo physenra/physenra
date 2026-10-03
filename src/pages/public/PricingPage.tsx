@@ -47,7 +47,7 @@ export const PricingPage: React.FC = () => {
       excluded: [
         'Patient Wallets & Balances',
         'Treatment Session Packages',
-        'Recurring Patient Memberships',
+        'Patient Membership Plans',
         'Inventory & Consumables Tracking',
         'DICOM Medical Imaging & PACS',
       ],
@@ -69,7 +69,7 @@ export const PricingPage: React.FC = () => {
         'Up to 5 Clinical Practitioner Seats',
         'Patient Wallets & Account Credits',
         'Treatment Session Packages & Balances',
-        'Recurring Patient Memberships & Cycles',
+        'Patient Membership Plans & Billing Cycles',
         'Inventory & Clinical Consumables Control',
         'Multi-Clinician Appointment Scheduling',
         'Comprehensive Practice Analytics',
@@ -92,7 +92,7 @@ export const PricingPage: React.FC = () => {
         'All Professional Clinic Features Included',
         'Up to 10 Clinical Practitioner Seats',
         'DICOM Medical Imaging & Built-in PACS Viewer',
-        'X-Ray, MRI, CT & Ultrasound Patient Vault',
+        'X-Ray, MRI & CT Patient Vault',
         'Specialized Clinical Image Measurements (Cobb Angle)',
         'Priority Phone & Clinical Support',
         'Custom Header & Clinic Letterhead Presets',
@@ -182,9 +182,6 @@ export const PricingPage: React.FC = () => {
             }`}
           >
             <span>Annual Billing</span>
-            <span className="px-1.5 py-0.5 rounded bg-teal-100 text-teal-800 text-[10px] font-bold">
-              Save 2 months
-            </span>
           </button>
         </div>
       </section>
@@ -233,8 +230,8 @@ export const PricingPage: React.FC = () => {
                           </span>
                         </div>
                         {interval === 'annual' && (
-                          <p className="text-[11px] text-teal-700 mt-1 font-semibold">
-                            Includes 2 months free savings
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Billed annually
                           </p>
                         )}
                       </div>

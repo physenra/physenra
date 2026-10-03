@@ -38,7 +38,7 @@ export const PrivacyPageShell: React.FC = () => {
                 Privacy Policy content will be published here before public launch.
               </p>
               <p className="mt-4 text-xs text-slate-500 leading-relaxed">
-                Physenra is architected with strict PostgreSQL Row-Level Security (RLS) and an architectural Platform Admin Privacy Firewall. System operators are cryptographically prevented from reading patient clinical notes, diagnoses, or imaging studies.
+                Physenra is architected with strict PostgreSQL Row-Level Security (RLS) and an architectural Platform Admin Privacy Firewall. System operators are barred by database access policies from reading patient clinical notes, diagnoses, or imaging studies.
               </p>
             </div>
           </div>

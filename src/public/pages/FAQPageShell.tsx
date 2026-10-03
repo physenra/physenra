@@ -53,7 +53,7 @@ const CATEGORIZED_FAQS: FAQCategory[] = [
       {
         question: 'Which functional outcome measures are built into encounters?',
         answer:
-          'Physenra includes automated percentage impairment calculations for Visual Analogue Scale (VAS), Neck Disability Index (NDI), Oswestry Disability Index (ODI), Lower Extremity Functional Scale (LEFS), and QuickDASH.',
+          'Physenra includes standardized functional outcome scoring batteries for Visual Analogue Scale (VAS), Neck Disability Index (NDI), Oswestry Disability Index (ODI), Lower Extremity Functional Scale (LEFS), and QuickDASH, tracking quantitative recovery across patient episodes.',
       },
       {
         question: 'Can I prescribe home exercise programmes (HEP)?',
@@ -101,9 +101,9 @@ const CATEGORIZED_FAQS: FAQCategory[] = [
           'Patient deposit wallets allow clinics to record advance payments and maintain an immutable credit ledger. Front-desk staff can settle visit invoices directly from wallet credit or execute split billing (wallet + card).',
       },
       {
-        question: 'Which payment methods are supported via Paystack?',
+        question: 'Which payment methods are supported for practice subscriptions via Paystack?',
         answer:
-          'Physenra integrates with Paystack to process Nigerian debit and credit cards (Mastercard, Visa, Verve), direct bank transfers, and USSD with zero foreign exchange fees and instant webhook verification.',
+          'Practice subscriptions to Physenra are processed securely through Paystack, supporting Nigerian debit and credit cards (Mastercard, Visa, Verve), direct bank transfers, and USSD with zero foreign exchange fees and server-verified activation.',
       },
       {
         question: 'Can we print official tax receipts for patient insurance claims?',
@@ -168,7 +168,7 @@ const CATEGORIZED_FAQS: FAQCategory[] = [
       {
         question: 'Can we upgrade or downgrade our subscription plan at any time?',
         answer:
-          'Yes. Practice owners can change tiers directly from the self-service practice billing console. Upgrades take effect immediately with pro-rated billing adjustments.',
+          'Yes. Practice owners can adjust subscription tiers from the billing console. Upgrades generate an invoice for the difference or new tier, while downgrades take effect at the conclusion of the active billing period.',
       },
     ],
   },

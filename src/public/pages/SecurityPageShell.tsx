@@ -53,7 +53,7 @@ export const SecurityPageShell: React.FC = () => {
               <Server className="w-8 h-8 text-teal-700 mb-4" />
               <h2 className="text-xl font-bold text-slate-900">Encryption in Transit & at Rest</h2>
               <p className="mt-2 text-sm text-slate-600 leading-relaxed">
-                All communications are secured with TLS 1.3 encryption in transit. Underlying database volumes and object stores use AES-256 cryptographic encryption at rest.
+                All communications are secured with TLS 1.3 in transit. Underlying database volumes and storage buckets use AES-256 encryption at rest.
               </p>
             </div>
 
