@@ -12,6 +12,8 @@ import { SecondaryCTAButton } from '../components/SecondaryCTAButton';
 import { SectionHeading } from '../components/SectionHeading';
 import { FAQAccordion, FAQItem } from '../components/FAQAccordion';
 import { ProductMockup } from '../components/ProductMockup';
+import { FounderPhoto } from '../components/FounderPhoto';
+import { ClinicianVisual } from '../components/ClinicianVisual';
 const InteractiveShowcase = React.lazy(() =>
   import('../components/InteractiveShowcase').then((m) => ({ default: m.InteractiveShowcase }))
 );
@@ -28,6 +30,8 @@ import {
   FileText,
   Lock,
   ArrowRight,
+  Award,
+  Sparkles,
 } from 'lucide-react';
 
 const HOMEPAGE_FAQS: FAQItem[] = [
@@ -294,6 +298,68 @@ export const HomePageShell: React.FC = () => {
               <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                 Sign encounter immutably. Remaining package sessions decrement automatically with zero disputed visits.
               </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 4B. CLINICIAN WORKFLOW STORYTELLING */}
+      <section className="py-16 sm:py-24 bg-white border-b border-slate-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            {/* Left: Clinician Visual Image */}
+            <div className="lg:col-span-6">
+              <ClinicianVisual
+                imageSrc="/images/clinicians/clinician-digital-workflow-01.jpg"
+                alt="Nigerian physiotherapist reviewing digital clinical records on a tablet in a modern physical therapy clinic"
+                badge="Clinical Mobility & Focus"
+                caption="Point-of-care digital documentation engineered for rehabilitation teams."
+              />
+            </div>
+
+            {/* Right: Clinician Storytelling Text */}
+            <div className="lg:col-span-6 text-left">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider text-teal-800 bg-teal-50 border border-teal-200 mb-4">
+                <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                Clinician-First Design
+              </div>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-slate-900 leading-tight">
+                Built for the Way Physiotherapists Actually Work.
+              </h2>
+              <p className="mt-4 text-base text-slate-600 leading-relaxed">
+                Clinical documentation should elevate patient care, not interrupt it. Physenra is engineered for fluid tablet and workstation interaction—enabling physiotherapists to document Range of Motion angles, muscle testing grades, and functional recovery milestones directly at the treatment table without breaking clinical connection.
+              </p>
+
+              <div className="mt-6 space-y-3">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <span className="text-sm text-slate-700">
+                    <strong>Touch &amp; Tablet Ergonomics:</strong> Responsive interfaces with touch targets &ge; 44px for effortless tapping during hands-on evaluations.
+                  </span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <span className="text-sm text-slate-700">
+                    <strong>Real-Time Encounter Continuity:</strong> Start, pause, and resume visits with zero lost data when moving between bays and exercise areas.
+                  </span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <span className="text-sm text-slate-700">
+                    <strong>Patient-Centered Visual Communication:</strong> Review diagnostic imaging and functional score trajectories side-by-side with patients.
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-8 flex items-center gap-4">
+                <Link
+                  to="/features/clinical-documentation"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-teal-700 hover:text-teal-900"
+                >
+                  <span>Explore Clinical Documentation Workflows</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -705,6 +771,79 @@ export const HomePageShell: React.FC = () => {
               <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
                 <span>Presets: Bone • Soft Tissue • Lung</span>
                 <span>Zoom • Pan • Invert</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 10B. FOUNDER SECTION */}
+      <section className="py-16 sm:py-24 bg-gradient-to-b from-white via-slate-50/70 to-white border-b border-slate-200/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="p-8 sm:p-12 lg:p-16 rounded-3xl bg-slate-900 text-white shadow-2xl relative overflow-hidden">
+            {/* Ambient decorative subtle glow */}
+            <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute bottom-0 left-0 -mb-12 -ml-12 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-center">
+              {/* Left Column: Founder Photo / Executive Portrait Slot */}
+              <div className="lg:col-span-5 flex justify-center">
+                <FounderPhoto size="md" />
+              </div>
+
+              {/* Right Column: Founder Narrative & Context */}
+              <div className="lg:col-span-7 text-left space-y-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider text-teal-300 bg-teal-950/80 border border-teal-800/60">
+                  <Award className="w-3.5 h-3.5 text-teal-400" />
+                  Founder Authenticity &amp; Purpose
+                </div>
+
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                  Built by a Physiotherapist. Designed for Physiotherapy Practice.
+                </h2>
+
+                <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
+                  Dr Oladejo Korede, PT, MPH, DPT, is the founder of Physenra. The platform was created from a practical understanding of the challenges involved in managing modern physiotherapy practice — from clinical documentation and patient management to appointments, treatment planning and practice operations.
+                </p>
+
+                <div className="pt-2 border-t border-slate-800 space-y-3">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
+                    <span className="text-xs sm:text-sm text-slate-300">
+                      <strong>Clinical Origin:</strong> Designed from practical experience at the treatment table, not secondary administrative assumptions.
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
+                    <span className="text-xs sm:text-sm text-slate-300">
+                      <strong>Musculoskeletal Integrity:</strong> Real physical metrics (ROM degrees, Oxford MMT, validated outcome scales) are native first-class data.
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
+                    <span className="text-xs sm:text-sm text-slate-300">
+                      <strong>Practice Revenue Protection:</strong> Atomic package decrementing and deposit wallets eliminate disputed visits.
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                  <Link
+                    to="/about"
+                    className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 transition-colors shadow-sm"
+                    style={{ minHeight: '44px' }}
+                  >
+                    <span>Meet the Founder</span>
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Link>
+                  <PrimaryCTAButton
+                    size="md"
+                    to="/register-practice"
+                    className="shadow-teal-900/30"
+                  >
+                    Start 14-Day Free Trial
+                  </PrimaryCTAButton>
+                </div>
               </div>
             </div>
           </div>

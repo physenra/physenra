@@ -270,18 +270,20 @@ export const ROUTE_METADATA: Record<string, RouteMetadata> = {
     twitterCard: 'summary_large_image',
   },
   '/about': {
-    title: 'About Physenra | Purpose-Built Physiotherapy Technology',
+    title: 'About Physenra | Purpose-Built Physiotherapy Technology & Founder',
     description:
-      'Physenra is dedicated to elevating physical therapy practices with purpose-built clinical and operational software tools.',
+      'Learn how Physenra was founded by Dr Oladejo Korede, PT, MPH, DPT, to elevate physiotherapy practices with specialized clinical documentation and sustainable practice tools.',
     canonical: 'https://physenra.com/about',
     keywords: [
       'about Physenra',
       'physiotherapy technology mission',
+      'Dr Oladejo Korede',
+      'physiotherapy clinical software',
       'dedicated physical therapy software',
     ],
-    ogTitle: 'About Physenra | Dedicated Physiotherapy Platform',
+    ogTitle: "About Physenra | Built from a Physiotherapist's Perspective",
     ogDescription:
-      'Engineered exclusively for how physiotherapists evaluate, treat, and bill.',
+      'Learn how Physenra was founded by Dr Oladejo Korede, PT, MPH, DPT, to bridge clinical rehabilitation and modern practice operations.',
     ogUrl: 'https://physenra.com/about',
     ogType: 'website',
     ogImage: DEFAULT_OG_IMAGE,
