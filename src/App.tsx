@@ -119,13 +119,17 @@ export const App: React.FC = () => {
 
       {/* Public Features Hub & Specialized Clinical Sub-Routes */}
       <Route path="/features" element={withPublicSuspense(FeaturesHubShell)} />
+      <Route path="/features/:slug" element={withPublicSuspense(FeatureDetailShell)} />
       <Route path="/features/physiotherapy-emr" element={withPublicSuspense(FeatureDetailShell)} />
       <Route path="/features/patient-management" element={withPublicSuspense(FeatureDetailShell)} />
       <Route path="/features/appointments" element={withPublicSuspense(FeatureDetailShell)} />
       <Route path="/features/clinical-documentation" element={withPublicSuspense(FeatureDetailShell)} />
       <Route path="/features/treatment-plans" element={withPublicSuspense(FeatureDetailShell)} />
+      <Route path="/features/treatment-plans-hep" element={withPublicSuspense(FeatureDetailShell)} />
       <Route path="/features/treatment-packages" element={withPublicSuspense(FeatureDetailShell)} />
       <Route path="/features/billing" element={withPublicSuspense(FeatureDetailShell)} />
+      <Route path="/features/pain-management" element={withPublicSuspense(FeatureDetailShell)} />
+      <Route path="/features/pain-outcome-tracking" element={withPublicSuspense(FeatureDetailShell)} />
       <Route path="/features/medical-imaging" element={withPublicSuspense(FeatureDetailShell)} />
       <Route path="/features/practice-management" element={withPublicSuspense(FeatureDetailShell)} />
 

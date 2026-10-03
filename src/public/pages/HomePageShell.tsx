@@ -38,37 +38,37 @@ const HOMEPAGE_FAQS: FAQItem[] = [
   {
     question: 'What is Physenra and who is it designed for?',
     answer:
-      'Physenra is a dedicated Electronic Medical Records (EMR) and practice management operating system built exclusively for private physiotherapy practices, physical rehabilitation clinics, and musculoskeletal clinicians.',
+      'Physenra is a specialized clinical EMR and practice operating system built exclusively for private physiotherapy practices, rehabilitation clinics, and musculoskeletal clinicians.',
   },
   {
     question: 'Do I need to enter payment card details to start a trial?',
     answer:
-      'No. Physenra provides a 14-day free evaluation trial on all plans with no credit card required. You can register your practice workspace self-service and test on clinical caseloads immediately.',
+      'No. Physenra provides a 14-day free evaluation trial on all plans with no credit card required. Register self-service and test on clinical caseloads immediately.',
   },
   {
     question: 'How do physiotherapy-specific SOAP notes work in Physenra?',
     answer:
-      'Physenra includes specialized subjective history fields (24-hour symptom cycle, aggravating and easing factors), objective Range of Motion (ROM) degrees, Oxford scale Manual Muscle Testing (MMT 0-5), orthopaedic special tests, and standardized functional outcome measure scoring.',
+      'Physenra includes specialized subjective history fields, objective Range of Motion (ROM) in degrees, Oxford scale muscle testing (0-5), orthopaedic tests, and functional outcome scoring.',
   },
   {
     question: 'How does the built-in Web DICOM PACS medical imaging viewer work?',
     answer:
-      'Physenra features a browser-based diagnostic radiology viewer. Clinicians can upload standard DICOM studies (MRI, CT, X-ray) directly into an episode of care, adjust window levels (Bone, Soft Tissue, Lung), and measure Cobb angles inside the patient chart without desktop software or plugins.',
+      'Clinicians can review MRI, CT, and X-ray studies directly in the patient chart with zero plugins. Calibrate Cobb angles and adjust window leveling presets natively in the browser.',
   },
   {
     question: 'How do multi-session treatment packages and deposit wallets prevent lost revenue?',
     answer:
-      'When a patient purchases a treatment bundle (e.g., 10 sessions), Physenra tracks package entitlements. When a physiotherapist signs off on an encounter, the remaining balance decrements automatically. Deposit wallets maintain an immutable ledger for patient advance payments and credit balances.',
+      'Package sessions decrement atomically upon clinical sign-off, eliminating unbilled visits. Deposit wallets maintain transparent ledgers for patient advance payments.',
   },
   {
     question: 'What happens to our clinical records if our subscription expires?',
     answer:
-      'Physenra enforces a non-punitive read-only data retention policy. If your subscription ever lapses, your clinical notes, patient charts, and historical invoices remain fully viewable and exportable in read-only mode so you never lose patient history.',
+      'Physenra enforces a non-punitive read-only data retention policy. If your subscription lapses, clinical charts and historical invoices remain fully exportable in read-only mode.',
   },
   {
     question: 'Can platform operators or third parties view our patient records?',
     answer:
-      'No. Our platform enforces strict PostgreSQL Row-Level Security (RLS) and an architectural Platform Admin Privacy Firewall that bars SaaS administrators and platform operators from viewing patient clinical PHI.',
+      'No. PostgreSQL Row-Level Security and our Platform Admin Privacy Firewall strictly bar SaaS administrators and platform operators from viewing patient clinical PHI.',
   },
 ];
 
@@ -377,7 +377,7 @@ export const HomePageShell: React.FC = () => {
                 Specialized SOAP Notes Built for Physical Therapy.
               </h2>
               <p className="mt-4 text-base text-slate-600 leading-relaxed">
-                Physiotherapists spend hours fighting EHR systems that were designed for internal medicine or billing clerks. Physenra provides structured musculoskeletal documentation capturing true physical function:
+                Physiotherapists spend hours fighting EHR systems designed for billing clerks. Physenra provides structured musculoskeletal documentation capturing true physical function:
               </p>
 
               <div className="mt-6 space-y-3">
@@ -810,19 +810,19 @@ export const HomePageShell: React.FC = () => {
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
                     <span className="text-xs sm:text-sm text-slate-300">
-                      <strong>Clinical Origin:</strong> Designed from practical experience at the treatment table, not secondary administrative assumptions.
+                      <strong>Clinical Origin:</strong> Designed from practice at the treatment table, not secondary administrative assumptions.
                     </span>
                   </div>
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
                     <span className="text-xs sm:text-sm text-slate-300">
-                      <strong>Musculoskeletal Integrity:</strong> Real physical metrics (ROM degrees, Oxford MMT, validated outcome scales) are native first-class data.
+                      <strong>Physical Metrics:</strong> Joint ROM degrees, Oxford MMT (0-5), and outcome scales are native first-class data.
                     </span>
                   </div>
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 mt-0.5" />
                     <span className="text-xs sm:text-sm text-slate-300">
-                      <strong>Practice Revenue Protection:</strong> Atomic package decrementing and deposit wallets eliminate disputed visits.
+                      <strong>Revenue Protection:</strong> Atomic package decrementing and deposit wallets eliminate disputed visits.
                     </span>
                   </div>
                 </div>
@@ -864,21 +864,21 @@ export const HomePageShell: React.FC = () => {
               <ShieldCheck className="w-8 h-8 text-teal-700 mb-3" />
               <h3 className="text-lg font-semibold text-slate-900">PostgreSQL Row-Level Security</h3>
               <p className="mt-2 text-sm text-slate-600">
-                Mathematical multi-tenant isolation ensures Practice A can never view or query records belonging to Practice B.
+                Multi-tenant isolation ensures Practice A can never query records belonging to Practice B.
               </p>
             </div>
             <div className="p-6 rounded-xl border border-slate-200 bg-white">
               <Lock className="w-8 h-8 text-teal-700 mb-3" />
               <h3 className="text-lg font-semibold text-slate-900">Platform Admin Firewall</h3>
               <p className="mt-2 text-sm text-slate-600">
-                SaaS operators can manage subscriptions and billing status but are strictly barred by database policies from inspecting clinical PHI.
+                SaaS operators are strictly barred by database policies from inspecting patient clinical PHI.
               </p>
             </div>
             <div className="p-6 rounded-xl border border-slate-200 bg-white">
               <CheckCircle2 className="w-8 h-8 text-teal-700 mb-3" />
               <h3 className="text-lg font-semibold text-slate-900">Read-Only Access Architecture</h3>
               <p className="mt-2 text-sm text-slate-600">
-                If your subscription ever lapses, your clinical records remain accessible in read-only mode so you never lose patient history.
+                If subscriptions lapse, clinical records remain accessible in read-only mode so history is never lost.
               </p>
             </div>
           </div>
@@ -1003,7 +1003,7 @@ export const HomePageShell: React.FC = () => {
             Ready to Modernize Your Physiotherapy Practice?
           </h2>
           <p className="mt-4 text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
-            Join physical therapy clinics using Physenra to streamline musculoskeletal documentation, eliminate package billing disputes, and review diagnostic imaging inside the patient chart.
+            Join physical therapy clinics using Physenra to streamline clinical documentation, eliminate package disputes, and review imaging inside the patient chart.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <PrimaryCTAButton size="lg" to="/register-practice">

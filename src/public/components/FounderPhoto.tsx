@@ -46,6 +46,18 @@ export const FounderPhoto: React.FC<FounderPhotoProps> = ({
           />
         )}
 
+        {/* Restrained executive caption overlay */}
+        {imageLoaded && !imageError && (
+          <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-transparent pointer-events-none text-left">
+            <div className="text-white text-sm font-bold tracking-tight">
+              Dr Oladejo Korede
+            </div>
+            <div className="text-[11px] text-teal-300 font-medium">
+              Founder &amp; Clinical Architect • PT, MPH, DPT
+            </div>
+          </div>
+        )}
+
         {/* Executive Portrait Placeholder when official photograph is awaiting drop-in */}
         {(!imageLoaded || imageError) && (
           <div className="absolute inset-0 flex flex-col justify-between p-6 sm:p-8 bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 text-white">

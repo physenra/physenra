@@ -212,6 +212,45 @@ export const ROUTE_METADATA: Record<string, RouteMetadata> = {
     ogImage: DEFAULT_OG_IMAGE,
     twitterCard: 'summary_large_image',
   },
+  '/features/treatment-plans-hep': {
+    title: 'Treatment Protocols & Home Exercise Prescription (HEP) | Physenra',
+    description:
+      'Build structured rehabilitation pathways with SMART functional goals and prescribe printable home exercise programmes with sets, reps, and hold times.',
+    canonical: 'https://physenra.com/features/treatment-plans',
+    keywords: [
+      'physiotherapy treatment plans',
+      'home exercise prescription',
+      'HEP builder physiotherapy',
+      'rehab protocol software',
+    ],
+    ogTitle: 'Treatment Protocols & Exercise Prescription (HEP) | Physenra',
+    ogDescription:
+      'Set measurable functional milestones and prescribe customized home exercise regimens.',
+    ogUrl: 'https://physenra.com/features/treatment-plans',
+    ogType: 'website',
+    ogImage: DEFAULT_OG_IMAGE,
+    twitterCard: 'summary_large_image',
+  },
+  '/features/pain-management': {
+    title: 'Pain & Functional Outcome Tracking Built for Physiotherapy | Physenra',
+    description:
+      'Track 0-10 VAS pain ratings, 24-hour symptom behavior cycles, and validated functional outcome batteries (NDI, ODI, LEFS, QuickDASH).',
+    canonical: 'https://physenra.com/features/pain-management',
+    keywords: [
+      'pain tracking physiotherapy',
+      'VAS pain scale',
+      'NDI outcome measure',
+      'ODI physical therapy',
+      'LEFS functional scale',
+    ],
+    ogTitle: 'Pain & Functional Outcome Tracking | Physenra',
+    ogDescription:
+      'Track pain behavior and validate recovery with standardized functional outcome batteries.',
+    ogUrl: 'https://physenra.com/features/pain-management',
+    ogType: 'website',
+    ogImage: DEFAULT_OG_IMAGE,
+    twitterCard: 'summary_large_image',
+  },
   '/features/practice-management': {
     title: 'Practice Governance & Consumables Management | Physenra',
     description:

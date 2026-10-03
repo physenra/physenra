@@ -19,6 +19,7 @@ import {
   Receipt,
   Scan,
   Settings,
+  HeartPulse,
 } from 'lucide-react';
 
 export const FeaturesHubShell: React.FC = () => {
@@ -102,6 +103,13 @@ export const FeaturesHubShell: React.FC = () => {
               description="Multi-practitioner permissions, treatment room management, consumables stock control, and immutable audit logging."
               linkTo="/features/practice-management"
               linkLabel="Explore Practice Ops"
+            />
+            <FeatureCard
+              icon={<HeartPulse className="w-6 h-6" />}
+              title="Pain & Outcome Measures"
+              description="Visual Analog Scale (VAS 0–10), 24-hour symptom cycle tracking, and validated functional batteries (NDI, ODI, LEFS, QuickDASH)."
+              linkTo="/features/pain-management"
+              linkLabel="Explore Outcome Tracking"
             />
           </div>
 

@@ -59,6 +59,11 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://physenra.com/features/pain-management</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://physenra.com/features/practice-management</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
