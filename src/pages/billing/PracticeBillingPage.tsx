@@ -42,6 +42,20 @@ import type {
   SaasPayment,
 } from '../../types/models';
 
+/**
+ * Safe date formatter preventing runtime NaN/Invalid Date rendering.
+ */
+function formatDate(dateValue: string | Date | null | undefined): string {
+  if (!dateValue) return '—';
+  try {
+    const d = new Date(dateValue);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString();
+  } catch {
+    return '—';
+  }
+}
+
 interface PracticeBillingPageProps {
   defaultTab?: 'overview' | 'plans' | 'invoices';
 }
@@ -183,7 +197,123 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
   }, [searchParams, activePractice?.id, loadBillingData, navigate]);
 
   // ----------------------------------------------------------------------------
-  // 3. Security Role Gating
+  // 3. Subscription Status Computation (Unconditional Top-Level Hook)
+  // ----------------------------------------------------------------------------
+  const statusConfig = useMemo(() => {
+    const status = subscription?.status || 'trialing';
+    const isCancelScheduled = Boolean(subscription?.cancel_at_period_end);
+
+    if (isCancelScheduled) {
+      const periodEndFormatted = formatDate(subscription?.current_period_end);
+      return {
+        label: 'Cancellation Scheduled',
+        badgeClass: 'bg-amber-100 text-amber-800 border-amber-200',
+        bannerClass: 'bg-amber-50 border-amber-300 text-amber-900',
+        icon: <Clock className="w-5 h-5 text-amber-600 flex-shrink-0" />,
+        headline: `Cancellation scheduled: Your subscription remains active until ${periodEndFormatted}.`,
+        explanation: 'Your practice will not lose paid clinical features immediately. After that date, access will transition according to the existing subscription lifecycle. No patient or clinical records will ever be deleted.',
+      };
+    }
+
+    switch (status) {
+      case 'active':
+        return {
+          label: 'Active',
+          badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+          bannerClass: 'bg-emerald-50 border-emerald-300 text-emerald-900',
+          icon: <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />,
+          headline: 'Your Physenra subscription is active and in good standing.',
+          explanation: `Next renewal: ${formatDate(subscription?.current_period_end)}`,
+        };
+      case 'trialing': {
+        const endDateStr = subscription?.trial_ends_at || subscription?.current_period_end;
+        const endDate = endDateStr ? new Date(endDateStr) : null;
+        let countdownLabel = '';
+        if (endDate && !isNaN(endDate.getTime())) {
+          const diffDays = Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          if (diffDays <= 0) {
+            countdownLabel = 'Trial expires today';
+          } else if (diffDays === 1) {
+            countdownLabel = '1 day remaining';
+          } else {
+            countdownLabel = `${diffDays} days remaining`;
+          }
+        }
+        return {
+          label: 'Evaluation Trial',
+          badgeClass: 'bg-teal-100 text-teal-800 border-teal-200',
+          bannerClass: 'bg-teal-50 border-teal-300 text-teal-900',
+          icon: <Sparkles className="w-5 h-5 text-teal-600 flex-shrink-0" />,
+          headline: `Trial ends: ${formatDate(endDateStr)}${countdownLabel ? ` (${countdownLabel})` : ''}`,
+          explanation: 'Upgrade to a paid subscription at any time to preserve uninterrupted clinical write access.',
+        };
+      }
+      case 'past_due':
+        return {
+          label: 'Payment Past Due',
+          badgeClass: 'bg-amber-100 text-amber-800 border-amber-200',
+          bannerClass: 'bg-amber-50 border-amber-300 text-amber-900',
+          icon: <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />,
+          headline: 'Payment issue: Your subscription payment requires attention. Payment is required to keep your practice active.',
+          explanation: 'Please update your billing or settle open invoices to avoid service interruption.',
+        };
+      case 'grace_period': {
+        const graceEndStr = formatDate(subscription?.grace_period_ends_at);
+        return {
+          label: 'Payment Grace Period',
+          badgeClass: 'bg-orange-100 text-orange-800 border-orange-200',
+          bannerClass: 'bg-orange-50 border-orange-300 text-orange-900',
+          icon: <Clock className="w-5 h-5 text-orange-600 flex-shrink-0" />,
+          headline: `Payment overdue: Your practice remains active during the grace period until ${graceEndStr}.`,
+          explanation: 'Please update your billing before access is restricted. Settle your outstanding invoice to avoid service interruption.',
+        };
+      }
+      case 'suspended':
+        return {
+          label: 'Suspended',
+          badgeClass: 'bg-rose-100 text-rose-800 border-rose-200',
+          bannerClass: 'bg-rose-50 border-rose-300 text-rose-900',
+          icon: <ShieldAlert className="w-5 h-5 text-rose-600 flex-shrink-0" />,
+          headline: 'Practice access is currently suspended.',
+          explanation: 'Your clinical records remain preserved. Contact your practice administrator or Physenra support.',
+        };
+      case 'expired':
+        return {
+          label: 'Expired',
+          badgeClass: 'bg-rose-100 text-rose-800 border-rose-200',
+          bannerClass: 'bg-rose-50 border-rose-300 text-rose-900',
+          icon: <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />,
+          headline: 'Your free trial has ended.',
+          explanation: 'Payment is required to restore full clinical write entitlement. Your clinical data remains securely preserved. Subscribe to continue creating or editing clinical records.',
+        };
+      case 'cancelled':
+        return {
+          label: 'Cancelled',
+          badgeClass: 'bg-slate-100 text-slate-800 border-slate-200',
+          bannerClass: 'bg-slate-50 border-slate-300 text-slate-900',
+          icon: <Info className="w-5 h-5 text-slate-600 flex-shrink-0" />,
+          headline: 'Your subscription has been cancelled.',
+          explanation: 'Your clinical records remain preserved in read-only mode. Choose a plan to restore write access.',
+        };
+      default:
+        return {
+          label: status,
+          badgeClass: 'bg-slate-100 text-slate-800 border-slate-200',
+          bannerClass: 'bg-slate-50 border-slate-300 text-slate-900',
+          icon: <Info className="w-5 h-5 text-slate-600 flex-shrink-0" />,
+          headline: `Subscription status: ${status}`,
+          explanation: 'Review current billing settings below.',
+        };
+    }
+  }, [subscription]);
+
+  // Seat capacity computation
+  const seatLimit = subscription?.seat_limit || 1;
+  const availableSeats = Math.max(0, seatLimit - practitionerCount);
+  const isCapacityFull = practitionerCount >= seatLimit;
+
+  // ----------------------------------------------------------------------------
+  // 4. Security Role Gating
   // ----------------------------------------------------------------------------
   if (practiceLoading || (loading && !subscription)) {
     return (
@@ -218,16 +348,24 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
     return (
       <div className="max-w-2xl mx-auto my-12 p-8 bg-white border border-slate-200 rounded-xl shadow-sm text-center">
         <AlertCircle className="w-12 h-12 text-teal-600 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-slate-900 mb-2">Practice Context Required</h2>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">No Active Practice Selected</h2>
         <p className="text-slate-600 mb-6 text-sm">
           Please select or register an active practice to view and manage subscription billing.
         </p>
-        <Link
-          to="/app/dashboard"
-          className="inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition text-sm font-semibold"
-        >
-          Return to Dashboard
-        </Link>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Link
+            to="/register-practice"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 transition"
+          >
+            Register a Practice
+          </Link>
+          <Link
+            to="/app/dashboard"
+            className="inline-flex items-center px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition text-sm font-semibold"
+          >
+            Return to Dashboard
+          </Link>
+        </div>
       </div>
     );
   }
@@ -292,7 +430,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
       // Scheduled downgrade or immediate trial switch
       if (result.action === 'downgrade_scheduled') {
         setSuccessMessage(
-          `Downgrade to ${planToChange.name} scheduled for ${new Date(result.effective_at || '').toLocaleDateString()}. Your current entitlement remains active until then.`
+          `Downgrade to ${planToChange.name} scheduled for ${formatDate(result.effective_at)}. Your current entitlement remains active until then.`
         );
       } else if (result.action === 'plan_changed_immediately') {
         setSuccessMessage(`Subscription plan updated to ${planToChange.name}.`);
@@ -347,7 +485,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
 
       if (res.cancel_at_period_end) {
         setSuccessMessage(
-          `Subscription cancellation scheduled. Your clinical access and data remain fully active until ${new Date(res.effective_at || '').toLocaleDateString()}.`
+          `Subscription cancellation scheduled. Your clinical access and data remain fully active until ${formatDate(res.effective_at)}.`
         );
       } else {
         setSuccessMessage('Evaluation trial ended. Practice access is now read-only.');
@@ -388,146 +526,9 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
     }
   };
 
-  // ----------------------------------------------------------------------------
-  // 5. Subscription Status Computation
-  // ----------------------------------------------------------------------------
-  const statusConfig = useMemo(() => {
-    const status = subscription?.status || 'trialing';
-    const isCancelScheduled = Boolean(subscription?.cancel_at_period_end);
 
-    if (isCancelScheduled) {
-      const periodEndFormatted = subscription?.current_period_end
-        ? new Date(subscription.current_period_end).toLocaleDateString()
-        : '';
-      return {
-        label: 'Cancellation Scheduled',
-        badgeClass: 'bg-amber-100 text-amber-800 border-amber-200',
-        bannerClass: 'bg-amber-50 border-amber-300 text-amber-900',
-        icon: <Clock className="w-5 h-5 text-amber-600 flex-shrink-0" />,
-        headline: `Cancellation scheduled: Your subscription remains active until ${periodEndFormatted}.`,
-        explanation: 'Your practice will not lose paid clinical features immediately. After that date, access will transition according to the existing subscription lifecycle. No patient or clinical records will ever be deleted.',
-      };
-    }
 
-    switch (status) {
-      case 'active':
-        return {
-          label: 'Active',
-          badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-          bannerClass: 'bg-emerald-50 border-emerald-300 text-emerald-900',
-          icon: <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />,
-          headline: 'Your Physenra subscription is active and in good standing.',
-          explanation: `Next renewal: ${new Date(subscription?.current_period_end || '').toLocaleDateString()}`,
-        };
-      case 'trialing': {
-        const endDateStr = subscription?.trial_ends_at || subscription?.current_period_end;
-        const endDate = endDateStr ? new Date(endDateStr) : null;
-        let countdownLabel = '';
-        if (endDate) {
-          const diffDays = Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-          if (diffDays <= 0) {
-            countdownLabel = 'Trial expires today';
-          } else if (diffDays === 1) {
-            countdownLabel = '1 day remaining';
-          } else {
-            countdownLabel = `${diffDays} days remaining`;
-          }
-        }
-        return {
-          label: 'Evaluation Trial',
-          badgeClass: 'bg-teal-100 text-teal-800 border-teal-200',
-          bannerClass: 'bg-teal-50 border-teal-300 text-teal-900',
-          icon: <Sparkles className="w-5 h-5 text-teal-600 flex-shrink-0" />,
-          headline: `Trial ends: ${endDate ? endDate.toLocaleDateString() : '—'}${countdownLabel ? ` (${countdownLabel})` : ''}`,
-          explanation: 'Upgrade to a paid subscription at any time to preserve uninterrupted clinical write access.',
-        };
-      }
-      case 'past_due':
-        return {
-          label: 'Payment Past Due',
-          badgeClass: 'bg-amber-100 text-amber-800 border-amber-200',
-          bannerClass: 'bg-amber-50 border-amber-300 text-amber-900',
-          icon: <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />,
-          headline: 'Payment issue: Your subscription payment requires attention. Payment is required to keep your practice active.',
-          explanation: 'Please update your billing or settle open invoices to avoid service interruption.',
-        };
-      case 'grace_period': {
-        const graceEndStr = subscription?.grace_period_ends_at
-          ? new Date(subscription.grace_period_ends_at).toLocaleDateString()
-          : '';
-        return {
-          label: 'Payment Grace Period',
-          badgeClass: 'bg-orange-100 text-orange-800 border-orange-200',
-          bannerClass: 'bg-orange-50 border-orange-300 text-orange-900',
-          icon: <Clock className="w-5 h-5 text-orange-600 flex-shrink-0" />,
-          headline: `Payment overdue: Your practice remains active during the grace period until ${graceEndStr}.`,
-          explanation: 'Please update your billing before access is restricted. Settle your outstanding invoice to avoid service interruption.',
-        };
-      }
-      case 'suspended':
-        return {
-          label: 'Suspended',
-          badgeClass: 'bg-rose-100 text-rose-800 border-rose-200',
-          bannerClass: 'bg-rose-50 border-rose-300 text-rose-900',
-          icon: <ShieldAlert className="w-5 h-5 text-rose-600 flex-shrink-0" />,
-          headline: 'Practice access is currently suspended.',
-          explanation: 'Your clinical records remain preserved. Contact your practice administrator or Physenra support.',
-        };
-      case 'expired':
-        return {
-          label: 'Expired',
-          badgeClass: 'bg-rose-100 text-rose-800 border-rose-200',
-          bannerClass: 'bg-rose-50 border-rose-300 text-rose-900',
-          icon: <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />,
-          headline: 'Your free trial has ended.',
-          explanation: 'Payment is required to restore full clinical write entitlement. Your clinical data remains securely preserved. Subscribe to continue creating or editing clinical records.',
-        };
-      case 'cancelled':
-        return {
-          label: 'Cancelled',
-          badgeClass: 'bg-slate-100 text-slate-800 border-slate-200',
-          bannerClass: 'bg-slate-50 border-slate-300 text-slate-900',
-          icon: <Info className="w-5 h-5 text-slate-600 flex-shrink-0" />,
-          headline: 'Your subscription has been cancelled.',
-          explanation: 'Your clinical records remain preserved in read-only mode. Choose a plan to restore write access.',
-        };
-      default:
-        return {
-          label: status,
-          badgeClass: 'bg-slate-100 text-slate-800 border-slate-200',
-          bannerClass: 'bg-slate-50 border-slate-300 text-slate-900',
-          icon: <Info className="w-5 h-5 text-slate-600 flex-shrink-0" />,
-          headline: `Subscription status: ${status}`,
-          explanation: 'Review current billing settings below.',
-        };
-    }
-  }, [subscription]);
 
-  // Seat capacity computation
-  const seatLimit = subscription?.seat_limit || 1;
-  const availableSeats = Math.max(0, seatLimit - practitionerCount);
-  const isCapacityFull = practitionerCount >= seatLimit;
-
-  // ----------------------------------------------------------------------------
-  // Render
-  // ----------------------------------------------------------------------------
-  if (!activePractice && !practiceLoading) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-12 text-center">
-        <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-        <h2 className="text-xl font-bold text-slate-900 mb-2">No Active Practice Selected</h2>
-        <p className="text-sm text-slate-600 mb-6">
-          Please select or register a practice to access billing, subscriptions, and financial records.
-        </p>
-        <Link
-          to="/register-practice"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 transition"
-        >
-          Register a Practice
-        </Link>
-      </div>
-    );
-  }
 
   return (
     <div className="practice-billing-container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -756,7 +757,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                     <div>
                       <span className="font-semibold">Pending Plan Scheduled: </span>
                       Downgrade to <strong>{pendingPlan.name}</strong> will take effect at the end of the billing period (
-                      {new Date(subscription?.current_period_end || '').toLocaleDateString()}).
+                      {formatDate(subscription?.current_period_end)}).
                     </div>
                   </div>
                 )}
@@ -766,9 +767,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                   <div>
                     <span className="text-slate-400 block mb-1">Billing Period Start</span>
                     <span className="font-semibold text-slate-800">
-                      {subscription?.current_period_start
-                        ? new Date(subscription.current_period_start).toLocaleDateString()
-                        : '—'}
+                      {formatDate(subscription?.current_period_start)}
                     </span>
                   </div>
                   <div>
@@ -788,15 +787,13 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                         : 'Renewal Date'}
                     </span>
                     <span className="font-semibold text-slate-800">
-                      {subscription?.current_period_end
-                        ? new Date(
-                            subscription?.status === 'grace_period' && subscription?.grace_period_ends_at
-                              ? subscription.grace_period_ends_at
-                              : subscription?.status === 'trialing' && subscription?.trial_ends_at
-                              ? subscription.trial_ends_at
-                              : subscription.current_period_end
-                          ).toLocaleDateString()
-                        : '—'}
+                      {formatDate(
+                        subscription?.status === 'grace_period' && subscription?.grace_period_ends_at
+                          ? subscription.grace_period_ends_at
+                          : subscription?.status === 'trialing' && subscription?.trial_ends_at
+                          ? subscription.trial_ends_at
+                          : subscription ? subscription.current_period_end : undefined
+                      )}
                     </span>
                   </div>
                 </div>
@@ -948,7 +945,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                             {inv.invoice_number}
                           </Link>
                         </td>
-                        <td className="py-3 px-4 text-xs">{new Date(inv.created_at).toLocaleDateString()}</td>
+                        <td className="py-3 px-4 text-xs">{formatDate(inv.created_at)}</td>
                         <td className="py-3 px-4 font-semibold text-slate-900">{formatNaira(inv.total_cents)}</td>
                         <td className="py-3 px-4">
                           <span
@@ -1225,8 +1222,8 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                             {inv.invoice_number}
                           </Link>
                         </td>
-                        <td className="py-3 px-4 text-xs">{new Date(inv.created_at).toLocaleDateString()}</td>
-                        <td className="py-3 px-4 text-xs">{new Date(inv.due_date).toLocaleDateString()}</td>
+                        <td className="py-3 px-4 text-xs">{formatDate(inv.created_at)}</td>
+                        <td className="py-3 px-4 text-xs">{formatDate(inv.due_date)}</td>
                         <td className="py-3 px-4 font-semibold text-slate-900">{formatNaira(inv.total_cents)}</td>
                         <td className="py-3 px-4">
                           <span
@@ -1307,7 +1304,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                           {pay.gateway_reference}
                         </td>
                         <td className="py-3 px-4 text-xs">
-                          {pay.settled_at ? new Date(pay.settled_at).toLocaleDateString() : '—'}
+                          {formatDate(pay.settled_at)}
                         </td>
                         <td className="py-3 px-4 text-xs capitalize">{pay.payment_method}</td>
                         <td className="py-3 px-4 font-semibold text-slate-900">{formatNaira(pay.amount_cents)}</td>
@@ -1393,7 +1390,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                     <p className="font-semibold mb-1">Scheduled at Period End:</p>
                     <p>
                       Your current plan and entitlements will remain active until{' '}
-                      <strong>{new Date(subscription?.current_period_end || '').toLocaleDateString()}</strong>.
+                      <strong>{formatDate(subscription?.current_period_end)}</strong>.
                       The lower price and reduced seat capacity will take effect upon subsequent renewal.
                     </p>
                   </div>
@@ -1473,9 +1470,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                 <div>
                   <span className="text-slate-400">Current Period End:</span>{' '}
                   <strong className="text-slate-900">
-                    {subscription?.current_period_end
-                      ? new Date(subscription.current_period_end).toLocaleDateString()
-                      : '—'}
+                    {formatDate(subscription?.current_period_end)}
                   </strong>
                 </div>
               </div>
@@ -1484,7 +1479,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                 <p className="font-semibold">Cancellation Terms:</p>
                 <p>
                   • Your subscription remains active until{' '}
-                  <strong>{new Date(subscription?.current_period_end || '').toLocaleDateString()}</strong>.
+                  <strong>{formatDate(subscription?.current_period_end)}</strong>.
                 </p>
                 <p>• You will not lose paid clinical features before that date.</p>
                 <p>• After that date, your practice access will transition to read-only.</p>
@@ -1540,7 +1535,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
             <div className="py-4 space-y-3 text-sm text-slate-600">
               <p>
                 Your cancellation is scheduled for{' '}
-                <strong>{new Date(subscription?.current_period_end || '').toLocaleDateString()}</strong>.
+                <strong>{formatDate(subscription?.current_period_end)}</strong>.
               </p>
               <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900 space-y-1.5">
                 <p className="font-semibold">Reactivation Terms:</p>

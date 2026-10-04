@@ -40,6 +40,17 @@ import type {
   SaasPlan,
 } from '../../types/models';
 
+function formatDate(dateValue: string | Date | null | undefined): string {
+  if (!dateValue) return '—';
+  try {
+    const d = new Date(dateValue);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString();
+  } catch {
+    return '—';
+  }
+}
+
 export const PracticeInvoiceDetailPage: React.FC = () => {
   const { invoiceId } = useParams<{ invoiceId: string }>();
   const { activePractice } = usePractice();
@@ -219,9 +230,9 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
 
   const paymentReference = payment?.gateway_reference || payment?.payment_number || 'N/A';
   const paymentSettledDate = invoice.paid_at
-    ? new Date(invoice.paid_at).toLocaleDateString()
+    ? formatDate(invoice.paid_at)
     : payment?.settled_at
-    ? new Date(payment.settled_at).toLocaleDateString()
+    ? formatDate(payment.settled_at)
     : 'N/A';
 
   return (
@@ -359,13 +370,13 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
             <div>
               <span className="text-slate-400 block mb-1">Issue Date</span>
               <span className="font-semibold text-slate-800">
-                {new Date(invoice.created_at).toLocaleDateString()}
+                {formatDate(invoice.created_at)}
               </span>
             </div>
             <div>
               <span className="text-slate-400 block mb-1">Due Date</span>
               <span className="font-semibold text-slate-800">
-                {new Date(invoice.due_date).toLocaleDateString()}
+                {formatDate(invoice.due_date)}
               </span>
             </div>
             <div>
@@ -431,7 +442,7 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
                 <div className="flex justify-between">
                   <span className="text-slate-500">Billing Period:</span>
                   <span className="font-semibold text-slate-800">
-                    {new Date(invoice.created_at).toLocaleDateString()} – {new Date(invoice.due_date).toLocaleDateString()}
+                    {formatDate(invoice.created_at)} – {formatDate(invoice.due_date)}
                   </span>
                 </div>
               </div>
@@ -612,7 +623,7 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
                   {planName} ({billingIntervalLabel})
                 </span>
                 <span className="text-slate-500 block">
-                  Period: {new Date(invoice.created_at).toLocaleDateString()} – {new Date(invoice.due_date).toLocaleDateString()}
+                  Period: {formatDate(invoice.created_at)} – {formatDate(invoice.due_date)}
                 </span>
               </div>
             </div>

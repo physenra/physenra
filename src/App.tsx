@@ -108,10 +108,12 @@ import {
   PrivacyPageShell,
   withPublicSuspense,
 } from './public/routes/publicRoutes';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 
 export const App: React.FC = () => {
   return (
-    <Routes>
+    <ErrorBoundary>
+      <Routes>
       {/* Public Routes */}
       {/* Public Commercial Website Root (Phase 1A Scaffold) */}
       <Route path="/" element={withPublicSuspense(HomePageShell)} />
@@ -309,6 +311,7 @@ export const App: React.FC = () => {
       {/* Unmatched 404 Route */}
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
+  </ErrorBoundary>
   );
 };
 export default App;

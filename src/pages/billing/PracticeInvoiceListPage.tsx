@@ -30,6 +30,17 @@ import { saasSubscriptionService } from '../../services/saasSubscriptionService'
 import { formatNaira } from '../../utils/currency';
 import type { SaasInvoice } from '../../types/models';
 
+function formatDate(dateValue: string | Date | null | undefined): string {
+  if (!dateValue) return '—';
+  try {
+    const d = new Date(dateValue);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString();
+  } catch {
+    return '—';
+  }
+}
+
 type InvoiceFilterStatus = 'all' | 'open' | 'paid' | 'uncollectible' | 'void';
 
 export const PracticeInvoiceListPage: React.FC = () => {
@@ -68,7 +79,62 @@ export const PracticeInvoiceListPage: React.FC = () => {
   }, [loadInvoices]);
 
   // ----------------------------------------------------------------------------
-  // Access Control Boundary
+  // Memoized Filters & Counts (MUST BE TOP-LEVEL BEFORE CONDITIONAL RETURNS)
+  // ----------------------------------------------------------------------------
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter((inv) => {
+      // Status filter
+      if (statusFilter !== 'all' && inv.status !== statusFilter) {
+        return false;
+      }
+      // Search filter (by invoice number)
+      if (searchQuery.trim()) {
+        const query = searchQuery.trim().toLowerCase();
+        return inv.invoice_number.toLowerCase().includes(query);
+      }
+      return true;
+    });
+  }, [invoices, statusFilter, searchQuery]);
+
+  const counts = useMemo(() => {
+    return {
+      all: invoices.length,
+      open: invoices.filter((i) => i.status === 'open').length,
+      paid: invoices.filter((i) => i.status === 'paid').length,
+      uncollectible: invoices.filter((i) => i.status === 'uncollectible').length,
+      void: invoices.filter((i) => i.status === 'void').length,
+    };
+  }, [invoices]);
+
+  // ----------------------------------------------------------------------------
+  // Pay Now Handler (Owner Only)
+  // ----------------------------------------------------------------------------
+  const handlePayInvoice = async (invoiceId: string) => {
+    if (!activePractice?.id || isReadOnly) return;
+
+    try {
+      setActionLoading(invoiceId);
+      setErrorMessage(null);
+
+      const checkoutInit = await saasSubscriptionService.initializePaystackCheckout(
+        activePractice.id,
+        invoiceId
+      );
+
+      if (checkoutInit.authorization_url) {
+        window.location.href = checkoutInit.authorization_url;
+      } else {
+        throw new Error('Payment gateway did not provide a valid authorization URL.');
+      }
+    } catch (err: any) {
+      console.error('Checkout initiation failed:', err);
+      setErrorMessage(err.message || 'Payment initiation failed.');
+      setActionLoading(null);
+    }
+  };
+
+  // ----------------------------------------------------------------------------
+  // Access Control Boundary (Safe: all hooks have executed unconditionally)
   // ----------------------------------------------------------------------------
   if (isClinician || isReceptionist) {
     return (
@@ -105,61 +171,6 @@ export const PracticeInvoiceListPage: React.FC = () => {
       </div>
     );
   }
-
-  // ----------------------------------------------------------------------------
-  // Pay Now Handler (Owner Only)
-  // ----------------------------------------------------------------------------
-  const handlePayInvoice = async (invoiceId: string) => {
-    if (!activePractice?.id || isReadOnly) return;
-
-    try {
-      setActionLoading(invoiceId);
-      setErrorMessage(null);
-
-      const checkoutInit = await saasSubscriptionService.initializePaystackCheckout(
-        activePractice.id,
-        invoiceId
-      );
-
-      if (checkoutInit.authorization_url) {
-        window.location.href = checkoutInit.authorization_url;
-      } else {
-        throw new Error('Payment gateway did not provide a valid authorization URL.');
-      }
-    } catch (err: any) {
-      console.error('Checkout initiation failed:', err);
-      setErrorMessage(err.message || 'Payment initiation failed.');
-      setActionLoading(null);
-    }
-  };
-
-  // ----------------------------------------------------------------------------
-  // Filtered Invoices
-  // ----------------------------------------------------------------------------
-  const filteredInvoices = useMemo(() => {
-    return invoices.filter((inv) => {
-      // Status filter
-      if (statusFilter !== 'all' && inv.status !== statusFilter) {
-        return false;
-      }
-      // Search filter (by invoice number)
-      if (searchQuery.trim()) {
-        const query = searchQuery.trim().toLowerCase();
-        return inv.invoice_number.toLowerCase().includes(query);
-      }
-      return true;
-    });
-  }, [invoices, statusFilter, searchQuery]);
-
-  const counts = useMemo(() => {
-    return {
-      all: invoices.length,
-      open: invoices.filter((i) => i.status === 'open').length,
-      paid: invoices.filter((i) => i.status === 'paid').length,
-      uncollectible: invoices.filter((i) => i.status === 'uncollectible').length,
-      void: invoices.filter((i) => i.status === 'void').length,
-    };
-  }, [invoices]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -323,10 +334,10 @@ export const PracticeInvoiceListPage: React.FC = () => {
                       </Link>
                     </td>
                     <td className="py-3 px-4 text-xs text-slate-600">
-                      {new Date(inv.created_at).toLocaleDateString()}
+                      {formatDate(inv.created_at)}
                     </td>
                     <td className="py-3 px-4 text-xs text-slate-600">
-                      {new Date(inv.due_date).toLocaleDateString()}
+                      {formatDate(inv.due_date)}
                     </td>
                     <td className="py-3 px-4 font-bold text-slate-900 text-xs">
                       {formatNaira(inv.total_cents)}
