@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { usePractice } from '../../hooks/usePractice';
 import { useRole } from '../../hooks/useRole';
 import { Building2, Shield, Calendar, Globe, Clock, CheckCircle } from 'lucide-react';
@@ -188,13 +189,19 @@ export const PracticeSettingsPage: React.FC = () => {
 
               <div className="detail-item">
                 <span className="detail-label">Plan Actions</span>
-                <div>
-                  <a
-                    href="/pricing"
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    to="/app/billing"
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold transition-colors"
                   >
-                    View SaaS Plans &amp; Upgrades
-                  </a>
+                    Manage Subscription &amp; Plan
+                  </Link>
+                  <Link
+                    to="/app/billing/invoices"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors"
+                  >
+                    Subscription Invoices
+                  </Link>
                 </div>
               </div>
             </div>

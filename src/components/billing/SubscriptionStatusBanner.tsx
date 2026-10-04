@@ -29,8 +29,10 @@ import type { PracticeSubscription, SaasPlan } from '../../types/models';
 
 export const SubscriptionStatusBanner: React.FC = () => {
   const { activePractice } = usePractice();
-  const { isOwner } = useRole();
+  const { isOwner, isAccountant, isManager } = useRole();
   const location = useLocation();
+
+  const canAccessBilling = isOwner || isAccountant || isManager;
 
   const [subscription, setSubscription] = useState<(PracticeSubscription & { plan?: SaasPlan }) | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -172,13 +174,15 @@ export const SubscriptionStatusBanner: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 pl-8 sm:pl-0">
-            <Link
-              to="/app/billing"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-800 rounded-lg text-xs font-semibold hover:bg-slate-50 transition shadow-sm"
-            >
-              <span>View Billing</span>
-              <ArrowRight size={13} />
-            </Link>
+            {canAccessBilling && (
+              <Link
+                to="/app/billing"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-slate-800 rounded-lg text-xs font-semibold hover:bg-slate-50 transition shadow-sm"
+              >
+                <span>View Billing</span>
+                <ArrowRight size={13} />
+              </Link>
+            )}
             {daysRemaining > 3 && (
               <button
                 onClick={() => setDismissed(true)}
@@ -211,13 +215,15 @@ export const SubscriptionStatusBanner: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 pl-8 sm:pl-0">
-            <Link
-              to="/app/billing"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700 transition shadow-sm"
-            >
-              <span>Review Billing</span>
-              <ArrowRight size={13} />
-            </Link>
+            {canAccessBilling && (
+              <Link
+                to="/app/billing"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700 transition shadow-sm"
+              >
+                <span>Review Billing</span>
+                <ArrowRight size={13} />
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -245,13 +251,15 @@ export const SubscriptionStatusBanner: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 pl-8 sm:pl-0">
-            <Link
-              to="/app/billing"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700 transition shadow-sm"
-            >
-              <span>Review Billing</span>
-              <ArrowRight size={13} />
-            </Link>
+            {canAccessBilling && (
+              <Link
+                to="/app/billing"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700 transition shadow-sm"
+              >
+                <span>Review Billing</span>
+                <ArrowRight size={13} />
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -294,19 +302,23 @@ export const SubscriptionStatusBanner: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2 pl-8 sm:pl-0">
-            <Link
-              to="/app/billing/plans"
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 transition shadow-sm"
-            >
-              <span>Choose a Plan</span>
-              <ArrowRight size={13} />
-            </Link>
-            <Link
-              to="/app/billing/invoices"
-              className="inline-flex items-center px-3 py-1.5 bg-white border border-rose-200 text-rose-800 rounded-lg text-xs font-semibold hover:bg-rose-100 transition"
-            >
-              View Invoices
-            </Link>
+            {canAccessBilling && (
+              <>
+                <Link
+                  to="/app/billing/plans"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-bold hover:bg-rose-700 transition shadow-sm"
+                >
+                  <span>Choose a Plan</span>
+                  <ArrowRight size={13} />
+                </Link>
+                <Link
+                  to="/app/billing/invoices"
+                  className="inline-flex items-center px-3 py-1.5 bg-white border border-rose-200 text-rose-800 rounded-lg text-xs font-semibold hover:bg-rose-100 transition"
+                >
+                  View Invoices
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -342,12 +354,14 @@ export const SubscriptionStatusBanner: React.FC = () => {
                 <span>Reactivate Subscription</span>
               </Link>
             )}
-            <Link
-              to="/app/billing"
-              className="inline-flex items-center px-3 py-1.5 bg-white border border-amber-200 text-amber-800 rounded-lg text-xs font-semibold hover:bg-amber-100 transition"
-            >
-              Billing Details
-            </Link>
+            {canAccessBilling && (
+              <Link
+                to="/app/billing"
+                className="inline-flex items-center px-3 py-1.5 bg-white border border-amber-200 text-amber-800 rounded-lg text-xs font-semibold hover:bg-amber-100 transition"
+              >
+                Billing Details
+              </Link>
+            )}
           </div>
         </div>
       </div>

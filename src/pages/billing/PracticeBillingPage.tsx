@@ -93,7 +93,10 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
   // 1. Authoritative Data Loading
   // ----------------------------------------------------------------------------
   const loadBillingData = useCallback(async () => {
-    if (!activePractice?.id) return;
+    if (!activePractice?.id) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setErrorMessage(null);
@@ -203,6 +206,25 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
         <Link
           to="/app/dashboard"
           className="inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition"
+        >
+          Return to Dashboard
+        </Link>
+      </div>
+    );
+  }
+
+  // Tenant Context Guard
+  if (!activePractice) {
+    return (
+      <div className="max-w-2xl mx-auto my-12 p-8 bg-white border border-slate-200 rounded-xl shadow-sm text-center">
+        <AlertCircle className="w-12 h-12 text-teal-600 mx-auto mb-4" />
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Practice Context Required</h2>
+        <p className="text-slate-600 mb-6 text-sm">
+          Please select or register an active practice to view and manage subscription billing.
+        </p>
+        <Link
+          to="/app/dashboard"
+          className="inline-flex items-center px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition text-sm font-semibold"
         >
           Return to Dashboard
         </Link>
@@ -489,6 +511,24 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
   // ----------------------------------------------------------------------------
   // Render
   // ----------------------------------------------------------------------------
+  if (!activePractice && !practiceLoading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-12 text-center">
+        <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+        <h2 className="text-xl font-bold text-slate-900 mb-2">No Active Practice Selected</h2>
+        <p className="text-sm text-slate-600 mb-6">
+          Please select or register a practice to access billing, subscriptions, and financial records.
+        </p>
+        <Link
+          to="/register-practice"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 transition"
+        >
+          Register a Practice
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="practice-billing-container max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
@@ -503,14 +543,49 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
           </p>
         </div>
 
-        {/* Read-Only Badge for Accountant / Manager */}
-        {isReadOnly && (
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-300 text-slate-700 text-xs font-medium">
-            <Shield className="w-3.5 h-3.5 text-slate-500" />
-            <span>Read-Only Financial Access ({isAccountant ? 'Accountant' : 'Practice Manager'})</span>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Quick link to Patient Clinical Invoicing */}
+          <Link
+            to="/app/invoices"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition shadow-sm"
+          >
+            <Receipt size={14} className="text-teal-600" />
+            <span>Patient Invoices &amp; Billing</span>
+            <ExternalLink size={12} className="text-slate-400" />
+          </Link>
+
+          {/* Read-Only Badge for Accountant / Manager */}
+          {isReadOnly && (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-300 text-slate-700 text-xs font-medium">
+              <Shield className="w-3.5 h-3.5 text-slate-500" />
+              <span>Read-Only Financial Access ({isAccountant ? 'Accountant' : 'Practice Manager'})</span>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Missing Subscription Record Notice */}
+      {!subscription && !loading && (
+        <div className="mb-6 p-5 bg-amber-50 border border-amber-300 rounded-xl">
+          <div className="flex items-start gap-3.5">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-sm text-amber-900">Subscription Plan Setup Required</h3>
+              <p className="text-xs text-amber-800 mt-1">
+                No active SaaS subscription plan is configured for <strong>{activePractice?.name}</strong>. Choose a plan from our catalog below to configure practitioner seats and operational write entitlements.
+              </p>
+              <div className="mt-3">
+                <button
+                  onClick={() => setActiveTab('plans')}
+                  className="px-3.5 py-1.5 bg-teal-600 text-white rounded-lg text-xs font-semibold hover:bg-teal-700 transition shadow-sm"
+                >
+                  Choose a Plan
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Global Alerts */}
       {errorMessage && (
@@ -844,7 +919,15 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
             </div>
 
             {invoices.length === 0 ? (
-              <p className="text-sm text-slate-400 py-4 text-center">No invoices recorded yet.</p>
+              <div className="py-6 text-center text-slate-500">
+                <Receipt className="w-9 h-9 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-700">No subscription invoices recorded yet.</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                  {subscription?.status === 'trialing'
+                    ? 'Your practice is currently enjoying its 14-day evaluation trial. Subscription invoices will appear here once your trial ends or upon early plan upgrade.'
+                    : 'Invoices will be recorded here when billing renewals or plan upgrades occur.'}
+                </p>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-slate-600">
@@ -1102,7 +1185,25 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
             </div>
 
             {invoices.length === 0 ? (
-              <p className="text-sm text-slate-400 py-6 text-center">No invoices generated for this practice.</p>
+              <div className="py-8 text-center text-slate-500">
+                <Receipt className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-700">No subscription invoices generated for this practice.</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                  {subscription?.status === 'trialing'
+                    ? 'Your practice is currently in its 14-day evaluation trial. Subscription invoices will be generated here upon renewal or checkout.'
+                    : 'Authoritative invoices will generate automatically upon scheduled billing renewals.'}
+                </p>
+                <div className="mt-5 pt-4 border-t border-slate-100 max-w-md mx-auto">
+                  <p className="text-xs text-slate-500 mb-2">Looking to create or manage clinical patient invoices?</p>
+                  <Link
+                    to="/app/invoices"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-600 hover:text-teal-800 transition"
+                  >
+                    <span>Go to Patient Invoices &amp; Accounts Receivable</span>
+                    <ChevronRight size={14} />
+                  </Link>
+                </div>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-slate-600">
@@ -1174,7 +1275,15 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
             </h3>
 
             {payments.length === 0 ? (
-              <p className="text-sm text-slate-400 py-6 text-center">No payment transactions recorded.</p>
+              <div className="py-8 text-center text-slate-500">
+                <CreditCard className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm font-semibold text-slate-700">No payment transactions recorded.</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                  {subscription?.status === 'trialing'
+                    ? 'Settled subscription payment transactions will be recorded here after gateway processing.'
+                    : 'Settled payment transactions will appear here after automated Paystack checkout.'}
+                </p>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-slate-600">
