@@ -374,19 +374,21 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
   // 4. Commercial Actions (Owner Only)
   // ----------------------------------------------------------------------------
 
-  // A. Initiate Plan Change (Upgrade / Downgrade Selection)
+  // A. Initiate Plan Change (Upgrade / Downgrade Selection / Trial Purchase)
   const handleSelectPlan = (targetPlan: SaasPlan) => {
     if (isReadOnly) return;
     setErrorMessage(null);
     setSuccessMessage(null);
 
+    const isTrial = subscription?.status === 'trialing';
     const currentPrice = subscription?.current_price_cents || 0;
     const targetPrice =
       catalogInterval === 'annual'
         ? targetPlan.annual_price_cents
         : targetPlan.monthly_price_cents;
 
-    if (targetPrice >= currentPrice) {
+    // In evaluation trial mode, any paid subscription selection requires payment activation
+    if (isTrial || targetPrice >= currentPrice) {
       setChangeType('upgrade');
     } else {
       setChangeType('downgrade');
@@ -402,20 +404,39 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
       setActionLoading(true);
       setErrorMessage(null);
 
-      // Invoke authoritative self_service_change_plan RPC
-      const result = await saasSubscriptionService.selfServiceChangePlan(
-        activePractice.id,
-        planToChange.plan_code,
-        catalogInterval,
-        `Self-service plan change to ${planToChange.name}`
-      );
+      const isTrial = subscription?.status === 'trialing';
 
-      // Upgrade requires payment checkout
-      if (result.action === 'upgrade_invoice_created' && result.invoice_id) {
-        // Initialize Paystack checkout server-side
+      if (isTrial) {
+        // Evaluation Trial Plan Conversion:
+        // 1. If selecting a different plan or billing interval from the trial default,
+        // synchronize the subscription contract first
+        if (
+          subscription?.plan_id !== planToChange.id ||
+          subscription?.billing_interval !== catalogInterval
+        ) {
+          await saasSubscriptionService.selfServiceChangePlan(
+            activePractice.id,
+            planToChange.plan_code,
+            catalogInterval,
+            `Trial conversion to ${planToChange.name}`
+          );
+        }
+
+        // 2. Authoritatively initiate subscription payment and generate the open invoice
+        const invResult = await saasSubscriptionService.initiatePracticeSubscriptionPayment(
+          activePractice.id,
+          planToChange.plan_code,
+          catalogInterval
+        );
+
+        if (!invResult?.invoice_id) {
+          throw new Error('Failed to generate subscription invoice for checkout.');
+        }
+
+        // 3. Initialize Paystack checkout server-side
         const checkoutInit = await saasSubscriptionService.initializePaystackCheckout(
           activePractice.id,
-          result.invoice_id
+          invResult.invoice_id
         );
 
         if (checkoutInit.authorization_url) {
@@ -425,15 +446,47 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
         } else {
           throw new Error('Gateway did not return an authorization URL.');
         }
-      }
-
-      // Scheduled downgrade or immediate trial switch
-      if (result.action === 'downgrade_scheduled') {
-        setSuccessMessage(
-          `Downgrade to ${planToChange.name} scheduled for ${formatDate(result.effective_at)}. Your current entitlement remains active until then.`
+      } else {
+        // Paid / Expired / Past-Due Subscriptions:
+        // Invoke authoritative self_service_change_plan RPC
+        const result = await saasSubscriptionService.selfServiceChangePlan(
+          activePractice.id,
+          planToChange.plan_code,
+          catalogInterval,
+          `Self-service plan change to ${planToChange.name}`
         );
-      } else if (result.action === 'plan_changed_immediately') {
-        setSuccessMessage(`Subscription plan updated to ${planToChange.name}.`);
+
+        // Upgrade or resubscription requires payment checkout
+        if (
+          (result.action === 'upgrade_payment_required' ||
+            result.action === 'resubscription_payment_required' ||
+            result.action === 'upgrade_invoice_created' ||
+            result.invoice_id) &&
+          result.invoice_id
+        ) {
+          // Initialize Paystack checkout server-side
+          const checkoutInit = await saasSubscriptionService.initializePaystackCheckout(
+            activePractice.id,
+            result.invoice_id
+          );
+
+          if (checkoutInit.authorization_url) {
+            // Redirect to Paystack secure checkout URL
+            window.location.href = checkoutInit.authorization_url;
+            return;
+          } else {
+            throw new Error('Gateway did not return an authorization URL.');
+          }
+        }
+
+        // Scheduled downgrade or immediate trial switch
+        if (result.action === 'scheduled_downgrade' || result.action === 'downgrade_scheduled') {
+          setSuccessMessage(
+            `Downgrade to ${planToChange.name} scheduled for ${formatDate(result.effective_at)}. Your current entitlement remains active until then.`
+          );
+        } else if (result.action === 'plan_changed_immediately' || result.action === 'immediate_trial_plan_change') {
+          setSuccessMessage(`Subscription plan updated to ${planToChange.name}.`);
+        }
       }
 
       setPlanToChange(null);
@@ -806,7 +859,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                     onClick={() => setActiveTab('plans')}
                     className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 transition shadow-sm"
                   >
-                    <span>Change Plan</span>
+                    <span>{subscription?.status === 'trialing' ? 'Upgrade to a Paid Plan' : 'Change Plan'}</span>
                     <ArrowUpRight size={16} />
                   </button>
 
@@ -1048,7 +1101,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                   >
                     {isCurrent && (
                       <span className="absolute -top-3 left-6 px-3 py-0.5 bg-teal-600 text-white text-xs font-bold rounded-full shadow-sm">
-                        Current Plan
+                        {subscription?.status === 'trialing' ? 'Current Trial Plan' : 'Current Plan'}
                       </span>
                     )}
 
@@ -1089,7 +1142,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                     </div>
 
                     <div>
-                      {isCurrent ? (
+                      {isCurrent && subscription?.status !== 'trialing' ? (
                         <button
                           disabled
                           className="w-full py-2.5 bg-slate-100 text-slate-400 text-sm font-semibold rounded-xl cursor-default"
@@ -1107,12 +1160,16 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                         <button
                           onClick={() => handleSelectPlan(p)}
                           className={`w-full py-2.5 rounded-xl text-sm font-semibold transition ${
-                            isUpgrade
+                            isUpgrade || (isCurrent && subscription?.status === 'trialing')
                               ? 'bg-teal-600 text-white hover:bg-teal-700 shadow-sm'
                               : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
                           }`}
                         >
-                          {isUpgrade ? 'Upgrade Plan' : 'Downgrade Plan'}
+                          {subscription?.status === 'trialing'
+                            ? `Subscribe to ${p.name}`
+                            : isUpgrade
+                            ? 'Upgrade Plan'
+                            : 'Downgrade Plan'}
                         </button>
                       )}
                     </div>
@@ -1335,7 +1392,11 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 animate-in fade-in zoom-in duration-150">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <h3 className="text-lg font-bold text-slate-900">
-                {changeType === 'upgrade' ? `Upgrade to ${planToChange.name}` : `Schedule Downgrade to ${planToChange.name}`}
+                {subscription?.status === 'trialing'
+                  ? `Subscribe to ${planToChange.name}`
+                  : changeType === 'upgrade'
+                  ? `Upgrade to ${planToChange.name}`
+                  : `Schedule Downgrade to ${planToChange.name}`}
               </h3>
               <button
                 onClick={() => {
@@ -1353,7 +1414,10 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
               <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
                 <div>
                   <span className="text-xs text-slate-400 block mb-1">Current Plan</span>
-                  <div className="font-bold text-slate-900">{subscription?.plan?.name || 'Current'}</div>
+                  <div className="font-bold text-slate-900">
+                    {subscription?.plan?.name || 'Current'}
+                    {subscription?.status === 'trialing' && ' (Trial)'}
+                  </div>
                   <div className="text-xs text-slate-500 mt-1">
                     {formatNaira(subscription?.current_price_cents)} / {subscription?.billing_interval}
                   </div>
@@ -1378,10 +1442,15 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
               {/* Specific explanations */}
               {changeType === 'upgrade' ? (
                 <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg text-xs text-teal-900">
-                  <p className="font-semibold mb-1">Payment Required for Upgrade:</p>
+                  <p className="font-semibold mb-1">
+                    {subscription?.status === 'trialing'
+                      ? 'Evaluation Trial Conversion:'
+                      : 'Payment Required for Upgrade:'}
+                  </p>
                   <p>
-                    Upgrading plan capacity requires immediate payment via Paystack. Your new practitioner seat
-                    entitlements will be activated immediately upon confirmed payment settlement.
+                    {subscription?.status === 'trialing'
+                      ? 'You are currently on a 14-day evaluation trial. Completing checkout activates your paid subscription immediately with full clinical practitioner capacity upon payment settlement.'
+                      : 'Upgrading plan capacity requires immediate payment via Paystack. Your new practitioner seat entitlements will be activated immediately upon confirmed payment settlement.'}
                   </p>
                 </div>
               ) : (
