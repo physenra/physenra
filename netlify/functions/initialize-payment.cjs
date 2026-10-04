@@ -14,6 +14,7 @@
 
 const {
   initializePaystackTransaction,
+  getPaystackEnvironment,
   getSupabaseAdmin,
   authenticateUser,
   verifyPracticeOwner,
@@ -206,6 +207,9 @@ async function handler(event, context, deps = {}) {
       body: JSON.stringify({ error: 'Server payment configuration error' }),
     };
   }
+
+  const paystackEnv = getPaystackEnvironment(paystackSecretKey);
+  console.log(`[Initialize Payment] Paystack operating mode: ${paystackEnv}`);
 
   const callbackUrl =
     env.PAYSTACK_CALLBACK_URL ||

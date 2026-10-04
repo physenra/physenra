@@ -266,11 +266,32 @@ async function verifyPracticeOwner(userId, practiceId, supabaseAdmin) {
   return Boolean(membership);
 }
 
+/**
+ * Detects whether a Paystack API key or environment is configured for test or live mode.
+ *
+ * @param {string} [key] - PAYSTACK_SECRET_KEY or PAYSTACK_PUBLIC_KEY
+ * @returns {'test' | 'live' | 'unconfigured' | 'unknown'}
+ */
+function getPaystackEnvironment(key) {
+  if (!key || typeof key !== 'string') {
+    return 'unconfigured';
+  }
+  const trimmed = key.trim();
+  if (trimmed.startsWith('sk_test_') || trimmed.startsWith('pk_test_')) {
+    return 'test';
+  }
+  if (trimmed.startsWith('sk_live_') || trimmed.startsWith('pk_live_')) {
+    return 'live';
+  }
+  return 'unknown';
+}
+
 module.exports = {
   verifyPaystackSignature,
   mapPaystackChannelToPaymentMethod,
   initializePaystackTransaction,
   verifyPaystackTransaction,
+  getPaystackEnvironment,
   getSupabaseAdmin,
   authenticateUser,
   verifyPracticeOwner,

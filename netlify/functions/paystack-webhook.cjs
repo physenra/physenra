@@ -16,6 +16,7 @@ const {
   verifyPaystackSignature,
   mapPaystackChannelToPaymentMethod,
   verifyPaystackTransaction,
+  getPaystackEnvironment,
   getSupabaseAdmin,
 } = require('./lib/paystack.cjs');
 
@@ -68,6 +69,9 @@ async function handler(event, context, deps = {}) {
       body: JSON.stringify({ error: 'Server payment configuration error' }),
     };
   }
+
+  const paystackEnv = getPaystackEnvironment(paystackSecretKey);
+  console.log(`[Paystack Webhook] Paystack operating mode: ${paystackEnv}`);
 
   // 4. Cryptographic HMAC-SHA512 verification against EXACT raw request body
   const rawBody = event.body || '';
