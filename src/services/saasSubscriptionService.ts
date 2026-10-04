@@ -107,6 +107,12 @@ export const saasSubscriptionService = {
   async registerPracticeAndSubscribe(
     payload: RegisterPracticeAndSubscribePayload
   ): Promise<RegisterPracticeAndSubscribeResponse> {
+    // Verify valid authenticated session and access token exists before invoking the RPC
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session?.access_token) {
+      throw new Error('Authentication required. Please sign in to complete practice registration.');
+    }
+
     const { data, error } = await supabase.rpc('register_practice_and_subscribe', {
       p_practice_name: payload.practice_name,
       p_slug: payload.slug,

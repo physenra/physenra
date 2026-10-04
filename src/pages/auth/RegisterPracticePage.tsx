@@ -16,7 +16,7 @@ import { useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { usePractice } from '../../hooks/usePractice';
 import { saasSubscriptionService } from '../../services/saasSubscriptionService';
-import { setActivePracticeHeader } from '../../lib/supabase';
+import { supabase, setActivePracticeHeader } from '../../lib/supabase';
 import { BrandLogo } from '../../components/ui/BrandLogo';
 import { formatNaira } from '../../utils/currency';
 import type { SaasPlanCode, SaasBillingInterval, SaasPlan } from '../../types/models';
@@ -66,7 +66,7 @@ export const RegisterPracticePage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
 
-  const { user, signUp, signOut } = useAuth();
+  const { user, session, loading: authLoading, signUp, signOut } = useAuth();
   const { refreshPractices } = usePractice();
 
   // Load authoritative public plans on mount
@@ -101,6 +101,12 @@ export const RegisterPracticePage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // 0. Ensure authentication state is resolved before permitting submission
+    if (authLoading) {
+      setError('Authentication status is still resolving. Please wait a moment.');
+      return;
+    }
 
     // 1. Validate Practice Information
     if (!practiceName.trim()) {
@@ -154,7 +160,7 @@ export const RegisterPracticePage: React.FC = () => {
         }
 
         setStatusMessage('Creating your Practice Owner account...');
-        const { error: signUpError, user: newUser } = await signUp(cleanEmail, password, {
+        const { error: signUpError, user: newUser, session: newSession } = await signUp(cleanEmail, password, {
           first_name: cleanFirstName,
           last_name: cleanLastName,
           display_name: `${cleanFirstName} ${cleanLastName}`.trim(),
@@ -170,10 +176,36 @@ export const RegisterPracticePage: React.FC = () => {
           return;
         }
 
+        // Handle pending email confirmation safely: account created but no immediate session token
+        if (!newSession?.access_token) {
+          setError('Account created! Please check your email to confirm your account before creating your practice workspace.');
+          setStatusMessage('');
+          setSubmitting(false);
+          return;
+        }
+
         activeUser = newUser;
       }
 
-      // 3. Atomically register practice, assign owner role, and provision 14-day trial
+      // 3. Verify that a valid, fresh authenticated session exists immediately before RPC
+      setStatusMessage('Verifying authentication credentials...');
+      let { data: { session: activeSession }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !activeSession?.access_token) {
+        // Attempt session refresh if token is expired or stale
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (!refreshError && refreshData.session) {
+          activeSession = refreshData.session;
+        }
+      }
+
+      if (!activeSession?.access_token) {
+        setError('Authentication session is missing or expired. Please sign in to complete practice registration.');
+        setSubmitting(false);
+        return;
+      }
+
+      // 4. Atomically register practice, assign owner role, and provision 14-day trial
       setStatusMessage('Initializing clinical workspace and 14-day trial...');
       const result = await saasSubscriptionService.registerPracticeAndSubscribe({
         practice_name: practiceName.trim(),
@@ -184,7 +216,7 @@ export const RegisterPracticePage: React.FC = () => {
         timezone: 'Africa/Lagos',
       });
 
-      // 4. Establish practice context header immediately
+      // 5. Establish practice context header immediately
       setActivePracticeHeader(result.practice_id);
       setStatusMessage('Practice initialized! Establishing workspace context...');
 
@@ -198,7 +230,7 @@ export const RegisterPracticePage: React.FC = () => {
       setStatusMessage('Practice initialized! Redirecting to clinical workspace...');
       setSuccess(true);
 
-      // 5. Navigate to canonical practice dashboard
+      // 6. Navigate to canonical practice dashboard
       setTimeout(() => {
         window.location.href = `/app/dashboard?registered=${result.practice_id}`;
       }, 1200);
@@ -373,7 +405,7 @@ export const RegisterPracticePage: React.FC = () => {
                 <div className="mt-6 flex items-center justify-between text-xs font-semibold">
                   <div className="flex items-center gap-2 text-teal-700">
                     <div className="w-6 h-6 rounded-full bg-teal-600 text-white flex items-center justify-center text-xs font-bold shadow-subtle">
-                      {user ? <Check className="w-3.5 h-3.5" /> : '1'}
+                      {user && session && !authLoading ? <Check className="w-3.5 h-3.5" /> : '1'}
                     </div>
                     <span>Account</span>
                   </div>
@@ -423,7 +455,12 @@ export const RegisterPracticePage: React.FC = () => {
                   {/* -------------------------------------------------------- */}
                   {/* STEP 1: PRACTICE OWNER ACCOUNT                           */}
                   {/* -------------------------------------------------------- */}
-                  {user ? (
+                  {authLoading ? (
+                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center gap-2.5 text-xs text-slate-500">
+                      <Clock className="w-4 h-4 animate-spin text-teal-600" />
+                      <span>Verifying account status...</span>
+                    </div>
+                  ) : user && session ? (
                     <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-lg bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-700">
@@ -440,6 +477,20 @@ export const RegisterPracticePage: React.FC = () => {
                         className="text-xs text-teal-700 hover:text-teal-800 font-semibold hover:underline"
                       >
                         Switch account
+                      </button>
+                    </div>
+                  ) : user && !session ? (
+                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between text-xs text-amber-800">
+                      <div className="flex items-center gap-2.5">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span>Session expired for {user.email}. Please sign in again.</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => signOut()}
+                        className="text-xs text-amber-900 hover:underline font-semibold"
+                      >
+                        Sign in
                       </button>
                     </div>
                   ) : (
@@ -733,13 +784,18 @@ export const RegisterPracticePage: React.FC = () => {
                   <div className="pt-3 space-y-3">
                     <button
                       type="submit"
-                      disabled={submitting}
+                      disabled={submitting || authLoading}
                       className="w-full h-12 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
                     >
                       {submitting ? (
                         <>
                           <Clock className="w-4 h-4 animate-spin" />
                           <span>{statusMessage || 'Initializing Workspace...'}</span>
+                        </>
+                      ) : authLoading ? (
+                        <>
+                          <Clock className="w-4 h-4 animate-spin" />
+                          <span>Verifying Account...</span>
                         </>
                       ) : (
                         <>
