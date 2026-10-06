@@ -16,7 +16,7 @@ export const PlatformSettingsPage: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
 
   // Form local state
-  const [paystackKey, setPaystackKey] = useState<string>('pk_live_default_key');
+  const [paystackKey, setPaystackKey] = useState<string>('');
   const [trialDays, setTrialDays] = useState<number>(14);
   const [graceDays, setGraceDays] = useState<number>(7);
   const [saving, setSaving] = useState<boolean>(false);
@@ -123,7 +123,7 @@ export const PlatformSettingsPage: React.FC = () => {
                 type="text"
                 value={paystackKey}
                 onChange={(e) => setPaystackKey(e.target.value)}
-                placeholder="pk_live_..."
+                placeholder="pk_test_..."
                 className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white font-mono focus:outline-none focus:border-emerald-500"
               />
             </div>
