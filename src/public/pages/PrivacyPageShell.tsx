@@ -32,7 +32,7 @@ export const PrivacyPageShell: React.FC = () => {
             <ShieldCheck className="w-6 h-6 text-emerald-600 shrink-0 mt-1" />
             <div>
               <h2 className="text-lg font-semibold text-slate-900">
-                Data Privacy & PHI Governance
+                Data Privacy &amp; PHI Governance
               </h2>
               <p className="mt-2 text-sm text-slate-600 leading-relaxed">
                 Privacy Policy content will be published here before public launch. Formal Privacy Policy content is pending legal review and publication.
@@ -44,9 +44,23 @@ export const PrivacyPageShell: React.FC = () => {
           </div>
         </div>
 
+        {/* Regulatory Posture Notice */}
+        <div className="mt-8 rounded-xl border border-teal-200 bg-teal-50/60 p-5 text-xs text-teal-900 flex items-start gap-3">
+          <ShieldCheck className="w-5 h-5 text-teal-700 shrink-0 mt-0.5" />
+          <div>
+            <strong className="font-semibold block text-sm text-teal-950 mb-1">
+              Data Protection &amp; Technical Governance Notice
+            </strong>
+            <p className="leading-relaxed">
+              Physenra is designed with technical controls intended to support applicable Nigerian data-protection requirements.
+              Formal legal and regulatory review remains the responsibility of the business prior to general public onboarding.
+            </p>
+          </div>
+        </div>
+
         <div className="mt-10 pt-6 border-t border-slate-200 flex items-center justify-between">
           <span className="text-xs text-slate-500">
-            For specific privacy inquiries, contact our data protection team.
+            For specific privacy inquiries, contact our data protection team at contact@physenra.com.
           </span>
           <PrimaryCTAButton size="sm" to="/register-practice">
             Start Free Trial

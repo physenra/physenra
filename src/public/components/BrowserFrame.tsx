@@ -13,7 +13,7 @@ interface BrowserFrameProps {
 }
 
 export const BrowserFrame: React.FC<BrowserFrameProps> = ({
-  urlPath = 'physenra.com/platform',
+  urlPath = 'physenra.com/app',
   badge,
   children,
   className = '',

@@ -333,7 +333,7 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
                 <BrandLogo size="md" to="/app/billing" />
               </div>
               <p className="text-xs text-slate-500 font-medium">
-                Physenra Healthcare Technologies Limited
+                Physenra Platform Technologies
               </p>
               <p className="text-xs text-slate-400">
                 Lagos, Nigeria • billing@physenra.com
@@ -562,7 +562,7 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
             <div>
               <BrandLogo size="md" to="/app/billing" />
               <p className="text-xs text-slate-500 mt-2 font-medium">
-                Physenra Healthcare Technologies Limited
+                Physenra Platform Technologies
               </p>
               <p className="text-xs text-slate-400">
                 Official SaaS Subscription Payment Receipt

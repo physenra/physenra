@@ -618,7 +618,7 @@ const renderFeatureVisual = (slug: string) => {
   switch (slug) {
     case 'medical-imaging':
       return (
-        <BrowserFrame urlPath="physenra.com/platform/imaging/studies/ST-2026-04" badge="Web PACS">
+        <BrowserFrame urlPath="physenra.com/app/imaging/studies/ST-2026-04" badge="Web PACS">
           <div className="bg-slate-950 text-white p-5 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2 text-xs">
               <span className="font-bold text-teal-400">Study: Lumbar Spine MRI (T2 SAG)</span>
@@ -641,7 +641,7 @@ const renderFeatureVisual = (slug: string) => {
 
     case 'treatment-packages':
       return (
-        <BrowserFrame urlPath="physenra.com/platform/patients/PT-2026-08/packages" badge="Entitlements">
+        <BrowserFrame urlPath="physenra.com/app/packages" badge="Entitlements">
           <div className="p-5 bg-white space-y-4 text-left">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div>
@@ -670,7 +670,7 @@ const renderFeatureVisual = (slug: string) => {
 
     case 'appointments':
       return (
-        <BrowserFrame urlPath="physenra.com/platform/appointments" badge="Multi-Therapist">
+        <BrowserFrame urlPath="physenra.com/app/appointments" badge="Multi-Therapist">
           <div className="p-5 bg-white space-y-3 text-left">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <span className="text-xs font-bold text-slate-900">Clinic Scheduling Grid</span>
@@ -705,7 +705,7 @@ const renderFeatureVisual = (slug: string) => {
 
     case 'billing':
       return (
-        <BrowserFrame urlPath="physenra.com/platform/invoices/INV-2026-012" badge="Payment Settled">
+        <BrowserFrame urlPath="physenra.com/app/invoices/INV-2026-012" badge="Payment Settled">
           <div className="p-5 bg-white space-y-3 text-left">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div>
@@ -738,7 +738,7 @@ const renderFeatureVisual = (slug: string) => {
 
     case 'clinical-documentation':
       return (
-        <BrowserFrame urlPath="physenra.com/platform/visits/VIS-2026-042/specialty" badge="Specialty Module">
+        <BrowserFrame urlPath="physenra.com/app/visits/VIS-2026-042" badge="Specialty Module">
           <div className="p-5 bg-white space-y-3 text-left">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div>
@@ -781,7 +781,7 @@ const renderFeatureVisual = (slug: string) => {
 
     case 'treatment-plans':
       return (
-        <BrowserFrame urlPath="physenra.com/platform/treatment-plans/TP-2026-14" badge="Rehab Protocol">
+        <BrowserFrame urlPath="physenra.com/app/treatment-plans/TP-2026-14" badge="Rehab Protocol">
           <div className="p-5 bg-white space-y-3 text-left">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div>
@@ -817,7 +817,7 @@ const renderFeatureVisual = (slug: string) => {
 
     case 'pain-management':
       return (
-        <BrowserFrame urlPath="physenra.com/platform/patients/PT-2026-08/outcomes" badge="Outcome Measures">
+        <BrowserFrame urlPath="physenra.com/app/outcome-measures" badge="Outcome Measures">
           <div className="p-5 bg-white space-y-3 text-left">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div>
@@ -852,7 +852,7 @@ const renderFeatureVisual = (slug: string) => {
 
     case 'patient-management':
       return (
-        <BrowserFrame urlPath="physenra.com/platform/patients/PT-2026-08" badge="Episode Architecture">
+        <BrowserFrame urlPath="physenra.com/app/patients/PT-2026-08" badge="Episode Architecture">
           <div className="p-5 bg-white space-y-3 text-left">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div>
@@ -882,7 +882,7 @@ const renderFeatureVisual = (slug: string) => {
 
     case 'practice-management':
       return (
-        <BrowserFrame urlPath="physenra.com/platform/admin/governance" badge="Governance & Stock">
+        <BrowserFrame urlPath="physenra.com/app/practice" badge="Governance & Stock">
           <div className="p-5 bg-white space-y-3 text-left">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <span className="text-xs font-bold text-slate-900">Clinic Inventory &amp; Team Roles</span>
@@ -911,7 +911,7 @@ const renderFeatureVisual = (slug: string) => {
 
     default: // physiotherapy-emr default
       return (
-        <BrowserFrame urlPath="physenra.com/platform/encounters/ENC-2026-08" badge="Clinical EMR">
+        <BrowserFrame urlPath="physenra.com/app/visits/VIS-2026-08" badge="Clinical EMR">
           <div className="p-5 bg-white space-y-3 text-left">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div>

@@ -85,6 +85,20 @@ export const SecurityPageShell: React.FC = () => {
             </div>
           </div>
 
+          {/* Regulatory Posture Notice */}
+          <div className="mt-12 rounded-xl border border-teal-200 bg-teal-50/60 p-5 text-xs text-teal-900 flex items-start gap-3 text-left">
+            <ShieldCheck className="w-5 h-5 text-teal-700 shrink-0 mt-0.5" />
+            <div>
+              <strong className="font-semibold block text-sm text-teal-950 mb-1">
+                Data Protection &amp; Technical Governance Notice
+              </strong>
+              <p className="leading-relaxed">
+                Physenra is designed with technical controls intended to support applicable Nigerian data-protection requirements.
+                Formal legal and regulatory review remains the responsibility of the business prior to general public onboarding.
+              </p>
+            </div>
+          </div>
+
           <div className="mt-16 rounded-2xl bg-slate-900 text-white p-8 sm:p-12 text-center">
             <h3 className="text-2xl font-bold">Have Specific Governance or Security Requirements?</h3>
             <p className="mt-3 text-sm sm:text-base text-slate-300 max-w-2xl mx-auto">

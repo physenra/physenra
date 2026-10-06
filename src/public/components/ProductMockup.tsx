@@ -17,7 +17,7 @@ export const ProductMockup: React.FC<ProductMockupProps> = ({ className = '' }) 
     <div className={`relative w-full max-w-lg mx-auto ${className}`}>
       {/* Main Base Card: Clinical Encounter Window */}
       <BrowserFrame
-        urlPath="physenra.com/platform/encounters/ENC-2026-08"
+        urlPath="physenra.com/app/visits/VIS-2026-08"
         badge="Live Encounter"
         className="shadow-2xl shadow-slate-900/10 ring-1 ring-slate-900/10"
       >

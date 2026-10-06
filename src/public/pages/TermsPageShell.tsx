@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { MarketingLayout } from '../layouts/MarketingLayout';
-import { FileText, Shield } from 'lucide-react';
+import { FileText, Shield, ShieldCheck } from 'lucide-react';
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
 
 export const TermsPageShell: React.FC = () => {
@@ -18,7 +18,7 @@ export const TermsPageShell: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 text-left">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider text-teal-800 bg-teal-50 border border-teal-200 mb-4">
           <FileText className="w-3.5 h-3.5" />
-          Legal & Governance
+          Legal &amp; Governance
         </div>
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
           Terms of Service
@@ -44,9 +44,23 @@ export const TermsPageShell: React.FC = () => {
           </div>
         </div>
 
+        {/* Regulatory Posture Notice */}
+        <div className="mt-8 rounded-xl border border-teal-200 bg-teal-50/60 p-5 text-xs text-teal-900 flex items-start gap-3">
+          <ShieldCheck className="w-5 h-5 text-teal-700 shrink-0 mt-0.5" />
+          <div>
+            <strong className="font-semibold block text-sm text-teal-950 mb-1">
+              Data Protection &amp; Technical Governance Notice
+            </strong>
+            <p className="leading-relaxed">
+              Physenra is designed with technical controls intended to support applicable Nigerian data-protection requirements.
+              Formal legal and regulatory review remains the responsibility of the business prior to general public onboarding.
+            </p>
+          </div>
+        </div>
+
         <div className="mt-10 pt-6 border-t border-slate-200 flex items-center justify-between">
           <span className="text-xs text-slate-500">
-            Questions regarding terms? Contact our legal governance team.
+            Questions regarding terms? Contact our legal governance team at contact@physenra.com.
           </span>
           <PrimaryCTAButton size="sm" to="/register-practice">
             Start Free Trial
