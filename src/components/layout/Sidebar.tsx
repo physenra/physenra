@@ -9,10 +9,10 @@ export const Sidebar: React.FC = () => {
   const { isOwner, isManager, isAccountant, isPlatformAdmin } = useRole();
 
   return (
-    <aside className="app-sidebar">
+    <aside className="app-sidebar" aria-label="Practice navigation">
       <div className="sidebar-section">
         <span className="sidebar-label">PRACTICE PLATFORM</span>
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" aria-label="Practice Platform">
           <NavLink
             to="/app/dashboard"
             className={({ isActive }) =>

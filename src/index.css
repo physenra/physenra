@@ -104,6 +104,7 @@ input, select {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -347,6 +348,7 @@ input, select {
   display: flex;
   flex: 1;
   overflow: hidden;
+  min-height: 0;
 }
 
 .app-sidebar {
@@ -358,10 +360,39 @@ input, select {
   justify-content: space-between;
   border-right: 1px solid #1e293b;
   flex-shrink: 0;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .sidebar-section {
-  padding: 20px 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 20px 12px 32px 12px;
+  scroll-padding-bottom: 32px;
+  scrollbar-width: thin;
+  scrollbar-color: #334155 transparent;
+}
+
+.sidebar-section::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-section::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-section::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+.sidebar-section::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
 
 .sidebar-label {
@@ -396,6 +427,13 @@ input, select {
   color: #ffffff;
 }
 
+.nav-link:focus-visible {
+  outline: 2px solid #38bdf8;
+  outline-offset: -2px;
+  background: var(--color-bg-sidebar-hover);
+  color: #ffffff;
+}
+
 .nav-link-active {
   background: #0f766e;
   color: #ffffff;
@@ -405,6 +443,8 @@ input, select {
 .sidebar-footer {
   padding: 16px;
   border-top: 1px solid #1e293b;
+  flex-shrink: 0;
+  background: var(--color-bg-sidebar);
 }
 
 .practice-context-card {
