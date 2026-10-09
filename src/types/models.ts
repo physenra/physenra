@@ -136,6 +136,46 @@ export type PlatformSetting = Database['public']['Tables']['platform_settings'][
 export type PlatformSettingInsert = Database['public']['Tables']['platform_settings']['Insert'];
 export type PlatformSettingUpdate = Database['public']['Tables']['platform_settings']['Update'];
 
+export type BankTransferStatus =
+  | 'pending_transfer'
+  | 'submitted_for_review'
+  | 'confirmed'
+  | 'rejected'
+  | 'cancelled';
+
+export interface BankTransferConfig {
+  is_enabled: boolean;
+  is_verified: boolean;
+  bank_name: string;
+  account_name: string;
+  account_number: string;
+  payment_instructions?: string;
+  verified_at?: string | null;
+  verified_by?: string | null;
+  updated_at?: string | null;
+  updated_by?: string | null;
+}
+
+export interface ActiveBankTransferConfigResponse {
+  is_available: boolean;
+  is_enabled: boolean;
+  is_verified?: boolean;
+  bank_name?: string;
+  account_name?: string;
+  account_number?: string;
+  payment_instructions?: string;
+  message?: string;
+}
+
+export type SaasBankTransferRequest = Database['public']['Tables']['saas_bank_transfer_requests']['Row'];
+export type SaasBankTransferRequestInsert = Database['public']['Tables']['saas_bank_transfer_requests']['Insert'];
+export type SaasBankTransferRequestUpdate = Database['public']['Tables']['saas_bank_transfer_requests']['Update'];
+export type SaasBankTransferRequestWithRelations = SaasBankTransferRequest & {
+  practice?: { name: string; slug: string };
+  invoice?: { invoice_number: string; due_date: string };
+  plan?: { name: string };
+};
+
 export interface PlatformKPIs {
   total_practices: number;
   active_practices: number;

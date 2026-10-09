@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { saasSubscriptionService } from '../../services/saasSubscriptionService';
-import type { SaasInvoice, SaasPayment } from '../../types/models';
+import type { SaasInvoice, SaasPayment, SaasBankTransferRequestWithRelations } from '../../types/models';
 import {
   Receipt,
   CreditCard,
@@ -10,6 +10,10 @@ import {
   Radio,
   AlertCircle,
   XCircle,
+  Building2,
+  ShieldAlert,
+  Check,
+  X,
 } from 'lucide-react';
 
 interface WebhookTelemetryItem {
@@ -27,22 +31,33 @@ interface WebhookTelemetryItem {
 export const PlatformBillingPage: React.FC = () => {
   const [invoices, setInvoices] = useState<SaasInvoice[]>([]);
   const [payments, setPayments] = useState<SaasPayment[]>([]);
+  const [transfers, setTransfers] = useState<SaasBankTransferRequestWithRelations[]>([]);
   const [webhooks, setWebhooks] = useState<WebhookTelemetryItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'invoices' | 'payments' | 'webhooks'>('invoices');
+  const [activeTab, setActiveTab] = useState<'invoices' | 'payments' | 'transfers' | 'webhooks'>('invoices');
   const [error, setError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+
+  // Modal states for manual bank transfer confirmation & rejection
+  const [transferToConfirm, setTransferToConfirm] = useState<SaasBankTransferRequestWithRelations | null>(null);
+  const [confirming, setConfirming] = useState<boolean>(false);
+  const [transferToReject, setTransferToReject] = useState<SaasBankTransferRequestWithRelations | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string>('');
+  const [rejecting, setRejecting] = useState<boolean>(false);
 
   const fetchBillingData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const [invData, pmtData, whData] = await Promise.all([
+      const [invData, pmtData, trData, whData] = await Promise.all([
         saasSubscriptionService.getAllInvoices(),
         saasSubscriptionService.getAllPayments(),
+        saasSubscriptionService.getAllBankTransferRequests().catch(() => []),
         saasSubscriptionService.getWebhookTelemetry().catch(() => []),
       ]);
       setInvoices(invData);
       setPayments(pmtData);
+      setTransfers(trData);
       setWebhooks(whData);
     } catch (err: unknown) {
       console.error('Failed to load billing records:', err);
@@ -55,6 +70,49 @@ export const PlatformBillingPage: React.FC = () => {
   useEffect(() => {
     fetchBillingData();
   }, []);
+
+  const handleConfirmTransfer = async () => {
+    if (!transferToConfirm?.id) return;
+    try {
+      setConfirming(true);
+      setError(null);
+      setActionSuccess(null);
+
+      await saasSubscriptionService.confirmBankTransferPayment(transferToConfirm.id);
+      setActionSuccess(
+        `Payment confirmed for ${transferToConfirm.request_number}. Invoice ${transferToConfirm.invoice?.invoice_number || ''} marked paid and subscription activated.`
+      );
+      setTransferToConfirm(null);
+      await fetchBillingData();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to confirm bank transfer payment');
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const handleRejectTransfer = async () => {
+    if (!transferToReject?.id) return;
+    try {
+      setRejecting(true);
+      setError(null);
+      setActionSuccess(null);
+
+      if (!rejectionReason.trim() || rejectionReason.trim().length < 5) {
+        throw new Error('A rejection reason of at least 5 characters is mandatory.');
+      }
+
+      await saasSubscriptionService.rejectBankTransferPayment(transferToReject.id, rejectionReason.trim());
+      setActionSuccess(`Payment request ${transferToReject.request_number} rejected.`);
+      setTransferToReject(null);
+      setRejectionReason('');
+      await fetchBillingData();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to reject bank transfer payment');
+    } finally {
+      setRejecting(false);
+    }
+  };
 
   const formatNaira = (cents: number) => {
     return new Intl.NumberFormat('en-NG', {
@@ -89,6 +147,13 @@ export const PlatformBillingPage: React.FC = () => {
           <span>Refresh</span>
         </button>
       </div>
+
+      {actionSuccess && (
+        <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <span>{actionSuccess}</span>
+        </div>
+      )}
 
       {error && (
         <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
@@ -165,6 +230,22 @@ export const PlatformBillingPage: React.FC = () => {
         >
           <CreditCard className="w-4 h-4" />
           <span>Settlement Payments ({payments.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('transfers')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+            activeTab === 'transfers'
+              ? 'bg-slate-800 text-teal-400'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          <span>Bank Transfer Queue ({transfers.length})</span>
+          {transfers.filter((t) => t.status === 'submitted_for_review').length > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-slate-900">
+              {transfers.filter((t) => t.status === 'submitted_for_review').length}
+            </span>
+          )}
         </button>
         <button
           onClick={() => setActiveTab('webhooks')}
@@ -367,7 +448,290 @@ export const PlatformBillingPage: React.FC = () => {
             </table>
           </div>
         )}
+
+        {activeTab === 'transfers' && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-300">
+              <thead className="bg-slate-800/60 text-xs uppercase font-semibold text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th className="px-6 py-4">Request #</th>
+                  <th className="px-6 py-4">Practice & Plan</th>
+                  <th className="px-6 py-4">Invoice #</th>
+                  <th className="px-6 py-4">Amount</th>
+                  <th className="px-6 py-4">Customer Ref & Date</th>
+                  <th className="px-6 py-4">Status</th>
+                  <th className="px-6 py-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                      Loading bank transfer requests...
+                    </td>
+                  </tr>
+                ) : transfers.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                      Zero bank transfer requests submitted.
+                    </td>
+                  </tr>
+                ) : (
+                  transfers.map((req) => (
+                    <tr key={req.id} className="hover:bg-slate-800/30 transition-colors">
+                      <td className="px-6 py-4 font-mono font-medium text-white text-xs">
+                        {req.request_number}
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          {new Date(req.created_at).toLocaleDateString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="font-semibold text-white text-sm">{req.practice?.name || 'Practice'}</div>
+                        <div className="text-xs text-teal-400 mt-0.5">{req.plan?.name || 'Subscription Plan'}</div>
+                      </td>
+                      <td className="px-6 py-4 font-mono text-xs text-slate-300">
+                        {req.invoice?.invoice_number || 'PHY-INV-...'}
+                      </td>
+                      <td className="px-6 py-4 font-bold text-white">
+                        {formatNaira(req.amount_cents)}
+                      </td>
+                      <td className="px-6 py-4">
+                        {req.customer_reference ? (
+                          <div>
+                            <div className="font-mono text-xs text-emerald-400 font-semibold">
+                              {req.customer_reference}
+                            </div>
+                            <div className="text-[11px] text-slate-400 mt-0.5">
+                              Claimed: {req.customer_transferred_at ? new Date(req.customer_transferred_at).toLocaleDateString() : '—'}
+                            </div>
+                            {req.customer_notes && (
+                              <div className="text-[11px] text-slate-500 italic mt-0.5 max-w-xs truncate" title={req.customer_notes}>
+                                Note: {req.customer_notes}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-500 italic">Not submitted yet</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {req.status === 'confirmed' ? (
+                          <span className="px-2.5 py-1 rounded text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            Confirmed & Settled
+                          </span>
+                        ) : req.status === 'submitted_for_review' ? (
+                          <span className="px-2.5 py-1 rounded text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                            Review Required
+                          </span>
+                        ) : req.status === 'pending_transfer' ? (
+                          <span className="px-2.5 py-1 rounded text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            Awaiting Transfer
+                          </span>
+                        ) : req.status === 'rejected' ? (
+                          <div>
+                            <span className="px-2.5 py-1 rounded text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                              Rejected
+                            </span>
+                            {req.rejection_reason && (
+                              <div className="text-[11px] text-rose-400 mt-1 max-w-xs" title={req.rejection_reason}>
+                                {req.rejection_reason}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded text-xs font-semibold bg-slate-800 text-slate-400">
+                            Cancelled
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {(req.status === 'submitted_for_review' || req.status === 'pending_transfer') ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => setTransferToConfirm(req)}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>Confirm</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setTransferToReject(req);
+                                setRejectionReason('');
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                              <span>Reject</span>
+                            </button>
+                          </div>
+                        ) : req.status === 'confirmed' ? (
+                          <span className="text-xs text-slate-500">Settled</span>
+                        ) : (
+                          <span className="text-xs text-slate-500">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {/* Modal: Confirm Bank Transfer */}
+      {transferToConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                Confirm Bank Transfer Payment
+              </h3>
+              <button
+                onClick={() => setTransferToConfirm(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-slate-800/60 rounded-lg border border-slate-700/60 text-xs text-slate-300 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Request Number:</span>
+                <span className="font-mono font-bold text-white">{transferToConfirm.request_number}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Practice:</span>
+                <span className="font-bold text-white">{transferToConfirm.practice?.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Invoice:</span>
+                <span className="font-mono text-white">{transferToConfirm.invoice?.invoice_number}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Expected Amount:</span>
+                <span className="font-bold text-emerald-400">{formatNaira(transferToConfirm.amount_cents)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Customer Reference:</span>
+                <span className="font-mono font-bold text-cyan-400">{transferToConfirm.customer_reference || 'N/A'}</span>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs space-y-1">
+              <p className="font-semibold flex items-center gap-1.5">
+                <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                Mandatory Admin Verification Check:
+              </p>
+              <p className="text-slate-300">
+                You must independently check Physenra's bank portal or statement to confirm that exactly{' '}
+                <strong>{formatNaira(transferToConfirm.amount_cents)}</strong> has credited with the reference above.
+                Confirming will mark the invoice paid and immediately activate the subscription.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setTransferToConfirm(null)}
+                disabled={confirming}
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmTransfer}
+                disabled={confirming}
+                className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                {confirming ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Confirming & Settling...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Confirm & Activate Subscription</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Reject Bank Transfer */}
+      {transferToReject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2 text-rose-400">
+                <XCircle className="w-5 h-5 text-rose-400" />
+                Reject Bank Transfer Payment
+              </h3>
+              <button
+                onClick={() => setTransferToReject(null)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-800/60 rounded-lg text-xs text-slate-300">
+              <p>
+                Rejecting request <strong>{transferToReject.request_number}</strong> for{' '}
+                <strong>{transferToReject.practice?.name}</strong>.
+              </p>
+              <p className="text-slate-400 mt-1">
+                The invoice will remain open so the practice owner can correct the transfer details or pay via Paystack.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-300 mb-1">
+                Mandatory Rejection Reason:
+              </label>
+              <textarea
+                rows={3}
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="e.g. Funds not reflected in Physenra corporate account statement after 48 hours."
+                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-rose-500"
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setTransferToReject(null)}
+                disabled={rejecting}
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleRejectTransfer}
+                disabled={rejecting || rejectionReason.trim().length < 5}
+                className="px-5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {rejecting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Rejecting...</span>
+                  </>
+                ) : (
+                  <span>Reject Payment</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

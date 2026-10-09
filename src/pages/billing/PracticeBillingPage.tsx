@@ -30,6 +30,9 @@ import {
   ChevronRight,
   Shield,
   AlertCircle,
+  Building2,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { usePractice } from '../../hooks/usePractice';
 import { useRole } from '../../hooks/useRole';
@@ -40,6 +43,8 @@ import type {
   SaasPlan,
   SaasInvoice,
   SaasPayment,
+  ActiveBankTransferConfigResponse,
+  SaasBankTransferRequest,
 } from '../../types/models';
 
 /**
@@ -101,6 +106,18 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
     message: string | null;
   }>({ status: 'idle', message: null });
 
+  // Manual Bank Transfer states
+  const [bankConfig, setBankConfig] = useState<ActiveBankTransferConfigResponse | null>(null);
+  const [bankTransferRequests, setBankTransferRequests] = useState<SaasBankTransferRequest[]>([]);
+  const [selectedTransferRequest, setSelectedTransferRequest] = useState<SaasBankTransferRequest | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'bank_transfer'>('paystack');
+  const [copiedAccount, setCopiedAccount] = useState<boolean>(false);
+  const [customerRefInput, setCustomerRefInput] = useState<string>('');
+  const [customerBankInput, setCustomerBankInput] = useState<string>('');
+  const [transferDateInput, setTransferDateInput] = useState<string>('');
+  const [transferNotesInput, setTransferNotesInput] = useState<string>('');
+  const [submittingReference, setSubmittingReference] = useState<boolean>(false);
+
   const isReadOnly = !isOwner;
 
   // ----------------------------------------------------------------------------
@@ -115,12 +132,18 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
       setLoading(true);
       setErrorMessage(null);
 
-      const [subData, plansData, invData, payData, staffCount] = await Promise.all([
+      const [subData, plansData, invData, payData, staffCount, btrConfig, btrRequests] = await Promise.all([
         saasSubscriptionService.getPracticeSubscription(activePractice.id),
         saasSubscriptionService.getPublicPlans(),
         saasSubscriptionService.getPracticeInvoices(activePractice.id),
         saasSubscriptionService.getPracticePayments(activePractice.id),
         saasSubscriptionService.getActivePractitionerCount(activePractice.id),
+        saasSubscriptionService.getActiveBankTransferConfig().catch(() => ({
+          is_available: false,
+          is_enabled: false,
+          message: 'Bank transfer is not currently available. Please use the available payment method or contact Physenra support.',
+        })),
+        saasSubscriptionService.getPracticeBankTransferRequests(activePractice.id).catch(() => []),
       ]);
 
       setSubscription(subData);
@@ -128,6 +151,8 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
       setInvoices(invData);
       setPayments(payData);
       setPractitionerCount(staffCount);
+      setBankConfig(btrConfig);
+      setBankTransferRequests(btrRequests);
 
       // Load pending plan if scheduled
       if (subData?.pending_plan_id) {
@@ -406,6 +431,64 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
 
       const isTrial = subscription?.status === 'trialing';
 
+      // 1. Manual Bank Transfer Route
+      if (changeType === 'upgrade' && paymentMethod === 'bank_transfer') {
+        if (!bankConfig?.is_available) {
+          throw new Error('Bank transfer is not currently available. Please use the available payment method or contact Physenra support.');
+        }
+
+        let targetInvoiceId: string | null = null;
+        if (isTrial) {
+          if (
+            subscription?.plan_id !== planToChange.id ||
+            subscription?.billing_interval !== catalogInterval
+          ) {
+            await saasSubscriptionService.selfServiceChangePlan(
+              activePractice.id,
+              planToChange.plan_code,
+              catalogInterval,
+              `Trial conversion to ${planToChange.name}`
+            );
+          }
+
+          const invResult = await saasSubscriptionService.initiatePracticeSubscriptionPayment(
+            activePractice.id,
+            planToChange.plan_code,
+            catalogInterval
+          );
+
+          if (!invResult?.invoice_id) {
+            throw new Error('Failed to generate subscription invoice for bank transfer.');
+          }
+          targetInvoiceId = invResult.invoice_id;
+        } else {
+          const result = await saasSubscriptionService.selfServiceChangePlan(
+            activePractice.id,
+            planToChange.plan_code,
+            catalogInterval,
+            `Self-service plan change to ${planToChange.name}`
+          );
+          targetInvoiceId = result.invoice_id || null;
+        }
+
+        if (!targetInvoiceId) {
+          throw new Error('Failed to obtain invoice for bank transfer request.');
+        }
+
+        const btr = await saasSubscriptionService.createBankTransferPaymentRequest(
+          activePractice.id,
+          targetInvoiceId
+        );
+
+        setPlanToChange(null);
+        setChangeType(null);
+        await loadBillingData();
+        setSelectedTransferRequest(btr);
+        setSuccessMessage(`Bank transfer request created (${btr.request_number}). Please make the transfer and submit your transaction reference.`);
+        return;
+      }
+
+      // 2. Paystack Online Payment Route (or Downgrade)
       if (isTrial) {
         // Evaluation Trial Plan Conversion:
         // 1. If selecting a different plan or billing interval from the trial default,
@@ -500,7 +583,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
     }
   };
 
-  // C. Pay Open Invoice Directly
+  // C. Pay Open Invoice Directly via Paystack
   const handlePayInvoice = async (invoiceId: string) => {
     if (!activePractice?.id || isReadOnly) return;
     try {
@@ -520,6 +603,102 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
     } catch (err: any) {
       console.error('Invoice payment initiation failed:', err);
       setErrorMessage(err.message || 'Payment initialization failed.');
+      setActionLoading(false);
+    }
+  };
+
+  // C2. Initiate Bank Transfer for an Open Invoice
+  const handleCreateBankTransferForInvoice = async (invoiceId: string) => {
+    if (!activePractice?.id || isReadOnly) return;
+    if (!bankConfig?.is_available) {
+      setErrorMessage('Bank transfer is not currently available. Please use the available payment method or contact Physenra support.');
+      return;
+    }
+    try {
+      setActionLoading(true);
+      setErrorMessage(null);
+      const btr = await saasSubscriptionService.createBankTransferPaymentRequest(
+        activePractice.id,
+        invoiceId
+      );
+      await loadBillingData();
+      setSelectedTransferRequest(btr);
+      setSuccessMessage(`Bank transfer request created (${btr.request_number}).`);
+    } catch (err: any) {
+      console.error('Failed to create bank transfer request:', err);
+      setErrorMessage(err.message || 'Failed to initiate bank transfer request.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // C3. Copy Bank Account Number
+  const handleCopyAccount = (accountNumber: string) => {
+    try {
+      navigator.clipboard.writeText(accountNumber);
+      setCopiedAccount(true);
+      setTimeout(() => setCopiedAccount(false), 2000);
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
+  };
+
+  // C4. Submit Customer Bank Transfer Reference
+  const handleSubmitReference = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTransferRequest) return;
+    if (!customerRefInput.trim()) {
+      setErrorMessage('Please provide your bank transfer reference or transaction narration.');
+      return;
+    }
+
+    try {
+      setSubmittingReference(true);
+      setErrorMessage(null);
+      const combinedNotes = [
+        customerBankInput.trim() ? `Remitter Bank: ${customerBankInput.trim()}` : '',
+        transferNotesInput.trim(),
+      ]
+        .filter(Boolean)
+        .join(' | ');
+
+      const updated = await saasSubscriptionService.submitBankTransferReference(
+        selectedTransferRequest.id,
+        customerRefInput.trim(),
+        transferDateInput ? new Date(transferDateInput).toISOString() : undefined,
+        combinedNotes || undefined
+      );
+
+      setSelectedTransferRequest(updated);
+      await loadBillingData();
+      setSuccessMessage(
+        `Transfer reference for ${updated.request_number} submitted for Platform Admin review. Entitlements will activate once confirmed.`
+      );
+      setCustomerRefInput('');
+      setCustomerBankInput('');
+      setTransferDateInput('');
+      setTransferNotesInput('');
+    } catch (err: any) {
+      console.error('Failed to submit transfer reference:', err);
+      setErrorMessage(err.message || 'Failed to submit transfer reference.');
+    } finally {
+      setSubmittingReference(false);
+    }
+  };
+
+  // C5. Cancel Bank Transfer Request
+  const handleCancelTransferRequest = async (requestId: string) => {
+    try {
+      setActionLoading(true);
+      setErrorMessage(null);
+      await saasSubscriptionService.cancelBankTransferRequest(requestId);
+      setSelectedTransferRequest(null);
+      await loadBillingData();
+      setSuccessMessage('Bank transfer request has been cancelled.');
+    } catch (err: any) {
+      console.error('Failed to cancel bank transfer request:', err);
+      setErrorMessage(err.message || 'Failed to cancel bank transfer request.');
+    } finally {
       setActionLoading(false);
     }
   };
@@ -991,48 +1170,73 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {invoices.slice(0, 3).map((inv) => (
-                      <tr key={inv.id} className="hover:bg-slate-50 transition">
-                        <td className="py-3 px-4 font-mono text-xs font-semibold text-slate-900">
-                          <Link to={`/app/billing/invoices/${inv.id}`} className="hover:underline text-teal-700">
-                            {inv.invoice_number}
-                          </Link>
-                        </td>
-                        <td className="py-3 px-4 text-xs">{formatDate(inv.created_at)}</td>
-                        <td className="py-3 px-4 font-semibold text-slate-900">{formatNaira(inv.total_cents)}</td>
-                        <td className="py-3 px-4">
-                          <span
-                            className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                              inv.status === 'paid'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : inv.status === 'open'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            {inv.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          {inv.status === 'open' && !isReadOnly ? (
-                            <button
-                              onClick={() => handlePayInvoice(inv.id)}
-                              disabled={actionLoading}
-                              className="px-3 py-1 bg-emerald-600 text-white text-xs font-semibold rounded hover:bg-emerald-700 transition"
-                            >
-                              Pay Now
-                            </button>
-                          ) : (
-                            <Link
-                              to={`/app/billing/invoices/${inv.id}`}
-                              className="text-xs text-teal-600 hover:text-teal-800 font-medium"
-                            >
-                              View
+                    {invoices.slice(0, 3).map((inv) => {
+                      const activeBtr = bankTransferRequests.find(
+                        (r) => r.invoice_id === inv.id && (r.status === 'pending_transfer' || r.status === 'submitted_for_review')
+                      );
+
+                      return (
+                        <tr key={inv.id} className="hover:bg-slate-50 transition">
+                          <td className="py-3 px-4 font-mono text-xs font-semibold text-slate-900">
+                            <Link to={`/app/billing/invoices/${inv.id}`} className="hover:underline text-teal-700">
+                              {inv.invoice_number}
                             </Link>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="py-3 px-4 text-xs">{formatDate(inv.created_at)}</td>
+                          <td className="py-3 px-4 font-semibold text-slate-900">{formatNaira(inv.total_cents)}</td>
+                          <td className="py-3 px-4">
+                            {inv.status === 'paid' ? (
+                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-100 text-emerald-800">
+                                paid
+                              </span>
+                            ) : activeBtr?.status === 'submitted_for_review' ? (
+                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                review pending
+                              </span>
+                            ) : activeBtr?.status === 'pending_transfer' ? (
+                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
+                                transfer pending
+                              </span>
+                            ) : (
+                              <span
+                                className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                                  inv.status === 'open' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {inv.status}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {inv.status === 'open' && !isReadOnly ? (
+                              activeBtr ? (
+                                <button
+                                  onClick={() => setSelectedTransferRequest(activeBtr)}
+                                  className="px-2.5 py-1 bg-amber-600 text-white text-xs font-semibold rounded hover:bg-amber-700 transition"
+                                >
+                                  View Transfer
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handlePayInvoice(inv.id)}
+                                  disabled={actionLoading}
+                                  className="px-3 py-1 bg-emerald-600 text-white text-xs font-semibold rounded hover:bg-emerald-700 transition"
+                                >
+                                  Pay Now
+                                </button>
+                              )
+                            ) : (
+                              <Link
+                                to={`/app/billing/invoices/${inv.id}`}
+                                className="text-xs text-teal-600 hover:text-teal-800 font-medium"
+                              >
+                                View
+                              </Link>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1272,49 +1476,93 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {invoices.map((inv) => (
-                      <tr key={inv.id} className="hover:bg-slate-50 transition">
-                        <td className="py-3 px-4 font-mono text-xs font-semibold text-slate-900">
-                          <Link to={`/app/billing/invoices/${inv.id}`} className="hover:underline text-teal-700">
-                            {inv.invoice_number}
-                          </Link>
-                        </td>
-                        <td className="py-3 px-4 text-xs">{formatDate(inv.created_at)}</td>
-                        <td className="py-3 px-4 text-xs">{formatDate(inv.due_date)}</td>
-                        <td className="py-3 px-4 font-semibold text-slate-900">{formatNaira(inv.total_cents)}</td>
-                        <td className="py-3 px-4">
-                          <span
-                            className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
-                              inv.status === 'paid'
-                                ? 'bg-emerald-100 text-emerald-800'
-                                : inv.status === 'open'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-slate-100 text-slate-600'
-                            }`}
-                          >
-                            {inv.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          {inv.status === 'open' && !isReadOnly ? (
-                            <button
-                              onClick={() => handlePayInvoice(inv.id)}
-                              disabled={actionLoading}
-                              className="px-3.5 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition shadow-sm"
-                            >
-                              Pay Now
-                            </button>
-                          ) : (
-                            <Link
-                              to={`/app/billing/invoices/${inv.id}`}
-                              className="text-xs font-semibold text-teal-600 hover:text-teal-800"
-                            >
-                              Details
+                    {invoices.map((inv) => {
+                      const activeBtr = bankTransferRequests.find(
+                        (r) => r.invoice_id === inv.id && (r.status === 'pending_transfer' || r.status === 'submitted_for_review')
+                      );
+
+                      return (
+                        <tr key={inv.id} className="hover:bg-slate-50 transition">
+                          <td className="py-3 px-4 font-mono text-xs font-semibold text-slate-900">
+                            <Link to={`/app/billing/invoices/${inv.id}`} className="hover:underline text-teal-700">
+                              {inv.invoice_number}
                             </Link>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="py-3 px-4 text-xs">{formatDate(inv.created_at)}</td>
+                          <td className="py-3 px-4 text-xs">{formatDate(inv.due_date)}</td>
+                          <td className="py-3 px-4 font-semibold text-slate-900">{formatNaira(inv.total_cents)}</td>
+                          <td className="py-3 px-4">
+                            {inv.status === 'paid' ? (
+                              <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-emerald-100 text-emerald-800">
+                                paid
+                              </span>
+                            ) : activeBtr?.status === 'submitted_for_review' ? (
+                              <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                review pending
+                              </span>
+                            ) : activeBtr?.status === 'pending_transfer' ? (
+                              <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
+                                transfer pending
+                              </span>
+                            ) : (
+                              <span
+                                className={`px-2.5 py-0.5 text-xs font-medium rounded-full ${
+                                  inv.status === 'open' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                {inv.status}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {inv.status === 'open' && !isReadOnly ? (
+                              <div className="flex items-center justify-end gap-2">
+                                {activeBtr ? (
+                                  <button
+                                    onClick={() => setSelectedTransferRequest(activeBtr)}
+                                    className="px-3 py-1.5 bg-amber-600 text-white text-xs font-semibold rounded-lg hover:bg-amber-700 transition shadow-sm"
+                                  >
+                                    View Transfer
+                                  </button>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => handlePayInvoice(inv.id)}
+                                      disabled={actionLoading}
+                                      className="px-3.5 py-1.5 bg-emerald-600 text-white text-xs font-semibold rounded-lg hover:bg-emerald-700 transition shadow-sm"
+                                    >
+                                      Pay Now
+                                    </button>
+                                    {bankConfig?.is_available && (
+                                      <button
+                                        onClick={() => handleCreateBankTransferForInvoice(inv.id)}
+                                        disabled={actionLoading}
+                                        className="px-2.5 py-1.5 bg-slate-100 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-200 transition"
+                                      >
+                                        Bank Transfer
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                                <Link
+                                  to={`/app/billing/invoices/${inv.id}`}
+                                  className="text-xs font-semibold text-teal-600 hover:text-teal-800 ml-1"
+                                >
+                                  Details
+                                </Link>
+                              </div>
+                            ) : (
+                              <Link
+                                to={`/app/billing/invoices/${inv.id}`}
+                                className="text-xs font-semibold text-teal-600 hover:text-teal-800"
+                              >
+                                Details
+                              </Link>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1441,17 +1689,72 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
 
               {/* Specific explanations */}
               {changeType === 'upgrade' ? (
-                <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg text-xs text-teal-900">
-                  <p className="font-semibold mb-1">
-                    {subscription?.status === 'trialing'
-                      ? 'Evaluation Trial Conversion:'
-                      : 'Payment Required for Upgrade:'}
-                  </p>
-                  <p>
-                    {subscription?.status === 'trialing'
-                      ? 'You are currently on a 14-day evaluation trial. Completing checkout activates your paid subscription immediately with full clinical practitioner capacity upon payment settlement.'
-                      : 'Upgrading plan capacity requires immediate payment via Paystack. Your new practitioner seat entitlements will be activated immediately upon confirmed payment settlement.'}
-                  </p>
+                <div className="space-y-3">
+                  <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg text-xs text-teal-900">
+                    <p className="font-semibold mb-1">
+                      {subscription?.status === 'trialing'
+                        ? 'Evaluation Trial Conversion:'
+                        : 'Payment Required for Upgrade:'}
+                    </p>
+                    <p>
+                      {subscription?.status === 'trialing'
+                        ? 'You are currently on a 14-day evaluation trial. Completing payment activates your paid subscription immediately with full clinical practitioner capacity upon payment settlement.'
+                        : 'Upgrading plan capacity requires payment settlement. Your new practitioner seat entitlements will be activated upon confirmed payment.'}
+                    </p>
+                  </div>
+
+                  {/* Payment Method Selector */}
+                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <label className="text-xs font-bold text-slate-700 block">Payment Method</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('paystack')}
+                        className={`p-3 rounded-xl border text-left transition flex items-start gap-2.5 ${
+                          paymentMethod === 'paystack'
+                            ? 'border-teal-600 bg-teal-50/50 ring-1 ring-teal-600'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <CreditCard size={18} className={paymentMethod === 'paystack' ? 'text-teal-600' : 'text-slate-400'} />
+                        <div>
+                          <div className="font-semibold text-xs text-slate-900">Card / Paystack</div>
+                          <div className="text-[11px] text-slate-500">Instant activation</div>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (bankConfig?.is_available) {
+                            setPaymentMethod('bank_transfer');
+                          }
+                        }}
+                        className={`p-3 rounded-xl border text-left transition flex items-start gap-2.5 ${
+                          !bankConfig?.is_available
+                            ? 'opacity-50 cursor-not-allowed border-slate-200 bg-slate-50'
+                            : paymentMethod === 'bank_transfer'
+                            ? 'border-teal-600 bg-teal-50/50 ring-1 ring-teal-600'
+                            : 'border-slate-200 bg-white hover:border-slate-300'
+                        }`}
+                      >
+                        <Building2 size={18} className={paymentMethod === 'bank_transfer' ? 'text-teal-600' : 'text-slate-400'} />
+                        <div>
+                          <div className="font-semibold text-xs text-slate-900">Bank Transfer</div>
+                          <div className="text-[11px] text-slate-500">
+                            {bankConfig?.is_available ? 'Admin confirmation' : 'Temporarily Unavailable'}
+                          </div>
+                        </div>
+                      </button>
+                    </div>
+
+                    {!bankConfig?.is_available && (
+                      <div className="p-2.5 bg-amber-50/60 border border-amber-200 rounded-lg text-[11px] text-amber-900 flex items-start gap-1.5">
+                        <AlertCircle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                        <span>Bank transfer is not currently available. Please use the available payment method or contact Physenra support.</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1503,7 +1806,9 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                 {actionLoading
                   ? 'Processing...'
                   : changeType === 'upgrade'
-                  ? 'Proceed to Checkout'
+                  ? paymentMethod === 'bank_transfer'
+                    ? 'Generate Bank Transfer Request'
+                    : 'Proceed to Checkout'
                   : 'Confirm Downgrade'}
               </button>
             </div>
@@ -1632,6 +1937,247 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                 className="px-4 py-2 text-sm font-semibold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
               >
                 {actionLoading ? 'Reactivating...' : 'Keep My Subscription'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: MANUAL BANK TRANSFER PAYMENT REQUEST DETAILS & REFERENCE SUBMISSION */}
+      {selectedTransferRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900 bg-opacity-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 animate-in fade-in zoom-in duration-150 my-8">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-teal-600" />
+                  Bank Transfer Request
+                </h3>
+                <span className="font-mono text-xs text-slate-500 font-semibold">
+                  {selectedTransferRequest.request_number}
+                </span>
+              </div>
+              <button
+                onClick={() => setSelectedTransferRequest(null)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="py-4 space-y-4 text-sm text-slate-600">
+              {/* Status Banner */}
+              {selectedTransferRequest.status === 'pending_transfer' && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <Clock size={14} className="text-amber-600" />
+                    <span>Awaiting Transfer & Reference Submission</span>
+                  </div>
+                  <p>
+                    Please transfer the exact invoice amount to the Physenra account below, then enter your transfer reference or narration to submit for administrative review.
+                  </p>
+                </div>
+              )}
+
+              {selectedTransferRequest.status === 'submitted_for_review' && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <Shield size={14} className="text-blue-600" />
+                    <span>Reference Submitted — Review in Progress</span>
+                  </div>
+                  <p>
+                    Your transfer details have been submitted. A Platform Admin will inspect the receiving bank account statement and confirm receipt.
+                  </p>
+                </div>
+              )}
+
+              {selectedTransferRequest.status === 'confirmed' && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <Check size={14} className="text-emerald-600" />
+                    <span>Payment Confirmed & Settled</span>
+                  </div>
+                  <p>
+                    This bank transfer was confirmed and settled on{' '}
+                    {formatDate(selectedTransferRequest.reviewed_at)}. Subscription entitlements are active.
+                  </p>
+                </div>
+              )}
+
+              {selectedTransferRequest.status === 'rejected' && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <AlertCircle size={14} className="text-rose-600" />
+                    <span>Payment Review Rejected</span>
+                  </div>
+                  <p>
+                    <strong>Reason:</strong> {selectedTransferRequest.rejection_reason || 'Payment could not be verified.'}
+                  </p>
+                </div>
+              )}
+
+              {/* Receiving Account Box */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                <div className="flex justify-between items-center text-xs text-slate-500">
+                  <span>Exact Amount Due:</span>
+                  <span className="font-bold text-base text-slate-900 font-mono">
+                    {formatNaira(selectedTransferRequest.amount_cents)}
+                  </span>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200/80 space-y-1.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Bank Name:</span>
+                    <span className="font-bold text-slate-900">{selectedTransferRequest.bank_name}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Account Number:</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-bold text-teal-800 text-sm">
+                        {selectedTransferRequest.account_number}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyAccount(selectedTransferRequest.account_number)}
+                        className="p-1 text-slate-400 hover:text-slate-600 rounded"
+                        title="Copy account number"
+                      >
+                        {copiedAccount ? (
+                          <Check size={14} className="text-emerald-600" />
+                        ) : (
+                          <Copy size={14} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Account Name:</span>
+                    <span className="font-semibold text-slate-900">{selectedTransferRequest.account_name}</span>
+                  </div>
+                  {selectedTransferRequest.payment_instructions && (
+                    <div className="pt-1 text-[11px] text-slate-500">
+                      <strong>Payment Remark:</strong> Use reference{' '}
+                      <span className="font-mono font-bold text-slate-800">{selectedTransferRequest.request_number}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Reference Details / Submission Form */}
+              {selectedTransferRequest.status === 'pending_transfer' && (
+                <form onSubmit={handleSubmitReference} className="space-y-3 pt-2 border-t border-slate-100">
+                  <h4 className="font-bold text-xs text-slate-800 uppercase tracking-wider">
+                    Submit Transfer Reference
+                  </h4>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Bank Transaction Reference / Narration <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={customerRefInput}
+                      onChange={(e) => setCustomerRefInput(e.target.value)}
+                      placeholder="e.g. TRF-123456789 or sender remark"
+                      className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Your Bank (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={customerBankInput}
+                        onChange={(e) => setCustomerBankInput(e.target.value)}
+                        placeholder="e.g. Access Bank"
+                        className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">
+                        Transfer Date (Optional)
+                      </label>
+                      <input
+                        type="date"
+                        value={transferDateInput}
+                        onChange={(e) => setTransferDateInput(e.target.value)}
+                        className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Additional Notes (Optional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={transferNotesInput}
+                      onChange={(e) => setTransferNotesInput(e.target.value)}
+                      placeholder="Sender account name, reference codes, etc."
+                      className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCancelTransferRequest(selectedTransferRequest.id)}
+                      disabled={actionLoading}
+                      className="text-xs text-rose-600 hover:text-rose-800 font-semibold"
+                    >
+                      Cancel Request
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submittingReference || !customerRefInput.trim()}
+                      className="px-4 py-2 bg-teal-600 text-white rounded-lg text-xs font-semibold hover:bg-teal-700 transition disabled:opacity-50 shadow-sm"
+                    >
+                      {submittingReference ? 'Submitting...' : 'Submit for Admin Review'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Already Submitted Details Review */}
+              {(selectedTransferRequest.status === 'submitted_for_review' ||
+                selectedTransferRequest.status === 'confirmed' ||
+                selectedTransferRequest.status === 'rejected') && (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-xs text-slate-600">
+                  <div className="font-bold text-slate-800 mb-1">Submitted Information</div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Transaction Reference:</span>
+                    <span className="font-mono font-semibold text-slate-900">
+                      {selectedTransferRequest.customer_reference || '—'}
+                    </span>
+                  </div>
+                  {selectedTransferRequest.customer_transferred_at && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Transfer Date:</span>
+                      <span>{formatDate(selectedTransferRequest.customer_transferred_at)}</span>
+                    </div>
+                  )}
+                  {selectedTransferRequest.customer_notes && (
+                    <div className="pt-1">
+                      <span className="text-slate-500 block">Notes:</span>
+                      <span className="text-slate-800 italic">{selectedTransferRequest.customer_notes}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedTransferRequest(null)}
+                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800"
+              >
+                Close
               </button>
             </div>
           </div>

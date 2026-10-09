@@ -26,6 +26,8 @@ import {
   FileText,
   Mail,
   Phone,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { usePractice } from '../../hooks/usePractice';
 import { useRole } from '../../hooks/useRole';
@@ -38,6 +40,7 @@ import type {
   SaasPayment,
   PracticeSubscription,
   SaasPlan,
+  SaasBankTransferRequest,
 } from '../../types/models';
 
 function formatDate(dateValue: string | Date | null | undefined): string {
@@ -60,10 +63,20 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
   const [lines, setLines] = useState<SaasInvoiceLine[]>([]);
   const [payment, setPayment] = useState<SaasPayment | null>(null);
   const [subscription, setSubscription] = useState<(PracticeSubscription & { plan?: SaasPlan }) | null>(null);
+  const [bankTransferRequest, setBankTransferRequest] = useState<SaasBankTransferRequest | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'invoice' | 'receipt'>('invoice');
+
+  // Reference submission state
+  const [copiedAccount, setCopiedAccount] = useState<boolean>(false);
+  const [customerRefInput, setCustomerRefInput] = useState<string>('');
+  const [customerBankInput, setCustomerBankInput] = useState<string>('');
+  const [transferDateInput, setTransferDateInput] = useState<string>('');
+  const [transferNotesInput, setTransferNotesInput] = useState<string>('');
+  const [submittingReference, setSubmittingReference] = useState<boolean>(false);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
   const isAuthorizedViewer = isOwner || isAccountant || isManager;
   const isReadOnly = !isOwner;
@@ -85,17 +98,21 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
         return;
       }
 
-      // Load lines, payment, and subscription concurrently
-      const [lineItems, paymentData, subData] = await Promise.all([
+      // Load lines, payment, subscription, and bank transfer request concurrently
+      const [lineItems, paymentData, subData, btrList] = await Promise.all([
         saasSubscriptionService.getInvoiceLines(targetInvoice.id),
         saasSubscriptionService.getInvoicePayment(targetInvoice.id, activePractice.id),
         saasSubscriptionService.getPracticeSubscription(activePractice.id),
+        saasSubscriptionService.getPracticeBankTransferRequests(activePractice.id).catch(() => []),
       ]);
+
+      const foundBtr = btrList.find((r) => r.invoice_id === targetInvoice.id) || null;
 
       setInvoice(targetInvoice);
       setLines(lineItems);
       setPayment(paymentData);
       setSubscription(subData);
+      setBankTransferRequest(foundBtr);
 
       // Default to invoice view
       setViewMode('invoice');
@@ -174,6 +191,54 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
       console.error('Payment checkout initiation failed:', err);
       setErrorMessage(err.message || 'Payment initiation failed.');
       setActionLoading(false);
+    }
+  };
+
+  const handleCopyAccount = (accountNumber: string) => {
+    try {
+      navigator.clipboard.writeText(accountNumber);
+      setCopiedAccount(true);
+      setTimeout(() => setCopiedAccount(false), 2000);
+    } catch (err) {
+      console.error('Copy failed:', err);
+    }
+  };
+
+  const handleSubmitReference = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bankTransferRequest || !customerRefInput.trim()) {
+      setErrorMessage('Please provide your bank transfer reference or transaction narration.');
+      return;
+    }
+
+    try {
+      setSubmittingReference(true);
+      const combinedNotes = [
+        customerBankInput.trim() ? `Remitter Bank: ${customerBankInput.trim()}` : '',
+        transferNotesInput.trim(),
+      ]
+        .filter(Boolean)
+        .join(' | ');
+
+      const updated = await saasSubscriptionService.submitBankTransferReference(
+        bankTransferRequest.id,
+        customerRefInput.trim(),
+        transferDateInput ? new Date(transferDateInput).toISOString() : undefined,
+        combinedNotes || undefined
+      );
+
+      setBankTransferRequest(updated);
+      setActionSuccess('Transfer reference submitted for Platform Admin review. Entitlements will activate once confirmed.');
+      setCustomerRefInput('');
+      setCustomerBankInput('');
+      setTransferDateInput('');
+      setTransferNotesInput('');
+      await loadInvoiceData();
+    } catch (err: any) {
+      console.error('Failed to submit reference:', err);
+      setErrorMessage(err.message || 'Failed to submit reference.');
+    } finally {
+      setSubmittingReference(false);
     }
   };
 
@@ -318,6 +383,164 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
         <div className="print:hidden mb-6 p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center gap-2">
           <AlertCircle size={16} className="text-rose-600 flex-shrink-0" />
           <span>{errorMessage}</span>
+        </div>
+      )}
+
+      {/* Success alert */}
+      {actionSuccess && (
+        <div className="print:hidden mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center gap-2">
+          <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0" />
+          <span>{actionSuccess}</span>
+        </div>
+      )}
+
+      {/* Bank Transfer Instructions / Status Banner (Open / Under Review / Pending Transfer) */}
+      {bankTransferRequest && (
+        <div className="print:hidden mb-6 p-5 rounded-2xl border border-slate-200 bg-white shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-teal-600" />
+              <h3 className="font-bold text-sm text-slate-900">
+                Manual Bank Transfer: {bankTransferRequest.request_number}
+              </h3>
+            </div>
+            <div>
+              {bankTransferRequest.status === 'pending_transfer' && (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                  Transfer Pending
+                </span>
+              )}
+              {bankTransferRequest.status === 'submitted_for_review' && (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                  Under Admin Review
+                </span>
+              )}
+              {bankTransferRequest.status === 'confirmed' && (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  Confirmed & Settled
+                </span>
+              )}
+              {bankTransferRequest.status === 'rejected' && (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 border border-rose-200">
+                  Review Rejected
+                </span>
+              )}
+            </div>
+          </div>
+
+          {bankTransferRequest.status === 'pending_transfer' && (
+            <div className="space-y-4 text-xs">
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                <p className="text-slate-600">
+                  Please transfer the exact invoice amount of{' '}
+                  <strong className="text-slate-900">{formatNaira(bankTransferRequest.amount_cents)}</strong> to
+                  the following receiving account:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Bank:</span>
+                    <span className="font-bold text-slate-800">{bankTransferRequest.bank_name}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Account Number:</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono font-bold text-teal-800">{bankTransferRequest.account_number}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyAccount(bankTransferRequest.account_number)}
+                        className="text-slate-400 hover:text-slate-600"
+                        title="Copy account number"
+                      >
+                        {copiedAccount ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Account Name:</span>
+                    <span className="font-semibold text-slate-800">{bankTransferRequest.account_name}</span>
+                  </div>
+                </div>
+                <div className="text-[11px] text-slate-500 pt-1">
+                  <strong>Narration / Remark:</strong> Use reference{' '}
+                  <span className="font-mono font-bold text-slate-800">{bankTransferRequest.request_number}</span>
+                </div>
+              </div>
+
+              {!isReadOnly && (
+                <form onSubmit={handleSubmitReference} className="space-y-3 pt-1">
+                  <h4 className="font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+                    Submit Transfer Reference
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="sm:col-span-2">
+                      <label className="block font-semibold text-slate-700 mb-1">
+                        Bank Transaction Reference / Narration <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={customerRefInput}
+                        onChange={(e) => setCustomerRefInput(e.target.value)}
+                        placeholder="e.g. TRF-12345678 or narration"
+                        className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">Your Bank (Optional)</label>
+                      <input
+                        type="text"
+                        value={customerBankInput}
+                        onChange={(e) => setCustomerBankInput(e.target.value)}
+                        placeholder="e.g. Zenith Bank"
+                        className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Additional Notes (Optional)</label>
+                    <input
+                      type="text"
+                      value={transferNotesInput}
+                      onChange={(e) => setTransferNotesInput(e.target.value)}
+                      placeholder="Account holder name, date of transfer, etc."
+                      className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600"
+                    />
+                  </div>
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      disabled={submittingReference || !customerRefInput.trim()}
+                      className="px-4 py-2 bg-teal-600 text-white rounded-lg text-xs font-semibold hover:bg-teal-700 transition disabled:opacity-50 shadow-sm"
+                    >
+                      {submittingReference ? 'Submitting Reference...' : 'Submit Reference for Admin Review'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+
+          {bankTransferRequest.status === 'submitted_for_review' && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 space-y-1">
+              <p className="font-semibold">Transfer Reference Submitted for Verification</p>
+              <p>
+                Reference: <strong className="font-mono">{bankTransferRequest.customer_reference}</strong>
+                {bankTransferRequest.submitted_at && (
+                  <span> (submitted {formatDate(bankTransferRequest.submitted_at)})</span>
+                )}.
+                A Platform Admin will review the receiving bank statement and settle this invoice.
+              </p>
+            </div>
+          )}
+
+          {bankTransferRequest.status === 'rejected' && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 space-y-1">
+              <p className="font-semibold">Payment Verification Rejected</p>
+              <p>
+                Reason: <strong>{bankTransferRequest.rejection_reason || 'Payment could not be verified.'}</strong>
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -527,7 +750,11 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs text-slate-600">
                   <div>
                     <span className="text-slate-400 block text-[11px]">Gateway:</span>
-                    <span className="font-semibold text-slate-800">Paystack</span>
+                    <span className="font-semibold text-slate-800">
+                      {payment?.gateway_provider === 'manual_bank_transfer' || payment?.payment_method === 'bank_transfer'
+                        ? 'Manual Bank Transfer (Admin Verified)'
+                        : 'Paystack'}
+                    </span>
                   </div>
                   <div>
                     <span className="text-slate-400 block text-[11px]">Payment Reference:</span>
@@ -601,7 +828,9 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
                   Payment Method
                 </span>
                 <span className="text-slate-800 font-semibold block mt-0.5">
-                  Paystack Online Settlement
+                  {payment?.gateway_provider === 'manual_bank_transfer' || payment?.payment_method === 'bank_transfer'
+                    ? 'Manual Bank Transfer (Admin Confirmed)'
+                    : 'Paystack Online Settlement'}
                 </span>
               </div>
             </div>

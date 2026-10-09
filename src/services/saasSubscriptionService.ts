@@ -27,6 +27,9 @@ import type {
   RegisterPracticeAndSubscribeResponse,
   SaasPlanCode,
   SaasPaymentGateway,
+  BankTransferConfig,
+  ActiveBankTransferConfigResponse,
+  SaasBankTransferRequest,
 } from '../types/models';
 
 export interface PracticeOwnerContact {
@@ -1157,6 +1160,237 @@ export const saasSubscriptionService = {
     }
 
     return result;
+  },
+
+  // ----------------------------------------------------------------------------
+  // 7. MANUAL BANK TRANSFER & ADMIN PAYMENT CONFIRMATION (V1)
+  // ----------------------------------------------------------------------------
+
+  /**
+   * Retrieves active bank transfer availability & account configuration for practice checkout.
+   * If disabled or unverified, returns is_available: false with clear user explanation.
+   */
+  async getActiveBankTransferConfig(): Promise<ActiveBankTransferConfigResponse> {
+    const { data, error } = await supabase.rpc('get_active_bank_transfer_config');
+    if (error) {
+      console.warn('Failed to query bank transfer configuration:', error.message);
+      return {
+        is_available: false,
+        is_enabled: false,
+        message: 'Bank transfer is not currently available. Please use the available payment method or contact Physenra support.',
+      };
+    }
+    return data as unknown as ActiveBankTransferConfigResponse;
+  },
+
+  /**
+   * Platform Admin: Retrieves raw bank transfer configuration from platform_settings.
+   */
+  async getBankTransferConfigAdmin(): Promise<BankTransferConfig | null> {
+    const { data, error } = await supabase
+      .from('platform_settings')
+      .select('value')
+      .eq('key', 'bank_transfer_config')
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to fetch bank transfer config: ${error.message}`);
+    }
+    if (!data?.value) return null;
+    return data.value as unknown as BankTransferConfig;
+  },
+
+  /**
+   * Platform Admin: Updates receiving bank account details.
+   * CRITICAL: Automatically resets is_verified = false and is_enabled = false.
+   */
+  async updateBankTransferConfig(payload: {
+    bank_name: string;
+    account_name: string;
+    account_number: string;
+    payment_instructions?: string;
+  }): Promise<BankTransferConfig> {
+    const { data, error } = await supabase.rpc('update_bank_transfer_config', {
+      p_bank_name: payload.bank_name,
+      p_account_name: payload.account_name,
+      p_account_number: payload.account_number,
+      p_payment_instructions: payload.payment_instructions || '',
+    });
+
+    if (error) {
+      throw new Error(`Failed to update bank configuration: ${error.message}`);
+    }
+
+    return data as unknown as BankTransferConfig;
+  },
+
+  /**
+   * Platform Admin: Verifies and toggles bank transfer availability.
+   * Requires complete, validated account details before it can be verified.
+   */
+  async verifyAndEnableBankTransferConfig(enable: boolean): Promise<BankTransferConfig> {
+    const { data, error } = await supabase.rpc('verify_and_enable_bank_transfer_config', {
+      p_enable: enable,
+    });
+
+    if (error) {
+      throw new Error(`Failed to update bank transfer verification status: ${error.message}`);
+    }
+
+    return data as unknown as BankTransferConfig;
+  },
+
+  /**
+   * Practice Owner: Initiates a manual bank transfer payment request for an open invoice.
+   * Generates a PHY-BTR-YYYY-XXXXXX request snapshot with verified receiving bank details.
+   */
+  async createBankTransferPaymentRequest(
+    practiceId: string,
+    invoiceId: string
+  ): Promise<any> {
+    const { data, error } = await supabase.rpc('create_bank_transfer_payment_request', {
+      p_practice_id: practiceId,
+      p_invoice_id: invoiceId,
+    });
+
+    if (error) {
+      throw new Error(`Failed to create bank transfer request: ${error.message}`);
+    }
+
+    return data;
+  },
+
+  /**
+   * Practice Owner: Submits a payment reference and transfer date after paying at their bank.
+   * Moves request into 'submitted_for_review'. Does NOT activate subscription.
+   */
+  async submitBankTransferReference(
+    requestId: string,
+    customerReference: string,
+    transferredAt?: string,
+    notes?: string
+  ): Promise<any> {
+    const { data, error } = await supabase.rpc('submit_bank_transfer_reference', {
+      p_request_id: requestId,
+      p_customer_reference: customerReference,
+      p_transferred_at: transferredAt || null,
+      p_notes: notes || null,
+    });
+
+    if (error) {
+      throw new Error(`Failed to submit transfer reference: ${error.message}`);
+    }
+
+    return data;
+  },
+
+  /**
+   * Platform Admin: Confirms verified receipt of funds in the official Physenra bank account.
+   * Triggers atomic settlement, marks invoice paid, and advances subscription.
+   */
+  async confirmBankTransferPayment(requestId: string): Promise<any> {
+    const { data, error } = await supabase.rpc('confirm_bank_transfer_payment', {
+      p_request_id: requestId,
+    });
+
+    if (error) {
+      throw new Error(`Failed to confirm bank transfer payment: ${error.message}`);
+    }
+
+    return data;
+  },
+
+  /**
+   * Platform Admin: Rejects an invalid or unverified bank transfer request.
+   * Requires a mandatory audit reason.
+   */
+  async rejectBankTransferPayment(requestId: string, rejectionReason: string): Promise<any> {
+    const { data, error } = await supabase.rpc('reject_bank_transfer_payment', {
+      p_request_id: requestId,
+      p_rejection_reason: rejectionReason,
+    });
+
+    if (error) {
+      throw new Error(`Failed to reject bank transfer payment: ${error.message}`);
+    }
+
+    return data;
+  },
+
+  /**
+   * Practice Owner: Cancels their own pending bank transfer request (e.g. to switch to Paystack).
+   */
+  async cancelBankTransferRequest(requestId: string): Promise<any> {
+    const { data, error } = await supabase.rpc('cancel_bank_transfer_payment_request', {
+      p_request_id: requestId,
+    });
+
+    if (error) {
+      throw new Error(`Failed to cancel bank transfer request: ${error.message}`);
+    }
+
+    return data;
+  },
+
+  /**
+   * Retrieves bank transfer requests for a practice.
+   */
+  async getPracticeBankTransferRequests(practiceId: string): Promise<SaasBankTransferRequest[]> {
+    const { data, error } = await supabase
+      .from('saas_bank_transfer_requests')
+      .select('*')
+      .eq('practice_id', practiceId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.warn('Failed to fetch practice bank transfer requests:', error.message);
+      return [];
+    }
+
+    return (data as SaasBankTransferRequest[]) || [];
+  },
+
+  /**
+   * Platform Admin: Retrieves all bank transfer requests across all practices for the review queue.
+   */
+  async getAllBankTransferRequests(): Promise<
+    (SaasBankTransferRequest & {
+      practice?: { name: string; slug: string };
+      invoice?: { invoice_number: string; due_date: string };
+      plan?: { name: string };
+    })[]
+  > {
+    const { data: requests, error } = await supabase
+      .from('saas_bank_transfer_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch bank transfer review queue: ${error.message}`);
+    }
+
+    if (!requests || requests.length === 0) return [];
+
+    const practiceIds = Array.from(new Set(requests.map((r) => r.practice_id)));
+    const invoiceIds = Array.from(new Set(requests.map((r) => r.invoice_id)));
+    const planIds = Array.from(new Set(requests.map((r) => r.plan_id)));
+
+    const [{ data: practices }, { data: invoices }, { data: plans }] = await Promise.all([
+      supabase.from('practices').select('id, name, slug').in('id', practiceIds),
+      supabase.from('saas_invoices').select('id, invoice_number, due_date').in('id', invoiceIds),
+      supabase.from('saas_plans').select('id, name').in('id', planIds),
+    ]);
+
+    const practiceMap = new Map((practices || []).map((p) => [p.id, p]));
+    const invoiceMap = new Map((invoices || []).map((i) => [i.id, i]));
+    const planMap = new Map((plans || []).map((pl) => [pl.id, pl]));
+
+    return requests.map((r) => ({
+      ...r,
+      practice: practiceMap.get(r.practice_id),
+      invoice: invoiceMap.get(r.invoice_id),
+      plan: planMap.get(r.plan_id),
+    }));
   },
 };
 

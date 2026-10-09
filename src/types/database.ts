@@ -753,6 +753,84 @@ export interface Database {
         };
         Relationships: [];
       };
+      saas_bank_transfer_requests: {
+        Row: {
+          id: string;
+          request_number: string;
+          practice_id: string;
+          invoice_id: string;
+          subscription_id: string;
+          plan_id: string;
+          amount_cents: number;
+          currency: string;
+          status: string;
+          bank_name: string;
+          account_name: string;
+          account_number: string;
+          payment_instructions: string | null;
+          customer_reference: string | null;
+          customer_transferred_at: string | null;
+          customer_notes: string | null;
+          submitted_at: string | null;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          rejection_reason: string | null;
+          payment_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          request_number: string;
+          practice_id: string;
+          invoice_id: string;
+          subscription_id: string;
+          plan_id: string;
+          amount_cents: number;
+          currency?: string;
+          status?: string;
+          bank_name: string;
+          account_name: string;
+          account_number: string;
+          payment_instructions?: string | null;
+          customer_reference?: string | null;
+          customer_transferred_at?: string | null;
+          customer_notes?: string | null;
+          submitted_at?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          rejection_reason?: string | null;
+          payment_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          request_number?: string;
+          practice_id?: string;
+          invoice_id?: string;
+          subscription_id?: string;
+          plan_id?: string;
+          amount_cents?: number;
+          currency?: string;
+          status?: string;
+          bank_name?: string;
+          account_name?: string;
+          account_number?: string;
+          payment_instructions?: string | null;
+          customer_reference?: string | null;
+          customer_transferred_at?: string | null;
+          customer_notes?: string | null;
+          submitted_at?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          rejection_reason?: string | null;
+          payment_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       practice_inventory_counters: {
         Row: {
           practice_id: string;
@@ -4730,6 +4808,60 @@ export interface Database {
         Args: {
           p_practice_id: string;
           p_reason?: string;
+        };
+        Returns: Json;
+      };
+      get_active_bank_transfer_config: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
+      update_bank_transfer_config: {
+        Args: {
+          p_bank_name: string;
+          p_account_name: string;
+          p_account_number: string;
+          p_payment_instructions: string;
+        };
+        Returns: Json;
+      };
+      verify_and_enable_bank_transfer_config: {
+        Args: {
+          p_enable: boolean;
+        };
+        Returns: Json;
+      };
+      create_bank_transfer_payment_request: {
+        Args: {
+          p_practice_id: string;
+          p_invoice_id: string;
+        };
+        Returns: Json;
+      };
+      submit_bank_transfer_reference: {
+        Args: {
+          p_request_id: string;
+          p_customer_reference: string;
+          p_transferred_at?: string | null;
+          p_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      confirm_bank_transfer_payment: {
+        Args: {
+          p_request_id: string;
+        };
+        Returns: Json;
+      };
+      reject_bank_transfer_payment: {
+        Args: {
+          p_request_id: string;
+          p_rejection_reason: string;
+        };
+        Returns: Json;
+      };
+      cancel_bank_transfer_payment_request: {
+        Args: {
+          p_request_id: string;
         };
         Returns: Json;
       };
