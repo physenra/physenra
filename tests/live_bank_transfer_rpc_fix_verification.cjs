@@ -147,11 +147,21 @@ async function runLiveVerification() {
 
   // 7. Verify live billing bundle contains the exact prescribed disabled message
   process.stdout.write('TEST 7: Live bundle contains prescribed disabled message... ');
-  const billingChunkRes = await httpRequest(`${PRODUCTION_URL}/assets/domain-platform-billing-BYyW7pvl.js`);
+  const scriptRegex = /<script\s+type="module"\s+crossorigin\s+src="([^"]+)"><\/script>/g;
+  const scriptMatches = [...homeRes.body.matchAll(scriptRegex)];
+  let billingChunkPath = '/assets/domain-platform-billing-BdC6bl5r.js';
+  if (scriptMatches.length > 0) {
+    const mainScriptRes = await httpRequest(`${PRODUCTION_URL}${scriptMatches[0][1]}`);
+    const chunkMatch = mainScriptRes.body.match(/assets\/domain-platform-billing-[a-zA-Z0-9_\-]+\.js/);
+    if (chunkMatch) {
+      billingChunkPath = `/${chunkMatch[0]}`;
+    }
+  }
+  const billingChunkRes = await httpRequest(`${PRODUCTION_URL}${billingChunkPath}`);
   assert.equal(billingChunkRes.statusCode, 200, 'Billing chunk must return 200');
   const prescribedMsg = 'Bank transfer is not currently available. Please use the available payment method or contact Physenra support.';
   assert.ok(billingChunkRes.body.includes(prescribedMsg), 'Must include exact disabled message');
-  console.log('PASS');
+  console.log(`PASS (${billingChunkPath})`);
   passed++;
 
   // 8. Zero Kabworld references across live bundle
