@@ -5,7 +5,20 @@ import { patientService } from '../../services/patientService';
 import { episodeService } from '../../services/episodeService';
 import { appointmentService } from '../../services/appointmentService';
 import { usePractice } from '../../hooks/usePractice';
+import { useFormDraft } from '../../hooks/useFormDraft';
+import { DraftBanner } from '../../components/ui/DraftBanner';
 import type { Patient, EpisodeOfCare, AppointmentWithRelations } from '../../types/models';
+
+interface VisitDraftData {
+  selectedPatientId: string;
+  selectedEpisodeId: string;
+  selectedAppointmentId: string;
+  selectedClinicianId: string;
+  locationMode: 'clinic' | 'home' | 'telehealth' | 'other';
+  status: 'scheduled' | 'in_progress';
+  actualStartTime: string;
+  encounterNotes: string;
+}
 
 export const CreateClinicalVisitPage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,15 +36,45 @@ export const CreateClinicalVisitPage: React.FC = () => {
   const [appointments, setAppointments] = useState<AppointmentWithRelations[]>([]);
   const [clinicians, setClinicians] = useState<Array<{ id: string; name: string }>>([]);
 
-  // Form State
-  const [selectedPatientId, setSelectedPatientId] = useState(initialPatientId);
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState(initialEpisodeId);
-  const [selectedAppointmentId, setSelectedAppointmentId] = useState(initialAppointmentId);
-  const [selectedClinicianId, setSelectedClinicianId] = useState('');
-  const [locationMode, setLocationMode] = useState<'clinic' | 'home' | 'telehealth' | 'other'>('clinic');
-  const [status, setStatus] = useState<'scheduled' | 'in_progress'>('in_progress');
-  const [actualStartTime, setActualStartTime] = useState(new Date().toISOString().slice(0, 16));
-  const [encounterNotes, setEncounterNotes] = useState('');
+  // Platform-wide draft preservation
+  const {
+    data: draftData,
+    updateField,
+    isDirty,
+    isRestored,
+    restoredAt,
+    discardDraft,
+    markSaved,
+  } = useFormDraft<VisitDraftData>({
+    formId: 'create_clinical_visit_record',
+    initialData: {
+      selectedPatientId: initialPatientId,
+      selectedEpisodeId: initialEpisodeId,
+      selectedAppointmentId: initialAppointmentId,
+      selectedClinicianId: '',
+      locationMode: 'clinic',
+      status: 'in_progress',
+      actualStartTime: new Date().toISOString().slice(0, 16),
+      encounterNotes: '',
+    },
+  });
+
+  const selectedPatientId = draftData.selectedPatientId || initialPatientId;
+  const setSelectedPatientId = (v: string) => updateField('selectedPatientId', v);
+  const selectedEpisodeId = draftData.selectedEpisodeId || initialEpisodeId;
+  const setSelectedEpisodeId = (v: string) => updateField('selectedEpisodeId', v);
+  const selectedAppointmentId = draftData.selectedAppointmentId || initialAppointmentId;
+  const setSelectedAppointmentId = (v: string) => updateField('selectedAppointmentId', v);
+  const selectedClinicianId = draftData.selectedClinicianId;
+  const setSelectedClinicianId = (v: string) => updateField('selectedClinicianId', v);
+  const locationMode = draftData.locationMode;
+  const setLocationMode = (v: 'clinic' | 'home' | 'telehealth' | 'other') => updateField('locationMode', v);
+  const status = draftData.status;
+  const setStatus = (v: 'scheduled' | 'in_progress') => updateField('status', v);
+  const actualStartTime = draftData.actualStartTime;
+  const setActualStartTime = (v: string) => updateField('actualStartTime', v);
+  const encounterNotes = draftData.encounterNotes;
+  const setEncounterNotes = (v: string) => updateField('encounterNotes', v);
 
   // UI State
   const [isLoading, setIsLoading] = useState(true);
@@ -175,6 +218,7 @@ export const CreateClinicalVisitPage: React.FC = () => {
         }
       }
 
+      markSaved();
       navigate(`/app/visits/${created.id}`);
     } catch (err: any) {
       setError(err.message || 'Failed to create clinical visit.');
@@ -195,6 +239,15 @@ export const CreateClinicalVisitPage: React.FC = () => {
           Initiate or record an encounter execution for patient care.
         </p>
       </div>
+
+      {/* Form Draft Preservation & Restoration Banner */}
+      <DraftBanner
+        isRestored={isRestored}
+        restoredAt={restoredAt}
+        isDirty={isDirty}
+        onDiscard={discardDraft}
+        entityName="clinical visit"
+      />
 
       {/* Domain Separation Notice */}
       <div

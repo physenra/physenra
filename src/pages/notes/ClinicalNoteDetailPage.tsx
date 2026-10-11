@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase';
 import { clinicalNoteService } from '../../services/clinicalNoteService';
 import { outcomeMeasureService } from '../../services/outcomeMeasureService';
 import { hepService } from '../../services/hepService';
+import { useFormDraft } from '../../hooks/useFormDraft';
+import { DraftBanner } from '../../components/ui/DraftBanner';
 import type {
   ClinicalNoteWithRelations,
   ClinicalNoteStatus,
@@ -12,6 +14,13 @@ import type {
   HomeExerciseProgramWithRelations,
 } from '../../types/models';
 
+interface NoteDraftData {
+  subjective: string;
+  objective: string;
+  assessment: string;
+  plan: string;
+}
+
 export const ClinicalNoteDetailPage: React.FC = () => {
   const { noteId } = useParams<{ noteId: string }>();
 
@@ -19,12 +28,36 @@ export const ClinicalNoteDetailPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Platform-wide draft preservation for editing draft notes
+  const {
+    data: draftData,
+    setData: setDraftData,
+    updateField,
+    isDirty,
+    isRestored,
+    restoredAt,
+    discardDraft,
+    markSaved,
+  } = useFormDraft<NoteDraftData>({
+    formId: `clinical_note_edit_${noteId || 'unknown'}`,
+    initialData: {
+      subjective: '',
+      objective: '',
+      assessment: '',
+      plan: '',
+    },
+  });
+
   // Edit State (for Draft notes)
   const [isEditing, setIsEditing] = useState(false);
-  const [subjective, setSubjective] = useState('');
-  const [objective, setObjective] = useState('');
-  const [assessment, setAssessment] = useState('');
-  const [plan, setPlan] = useState('');
+  const subjective = draftData.subjective;
+  const setSubjective = (v: string) => updateField('subjective', v);
+  const objective = draftData.objective;
+  const setObjective = (v: string) => updateField('objective', v);
+  const assessment = draftData.assessment;
+  const setAssessment = (v: string) => updateField('assessment', v);
+  const plan = draftData.plan;
+  const setPlan = (v: string) => updateField('plan', v);
   const [isSaving, setIsSaving] = useState(false);
 
   // Finalize Modal State
@@ -51,10 +84,16 @@ export const ClinicalNoteDetailPage: React.FC = () => {
         setError('Clinical note not found.');
       } else {
         setNote(data);
-        setSubjective(data.subjective || '');
-        setObjective(data.objective || '');
-        setAssessment(data.assessment || '');
-        setPlan(data.plan || '');
+        if (isRestored && data.status === 'draft') {
+          setIsEditing(true);
+        } else if (!isDirty) {
+          setDraftData({
+            subjective: data.subjective || '',
+            objective: data.objective || '',
+            assessment: data.assessment || '',
+            plan: data.plan || '',
+          });
+        }
 
         if (data.clinical_visit_id) {
           try {
@@ -94,6 +133,7 @@ export const ClinicalNoteDetailPage: React.FC = () => {
         assessment,
         plan,
       });
+      markSaved();
       setIsEditing(false);
       await loadNote();
     } catch (err: any) {
@@ -117,6 +157,7 @@ export const ClinicalNoteDetailPage: React.FC = () => {
           plan,
         });
       }
+      markSaved();
       await clinicalNoteService.finalizeNote(note.id);
       setIsEditing(false);
       setShowFinalizeModal(false);
@@ -274,6 +315,28 @@ export const ClinicalNoteDetailPage: React.FC = () => {
         )}
       </div>
 
+      {/* Form Draft Preservation & Restoration Banner (For Draft Notes) */}
+      {note.status === 'draft' && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <DraftBanner
+            isRestored={isRestored}
+            restoredAt={restoredAt}
+            isDirty={isDirty}
+            onDiscard={() => {
+              discardDraft();
+              setIsEditing(false);
+              setDraftData({
+                subjective: note.subjective || '',
+                objective: note.objective || '',
+                assessment: note.assessment || '',
+                plan: note.plan || '',
+              });
+            }}
+            entityName="clinical note edit"
+          />
+        </div>
+      )}
+
       {/* Header Profile Bar */}
       <div
         style={{
@@ -333,11 +396,14 @@ export const ClinicalNoteDetailPage: React.FC = () => {
                     type="button"
                     disabled={isSaving}
                     onClick={() => {
+                      discardDraft();
                       setIsEditing(false);
-                      setSubjective(note.subjective || '');
-                      setObjective(note.objective || '');
-                      setAssessment(note.assessment || '');
-                      setPlan(note.plan || '');
+                      setDraftData({
+                        subjective: note.subjective || '',
+                        objective: note.objective || '',
+                        assessment: note.assessment || '',
+                        plan: note.plan || '',
+                      });
                     }}
                     style={{
                       padding: '0.5rem 1rem',

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { patientService } from '../../services/patientService';
+import { useFormDraft } from '../../hooks/useFormDraft';
+import { DraftBanner } from '../../components/ui/DraftBanner';
 import type { Patient, PatientSex, PatientStatus } from '../../types/models';
 import {
   ArrowLeft,
@@ -13,6 +15,29 @@ import {
   Lock,
 } from 'lucide-react';
 
+interface EditPatientDraftData {
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  preferredName: string;
+  dateOfBirth: string;
+  sex: PatientSex | '';
+  status: PatientStatus;
+  phone: string;
+  email: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  stateProvince: string;
+  postalCode: string;
+  country: string;
+  emergencyName: string;
+  emergencyRelationship: string;
+  emergencyPhone: string;
+  emergencyEmail: string;
+  administrativeNotes: string;
+}
+
 export const EditPatientPage: React.FC = () => {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
@@ -22,33 +47,82 @@ export const EditPatientPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Form State
-  const [firstName, setFirstName] = useState('');
-  const [middleName, setMiddleName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [preferredName, setPreferredName] = useState('');
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [sex, setSex] = useState<PatientSex | ''>('');
-  const [status, setStatus] = useState<PatientStatus>('active');
+  // Platform-wide draft preservation
+  const {
+    data: draftData,
+    setData: setDraftData,
+    updateField,
+    isDirty,
+    isRestored,
+    restoredAt,
+    discardDraft,
+    markSaved,
+  } = useFormDraft<EditPatientDraftData>({
+    formId: `edit_patient_${patientId || 'unknown'}`,
+    initialData: {
+      firstName: '',
+      middleName: '',
+      lastName: '',
+      preferredName: '',
+      dateOfBirth: '',
+      sex: '',
+      status: 'active',
+      phone: '',
+      email: '',
+      addressLine1: '',
+      addressLine2: '',
+      city: '',
+      stateProvince: '',
+      postalCode: '',
+      country: 'GB',
+      emergencyName: '',
+      emergencyRelationship: '',
+      emergencyPhone: '',
+      emergencyEmail: '',
+      administrativeNotes: '',
+    },
+  });
 
-  // Contact
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [addressLine1, setAddressLine1] = useState('');
-  const [addressLine2, setAddressLine2] = useState('');
-  const [city, setCity] = useState('');
-  const [stateProvince, setStateProvince] = useState('');
-  const [postalCode, setPostalCode] = useState('');
-  const [country, setCountry] = useState('GB');
-
-  // Emergency Contact
-  const [emergencyName, setEmergencyName] = useState('');
-  const [emergencyRelationship, setEmergencyRelationship] = useState('');
-  const [emergencyPhone, setEmergencyPhone] = useState('');
-  const [emergencyEmail, setEmergencyEmail] = useState('');
-
-  // Administrative Notes
-  const [administrativeNotes, setAdministrativeNotes] = useState('');
+  const firstName = draftData.firstName;
+  const setFirstName = (v: string) => updateField('firstName', v);
+  const middleName = draftData.middleName;
+  const setMiddleName = (v: string) => updateField('middleName', v);
+  const lastName = draftData.lastName;
+  const setLastName = (v: string) => updateField('lastName', v);
+  const preferredName = draftData.preferredName;
+  const setPreferredName = (v: string) => updateField('preferredName', v);
+  const dateOfBirth = draftData.dateOfBirth;
+  const setDateOfBirth = (v: string) => updateField('dateOfBirth', v);
+  const sex = draftData.sex;
+  const setSex = (v: PatientSex | '') => updateField('sex', v);
+  const status = draftData.status;
+  const setStatus = (v: PatientStatus) => updateField('status', v);
+  const phone = draftData.phone;
+  const setPhone = (v: string) => updateField('phone', v);
+  const email = draftData.email;
+  const setEmail = (v: string) => updateField('email', v);
+  const addressLine1 = draftData.addressLine1;
+  const setAddressLine1 = (v: string) => updateField('addressLine1', v);
+  const addressLine2 = draftData.addressLine2;
+  const setAddressLine2 = (v: string) => updateField('addressLine2', v);
+  const city = draftData.city;
+  const setCity = (v: string) => updateField('city', v);
+  const stateProvince = draftData.stateProvince;
+  const setStateProvince = (v: string) => updateField('stateProvince', v);
+  const postalCode = draftData.postalCode;
+  const setPostalCode = (v: string) => updateField('postalCode', v);
+  const country = draftData.country;
+  const setCountry = (v: string) => updateField('country', v);
+  const emergencyName = draftData.emergencyName;
+  const setEmergencyName = (v: string) => updateField('emergencyName', v);
+  const emergencyRelationship = draftData.emergencyRelationship;
+  const setEmergencyRelationship = (v: string) => updateField('emergencyRelationship', v);
+  const emergencyPhone = draftData.emergencyPhone;
+  const setEmergencyPhone = (v: string) => updateField('emergencyPhone', v);
+  const emergencyEmail = draftData.emergencyEmail;
+  const setEmergencyEmail = (v: string) => updateField('emergencyEmail', v);
+  const administrativeNotes = draftData.administrativeNotes;
+  const setAdministrativeNotes = (v: string) => updateField('administrativeNotes', v);
 
   useEffect(() => {
     async function loadPatient() {
@@ -62,26 +136,32 @@ export const EditPatientPage: React.FC = () => {
           return;
         }
         setPatient(data);
-        setFirstName(data.first_name);
-        setMiddleName(data.middle_name || '');
-        setLastName(data.last_name);
-        setPreferredName(data.preferred_name || '');
-        setDateOfBirth(data.date_of_birth || '');
-        setSex(data.sex || '');
-        setStatus(data.status);
-        setPhone(data.phone || '');
-        setEmail(data.email || '');
-        setAddressLine1(data.address_line1 || '');
-        setAddressLine2(data.address_line2 || '');
-        setCity(data.city || '');
-        setStateProvince(data.state_province || '');
-        setPostalCode(data.postal_code || '');
-        setCountry(data.country || 'GB');
-        setEmergencyName(data.emergency_contact_name || '');
-        setEmergencyRelationship(data.emergency_contact_relationship || '');
-        setEmergencyPhone(data.emergency_contact_phone || '');
-        setEmergencyEmail(data.emergency_contact_email || '');
-        setAdministrativeNotes(data.administrative_notes || '');
+
+        // Only overwrite fields if the user has not already restored an active draft
+        if (!isRestored && !isDirty) {
+          setDraftData({
+            firstName: data.first_name,
+            middleName: data.middle_name || '',
+            lastName: data.last_name,
+            preferredName: data.preferred_name || '',
+            dateOfBirth: data.date_of_birth || '',
+            sex: data.sex || '',
+            status: data.status,
+            phone: data.phone || '',
+            email: data.email || '',
+            addressLine1: data.address_line1 || '',
+            addressLine2: data.address_line2 || '',
+            city: data.city || '',
+            stateProvince: data.state_province || '',
+            postalCode: data.postal_code || '',
+            country: data.country || 'GB',
+            emergencyName: data.emergency_contact_name || '',
+            emergencyRelationship: data.emergency_contact_relationship || '',
+            emergencyPhone: data.emergency_contact_phone || '',
+            emergencyEmail: data.emergency_contact_email || '',
+            administrativeNotes: data.administrative_notes || '',
+          });
+        }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : 'Failed to load patient.';
         setError(msg);
@@ -128,6 +208,7 @@ export const EditPatientPage: React.FC = () => {
         administrative_notes: administrativeNotes.trim() || null,
       });
 
+      markSaved();
       navigate(`/app/patients/${patientId}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to save changes.';
@@ -178,6 +259,15 @@ export const EditPatientPage: React.FC = () => {
           <span>Patient ID: <strong>{patient?.patient_identifier}</strong></span>
         </div>
       </div>
+
+      {/* Form Draft Preservation & Restoration Banner */}
+      <DraftBanner
+        isRestored={isRestored}
+        restoredAt={restoredAt}
+        isDirty={isDirty}
+        onDiscard={discardDraft}
+        entityName="patient edits"
+      />
 
       {error && (
         <div className="auth-error-banner" role="alert">

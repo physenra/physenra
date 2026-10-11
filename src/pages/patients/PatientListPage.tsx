@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { patientService, GetPatientsResult } from '../../services/patientService';
 import { useRole } from '../../hooks/useRole';
 import { usePractice } from '../../hooks/usePractice';
+import { useListFilters } from '../../hooks/useListFilters';
 import type { Patient, PatientStatus } from '../../types/models';
 import {
   Users,
@@ -22,6 +23,40 @@ export const PatientListPage: React.FC = () => {
   const { isAccountant, isPatient } = useRole();
   const { activePractice } = usePractice();
 
+  const {
+    filters,
+    setFilterField,
+  } = useListFilters<{
+    search: string;
+    status: PatientStatus | 'all';
+    page: number;
+  }>({
+    listKey: 'patient_registry_list',
+    defaultFilters: {
+      search: '',
+      status: 'active',
+      page: 1,
+    },
+  });
+
+  const [searchInput, setSearchInput] = useState(filters.search);
+
+  useEffect(() => {
+    setSearchInput(filters.search);
+  }, [filters.search]);
+
+  const search = filters.search;
+  const statusFilter = filters.status;
+  const page = filters.page;
+  const setPage = (pageOrFn: number | ((prev: number) => number)) => {
+    if (typeof pageOrFn === 'function') {
+      const next = pageOrFn(page);
+      setFilterField('page', next);
+    } else {
+      setFilterField('page', pageOrFn);
+    }
+  };
+
   const [data, setData] = useState<GetPatientsResult>({
     patients: [],
     totalCount: 0,
@@ -31,9 +66,6 @@ export const PatientListPage: React.FC = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<PatientStatus | 'all'>('active');
-  const [page, setPage] = useState(1);
 
   const fetchPatients = useCallback(async () => {
     try {
@@ -60,13 +92,13 @@ export const PatientListPage: React.FC = () => {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setPage(1);
-    fetchPatients();
+    setFilterField('search', searchInput.trim());
+    setFilterField('page', 1);
   };
 
   const handleStatusChange = (newStatus: PatientStatus | 'all') => {
-    setStatusFilter(newStatus);
-    setPage(1);
+    setFilterField('status', newStatus);
+    setFilterField('page', 1);
   };
 
   const calculateAge = (dob: string | null): string => {
@@ -108,8 +140,8 @@ export const PatientListPage: React.FC = () => {
           <input
             type="text"
             placeholder="Search by name, ID, phone, or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
           />
           <button type="submit" className="btn-secondary btn-search">
             Search

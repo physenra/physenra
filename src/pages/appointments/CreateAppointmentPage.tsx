@@ -8,6 +8,8 @@ import {
 } from '../../services/appointmentService';
 import { patientService } from '../../services/patientService';
 import { episodeService } from '../../services/episodeService';
+import { useFormDraft } from '../../hooks/useFormDraft';
+import { DraftBanner } from '../../components/ui/DraftBanner';
 import type {
   Patient,
   EpisodeWithPatient,
@@ -15,27 +17,69 @@ import type {
   AppointmentLocationMode,
 } from '../../types/models';
 
+interface AppointmentDraftData {
+  patientId: string;
+  episodeId: string;
+  physiotherapistId: string;
+  appointmentType: AppointmentType;
+  locationMode: AppointmentLocationMode;
+  appointmentDate: string;
+  startTime: string;
+  durationMinutes: number;
+  notes: string;
+}
+
 export const CreateAppointmentPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { activePractice } = usePractice();
 
-  const preselectedPatientId = searchParams.get('patientId') || searchParams.get('patient_id');
-  const preselectedEpisodeId = searchParams.get('episodeId') || searchParams.get('episode_id');
-  const preselectedClinicianId = searchParams.get('clinicianId') || searchParams.get('clinician_id');
+  const preselectedPatientId = searchParams.get('patientId') || searchParams.get('patient_id') || '';
+  const preselectedEpisodeId = searchParams.get('episodeId') || searchParams.get('episode_id') || '';
+  const preselectedClinicianId = searchParams.get('clinicianId') || searchParams.get('clinician_id') || '';
 
-  // Form states
-  const [patientId, setPatientId] = useState<string>(preselectedPatientId || '');
-  const [episodeId, setEpisodeId] = useState<string>(preselectedEpisodeId || '');
-  const [physiotherapistId, setPhysiotherapistId] = useState<string>(preselectedClinicianId || '');
-  const [appointmentType, setAppointmentType] = useState<AppointmentType>('follow_up');
-  const [locationMode, setLocationMode] = useState<AppointmentLocationMode>('clinic');
-  const [appointmentDate, setAppointmentDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
-  const [startTime, setStartTime] = useState<string>('09:00');
-  const [durationMinutes, setDurationMinutes] = useState<number>(45);
-  const [notes, setNotes] = useState<string>('');
+  // Platform-wide draft preservation
+  const {
+    data: draftData,
+    updateField,
+    isDirty,
+    isRestored,
+    restoredAt,
+    discardDraft,
+    markSaved,
+  } = useFormDraft<AppointmentDraftData>({
+    formId: 'create_appointment_record',
+    initialData: {
+      patientId: preselectedPatientId,
+      episodeId: preselectedEpisodeId,
+      physiotherapistId: preselectedClinicianId,
+      appointmentType: 'follow_up',
+      locationMode: 'clinic',
+      appointmentDate: new Date().toISOString().split('T')[0],
+      startTime: '09:00',
+      durationMinutes: 45,
+      notes: '',
+    },
+  });
+
+  const patientId = draftData.patientId;
+  const setPatientId = (v: string) => updateField('patientId', v);
+  const episodeId = draftData.episodeId;
+  const setEpisodeId = (v: string) => updateField('episodeId', v);
+  const physiotherapistId = draftData.physiotherapistId;
+  const setPhysiotherapistId = (v: string) => updateField('physiotherapistId', v);
+  const appointmentType = draftData.appointmentType;
+  const setAppointmentType = (v: AppointmentType) => updateField('appointmentType', v);
+  const locationMode = draftData.locationMode;
+  const setLocationMode = (v: AppointmentLocationMode) => updateField('locationMode', v);
+  const appointmentDate = draftData.appointmentDate;
+  const setAppointmentDate = (v: string) => updateField('appointmentDate', v);
+  const startTime = draftData.startTime;
+  const setStartTime = (v: string) => updateField('startTime', v);
+  const durationMinutes = draftData.durationMinutes;
+  const setDurationMinutes = (v: number) => updateField('durationMinutes', v);
+  const notes = draftData.notes;
+  const setNotes = (v: string) => updateField('notes', v);
 
   // Dropdown data
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -171,6 +215,7 @@ export const CreateAppointmentPage: React.FC = () => {
         notes: notes.trim() || undefined,
       });
 
+      markSaved();
       navigate(`/app/appointments/${newAppt.id}`);
     } catch (err: any) {
       setFormError(err.message || 'Failed to create appointment.');
@@ -197,6 +242,15 @@ export const CreateAppointmentPage: React.FC = () => {
           Cancel
         </Link>
       </div>
+
+      {/* Form Draft Preservation & Restoration Banner */}
+      <DraftBanner
+        isRestored={isRestored}
+        restoredAt={restoredAt}
+        isDirty={isDirty}
+        onDiscard={discardDraft}
+        entityName="appointment"
+      />
 
       {/* Architectural Separation Callout */}
       <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6 text-xs text-blue-800 dark:text-blue-300 space-y-1">

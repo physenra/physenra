@@ -18,6 +18,8 @@ import { patientService } from '../../services/patientService';
 import { serviceCatalogService } from '../../services/serviceCatalogService';
 import { usePractice } from '../../hooks/usePractice';
 import { supabase } from '../../lib/supabase';
+import { useFormDraft } from '../../hooks/useFormDraft';
+import { DraftBanner } from '../../components/ui/DraftBanner';
 import type {
   Patient,
   Service,
@@ -38,6 +40,19 @@ interface LineItemDraft {
   discount_amount: number;
 }
 
+interface InvoiceDraftData {
+  selectedPatientId: string;
+  selectedEpisodeId: string;
+  selectedVisitId: string;
+  selectedScheduleId: string;
+  issueDate: string;
+  dueDate: string;
+  currency: string;
+  notes: string;
+  terms: string;
+  lines: LineItemDraft[];
+}
+
 export const CreateInvoicePage: React.FC = () => {
   const navigate = useNavigate();
   const { activePractice } = usePractice();
@@ -52,19 +67,59 @@ export const CreateInvoicePage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Form State
-  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>('');
-  const [selectedVisitId, setSelectedVisitId] = useState<string>('');
-  const [selectedScheduleId, setSelectedScheduleId] = useState<string>('');
-  const [issueDate, setIssueDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [dueDate, setDueDate] = useState<string>('');
-  const [currency, setCurrency] = useState<string>('NGN');
-  const [notes, setNotes] = useState<string>('');
-  const [terms, setTerms] = useState<string>('Payment due within 30 days. Transfer or card accepted upon settlement.');
+  // Platform-wide draft preservation
+  const {
+    data: draftData,
+    updateField,
+    isDirty,
+    isRestored,
+    restoredAt,
+    discardDraft,
+    markSaved,
+  } = useFormDraft<InvoiceDraftData>({
+    formId: 'create_invoice_record',
+    initialData: {
+      selectedPatientId: '',
+      selectedEpisodeId: '',
+      selectedVisitId: '',
+      selectedScheduleId: '',
+      issueDate: new Date().toISOString().split('T')[0],
+      dueDate: '',
+      currency: 'NGN',
+      notes: '',
+      terms: 'Payment due within 30 days. Transfer or card accepted upon settlement.',
+      lines: [],
+    },
+  });
 
-  // Lines State
-  const [lines, setLines] = useState<LineItemDraft[]>([]);
+  const selectedPatientId = draftData.selectedPatientId;
+  const setSelectedPatientId = (v: string) => updateField('selectedPatientId', v);
+  const selectedEpisodeId = draftData.selectedEpisodeId;
+  const setSelectedEpisodeId = (v: string) => updateField('selectedEpisodeId', v);
+  const selectedVisitId = draftData.selectedVisitId;
+  const setSelectedVisitId = (v: string) => updateField('selectedVisitId', v);
+  const selectedScheduleId = draftData.selectedScheduleId;
+  const setSelectedScheduleId = (v: string) => updateField('selectedScheduleId', v);
+  const issueDate = draftData.issueDate;
+  const setIssueDate = (v: string) => updateField('issueDate', v);
+  const dueDate = draftData.dueDate;
+  const setDueDate = (v: string) => updateField('dueDate', v);
+  const currency = draftData.currency;
+  const setCurrency = (v: string) => updateField('currency', v);
+  const notes = draftData.notes;
+  const setNotes = (v: string) => updateField('notes', v);
+  const terms = draftData.terms;
+  const setTerms = (v: string) => updateField('terms', v);
+
+  const lines = draftData.lines;
+  const setLines = (newLinesOrFn: LineItemDraft[] | ((prev: LineItemDraft[]) => LineItemDraft[])) => {
+    if (typeof newLinesOrFn === 'function') {
+      const updated = newLinesOrFn(lines);
+      updateField('lines', updated);
+    } else {
+      updateField('lines', newLinesOrFn);
+    }
+  };
 
   // Load initial patients, services, fee schedules
   useEffect(() => {
@@ -244,6 +299,7 @@ export const CreateInvoicePage: React.FC = () => {
         await billingService.issueInvoice(created.id, activePractice.id);
       }
 
+      markSaved();
       navigate(`/app/invoices/${created.id}`);
     } catch (err: any) {
       setError(err.message || 'Failed to create invoice.');
@@ -267,6 +323,15 @@ export const CreateInvoicePage: React.FC = () => {
           Construct an itemized demand for payment with snapshot pricing
         </p>
       </div>
+
+      {/* Form Draft Preservation & Restoration Banner */}
+      <DraftBanner
+        isRestored={isRestored}
+        restoredAt={restoredAt}
+        isDirty={isDirty}
+        onDiscard={discardDraft}
+        entityName="invoice"
+      />
 
       {error && (
         <div className="alert alert-danger mb-6 flex items-center gap-2">

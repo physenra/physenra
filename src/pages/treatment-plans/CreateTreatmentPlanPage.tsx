@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabase';
 import { treatmentPlanService, CreateGoalInput } from '../../services/treatmentPlanService';
 import { patientService } from '../../services/patientService';
 import { appointmentService } from '../../services/appointmentService';
+import { useFormDraft } from '../../hooks/useFormDraft';
+import { DraftBanner } from '../../components/ui/DraftBanner';
 import type {
   Patient,
   EpisodeOfCare,
@@ -16,6 +18,22 @@ import type {
 
 interface GoalDraftItem extends CreateGoalInput {
   tempId: string;
+}
+
+interface TreatmentPlanDraftData {
+  selectedPatientId: string;
+  selectedEpisodeId: string;
+  selectedVisitId: string;
+  selectedClinicianId: string;
+  title: string;
+  diagnosisSummary: string;
+  clinicalRationale: string;
+  overallGoalsSummary: string;
+  treatmentFrequency: string;
+  expectedDurationWeeks: number | '';
+  startDate: string;
+  targetReviewDate: string;
+  goals: GoalDraftItem[];
 }
 
 export const CreateTreatmentPlanPage: React.FC = () => {
@@ -33,37 +51,82 @@ export const CreateTreatmentPlanPage: React.FC = () => {
   const [clinicians, setClinicians] = useState<Array<{ id: string; name: string }>>([]);
   const [outcomeAssessments, setOutcomeAssessments] = useState<OutcomeMeasureAssessmentWithRelations[]>([]);
 
-  // Selected Entities
-  const [selectedPatientId, setSelectedPatientId] = useState(initialPatientId);
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState(initialEpisodeId);
-  const [selectedVisitId, setSelectedVisitId] = useState(initialVisitId);
-  const [selectedClinicianId, setSelectedClinicianId] = useState('');
-
-  // Plan Details
-  const [title, setTitle] = useState('');
-  const [diagnosisSummary, setDiagnosisSummary] = useState('');
-  const [clinicalRationale, setClinicalRationale] = useState('');
-  const [overallGoalsSummary, setOverallGoalsSummary] = useState('');
-  const [treatmentFrequency, setTreatmentFrequency] = useState('');
-  const [expectedDurationWeeks, setExpectedDurationWeeks] = useState<number | ''>('');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [targetReviewDate, setTargetReviewDate] = useState('');
-
-  // Structured Goals
-  const [goals, setGoals] = useState<GoalDraftItem[]>([
-    {
-      tempId: 'default-1',
-      order_index: 1,
-      goal_statement: '',
-      category: 'functional',
-      priority: 'high',
-      baseline_description: '',
-      target_description: '',
-      measurement_method: '',
-      target_timeframe_weeks: 4,
-      notes: '',
+  // Platform-wide draft preservation
+  const {
+    data: draftData,
+    updateField,
+    isDirty,
+    isRestored,
+    restoredAt,
+    discardDraft,
+    markSaved,
+  } = useFormDraft<TreatmentPlanDraftData>({
+    formId: 'create_treatment_plan_record',
+    initialData: {
+      selectedPatientId: initialPatientId,
+      selectedEpisodeId: initialEpisodeId,
+      selectedVisitId: initialVisitId,
+      selectedClinicianId: '',
+      title: '',
+      diagnosisSummary: '',
+      clinicalRationale: '',
+      overallGoalsSummary: '',
+      treatmentFrequency: '',
+      expectedDurationWeeks: '',
+      startDate: new Date().toISOString().split('T')[0],
+      targetReviewDate: '',
+      goals: [
+        {
+          tempId: 'default-1',
+          order_index: 1,
+          goal_statement: '',
+          category: 'functional',
+          priority: 'high',
+          baseline_description: '',
+          target_description: '',
+          measurement_method: '',
+          target_timeframe_weeks: 4,
+          notes: '',
+        },
+      ],
     },
-  ]);
+  });
+
+  const selectedPatientId = draftData.selectedPatientId || initialPatientId;
+  const setSelectedPatientId = (v: string) => updateField('selectedPatientId', v);
+  const selectedEpisodeId = draftData.selectedEpisodeId || initialEpisodeId;
+  const setSelectedEpisodeId = (v: string) => updateField('selectedEpisodeId', v);
+  const selectedVisitId = draftData.selectedVisitId || initialVisitId;
+  const setSelectedVisitId = (v: string) => updateField('selectedVisitId', v);
+  const selectedClinicianId = draftData.selectedClinicianId;
+  const setSelectedClinicianId = (v: string) => updateField('selectedClinicianId', v);
+
+  const title = draftData.title;
+  const setTitle = (v: string) => updateField('title', v);
+  const diagnosisSummary = draftData.diagnosisSummary;
+  const setDiagnosisSummary = (v: string) => updateField('diagnosisSummary', v);
+  const clinicalRationale = draftData.clinicalRationale;
+  const setClinicalRationale = (v: string) => updateField('clinicalRationale', v);
+  const overallGoalsSummary = draftData.overallGoalsSummary;
+  const setOverallGoalsSummary = (v: string) => updateField('overallGoalsSummary', v);
+  const treatmentFrequency = draftData.treatmentFrequency;
+  const setTreatmentFrequency = (v: string) => updateField('treatmentFrequency', v);
+  const expectedDurationWeeks = draftData.expectedDurationWeeks;
+  const setExpectedDurationWeeks = (v: number | '') => updateField('expectedDurationWeeks', v);
+  const startDate = draftData.startDate;
+  const setStartDate = (v: string) => updateField('startDate', v);
+  const targetReviewDate = draftData.targetReviewDate;
+  const setTargetReviewDate = (v: string) => updateField('targetReviewDate', v);
+
+  const goals = draftData.goals;
+  const setGoals = (newGoalsOrFn: GoalDraftItem[] | ((prev: GoalDraftItem[]) => GoalDraftItem[])) => {
+    if (typeof newGoalsOrFn === 'function') {
+      const updated = newGoalsOrFn(goals);
+      updateField('goals', updated);
+    } else {
+      updateField('goals', newGoalsOrFn);
+    }
+  };
 
   // Loading & Submission State
   const [isLoading, setIsLoading] = useState(true);
@@ -273,6 +336,7 @@ export const CreateTreatmentPlanPage: React.FC = () => {
         goals: formattedGoals,
       });
 
+      markSaved();
       navigate(`/app/treatment-plans/${plan.id}`);
     } catch (err: any) {
       setError(err.message || 'Failed to create treatment plan.');
@@ -335,6 +399,15 @@ export const CreateTreatmentPlanPage: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Form Draft Preservation & Restoration Banner */}
+      <DraftBanner
+        isRestored={isRestored}
+        restoredAt={restoredAt}
+        isDirty={isDirty}
+        onDiscard={discardDraft}
+        entityName="treatment plan"
+      />
 
       {/* Clinical Architecture Notice */}
       <div

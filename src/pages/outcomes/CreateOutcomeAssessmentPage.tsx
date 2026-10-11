@@ -5,6 +5,8 @@ import { outcomeMeasureService } from '../../services/outcomeMeasureService';
 import { patientService } from '../../services/patientService';
 import { episodeService } from '../../services/episodeService';
 import { clinicalVisitService } from '../../services/clinicalVisitService';
+import { useFormDraft } from '../../hooks/useFormDraft';
+import { DraftBanner } from '../../components/ui/DraftBanner';
 import type {
   OutcomeMeasureDefinition,
   OutcomeAssessmentType,
@@ -12,6 +14,20 @@ import type {
   EpisodeOfCare,
   ClinicalVisitWithRelations,
 } from '../../types/models';
+
+interface OutcomeAssessmentDraftData {
+  selectedDefinitionId: string;
+  selectedPatientId: string;
+  selectedEpisodeId: string;
+  selectedVisitId: string;
+  assessmentType: OutcomeAssessmentType;
+  performedAt: string;
+  numericScore: string;
+  percentageScore: string;
+  scoreCategory: string;
+  scoreInterpretation: string;
+  clinicalNotes: string;
+}
 
 export const CreateOutcomeAssessmentPage: React.FC = () => {
   const navigate = useNavigate();
@@ -21,28 +37,65 @@ export const CreateOutcomeAssessmentPage: React.FC = () => {
   const initialEpisodeId = searchParams.get('episodeId') || '';
   const initialVisitId = searchParams.get('visitId') || '';
 
+  // Platform-wide draft preservation
+  const {
+    data: draftData,
+    updateField,
+    isDirty,
+    isRestored,
+    restoredAt,
+    discardDraft,
+    markSaved,
+  } = useFormDraft<OutcomeAssessmentDraftData>({
+    formId: 'create_outcome_assessment',
+    initialData: {
+      selectedDefinitionId: '',
+      selectedPatientId: initialPatientId,
+      selectedEpisodeId: initialEpisodeId,
+      selectedVisitId: initialVisitId,
+      assessmentType: 'baseline',
+      performedAt: new Date().toISOString().slice(0, 16),
+      numericScore: '',
+      percentageScore: '',
+      scoreCategory: '',
+      scoreInterpretation: '',
+      clinicalNotes: '',
+    },
+  });
+
   const [definitions, setDefinitions] = useState<OutcomeMeasureDefinition[]>([]);
-  const [selectedDefinitionId, setSelectedDefinitionId] = useState('');
+  const selectedDefinitionId = draftData.selectedDefinitionId;
+  const setSelectedDefinitionId = (v: string) => updateField('selectedDefinitionId', v);
   const [selectedDefinition, setSelectedDefinition] = useState<OutcomeMeasureDefinition | null>(null);
 
   // Entities
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [selectedPatientId, setSelectedPatientId] = useState(initialPatientId);
+  const selectedPatientId = draftData.selectedPatientId;
+  const setSelectedPatientId = (v: string) => updateField('selectedPatientId', v);
 
   const [episodes, setEpisodes] = useState<EpisodeOfCare[]>([]);
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState(initialEpisodeId);
+  const selectedEpisodeId = draftData.selectedEpisodeId;
+  const setSelectedEpisodeId = (v: string) => updateField('selectedEpisodeId', v);
 
   const [visits, setVisits] = useState<ClinicalVisitWithRelations[]>([]);
-  const [selectedVisitId, setSelectedVisitId] = useState(initialVisitId);
+  const selectedVisitId = draftData.selectedVisitId;
+  const setSelectedVisitId = (v: string) => updateField('selectedVisitId', v);
 
   // Form Fields
-  const [assessmentType, setAssessmentType] = useState<OutcomeAssessmentType>('baseline');
-  const [performedAt, setPerformedAt] = useState(new Date().toISOString().slice(0, 16));
-  const [numericScore, setNumericScore] = useState<string>('');
-  const [percentageScore, setPercentageScore] = useState<string>('');
-  const [scoreCategory, setScoreCategory] = useState('');
-  const [scoreInterpretation, setScoreInterpretation] = useState('');
-  const [clinicalNotes, setClinicalNotes] = useState('');
+  const assessmentType = draftData.assessmentType;
+  const setAssessmentType = (v: OutcomeAssessmentType) => updateField('assessmentType', v);
+  const performedAt = draftData.performedAt;
+  const setPerformedAt = (v: string) => updateField('performedAt', v);
+  const numericScore = draftData.numericScore;
+  const setNumericScore = (v: string) => updateField('numericScore', v);
+  const percentageScore = draftData.percentageScore;
+  const setPercentageScore = (v: string) => updateField('percentageScore', v);
+  const scoreCategory = draftData.scoreCategory;
+  const setScoreCategory = (v: string) => updateField('scoreCategory', v);
+  const scoreInterpretation = draftData.scoreInterpretation;
+  const setScoreInterpretation = (v: string) => updateField('scoreInterpretation', v);
+  const clinicalNotes = draftData.clinicalNotes;
+  const setClinicalNotes = (v: string) => updateField('clinicalNotes', v);
 
   // Status & states
   const [isLoading, setIsLoading] = useState(true);
@@ -60,18 +113,21 @@ export const CreateOutcomeAssessmentPage: React.FC = () => {
         ]);
 
         setDefinitions(defs);
-        if (defs.length > 0) {
-          setSelectedDefinitionId(defs[0].id);
-          setSelectedDefinition(defs[0]);
+        const targetDefId = draftData.selectedDefinitionId || (defs.length > 0 ? defs[0].id : '');
+        if (targetDefId) {
+          setSelectedDefinitionId(targetDefId);
+          const found = defs.find((d) => d.id === targetDefId) || (defs.length > 0 ? defs[0] : null);
+          setSelectedDefinition(found);
         }
 
         setPatients(patientRes.patients);
 
-        // If patient provided, load their episodes & visits
-        if (initialPatientId) {
+        // If patient provided or restored in draft, load their episodes & visits
+        const targetPatientId = draftData.selectedPatientId || initialPatientId;
+        if (targetPatientId) {
           const [epRes, visitRes] = await Promise.all([
-            episodeService.getEpisodes({ patientId: initialPatientId, limit: 50 }),
-            clinicalVisitService.getClinicalVisits({ patientId: initialPatientId, limit: 50 }),
+            episodeService.getEpisodes({ patientId: targetPatientId, limit: 50 }),
+            clinicalVisitService.getClinicalVisits({ patientId: targetPatientId, limit: 50 }),
           ]);
           setEpisodes(epRes.episodes);
           setVisits(visitRes.visits);
@@ -155,6 +211,7 @@ export const CreateOutcomeAssessmentPage: React.FC = () => {
         clinical_notes: clinicalNotes.trim() || null,
       });
 
+      markSaved();
       navigate(`/app/outcome-measures/${created.id}`);
     } catch (err: any) {
       setError(err.message || 'Failed to record outcome assessment.');
@@ -181,6 +238,15 @@ export const CreateOutcomeAssessmentPage: React.FC = () => {
           Standardized functional assessment, pain metric, or milestone progress evaluation.
         </p>
       </div>
+
+      {/* Form Draft Preservation & Restoration Banner */}
+      <DraftBanner
+        isRestored={isRestored}
+        restoredAt={restoredAt}
+        isDirty={isDirty}
+        onDiscard={discardDraft}
+        entityName="outcome assessment"
+      />
 
       {/* Domain Separation Notice */}
       <div

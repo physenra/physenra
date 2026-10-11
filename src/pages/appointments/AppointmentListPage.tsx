@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { usePractice } from '../../hooks/usePractice';
+import { useListFilters } from '../../hooks/useListFilters';
 import {
   appointmentService,
   type ClinicianOption,
@@ -20,18 +21,54 @@ export const AppointmentListPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter states
-  const [viewMode, setViewMode] = useState<'day' | 'week' | 'all'>('day');
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
-  const [selectedClinician, setSelectedClinician] = useState<string>('all');
-  const [selectedStatus, setSelectedStatus] = useState<AppointmentStatus | 'all'>('all');
-  const [selectedType, setSelectedType] = useState<AppointmentType | 'all'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  // Platform-wide filter & pagination state preservation
+  const {
+    filters,
+    setFilterField,
+  } = useListFilters<{
+    viewMode: 'day' | 'week' | 'all';
+    selectedDate: string;
+    selectedClinician: string;
+    selectedStatus: AppointmentStatus | 'all';
+    selectedType: AppointmentType | 'all';
+    searchQuery: string;
+    page: number;
+  }>({
+    listKey: 'appointment_operations_list',
+    defaultFilters: {
+      viewMode: 'day',
+      selectedDate: new Date().toISOString().split('T')[0],
+      selectedClinician: 'all',
+      selectedStatus: 'all',
+      selectedType: 'all',
+      searchQuery: '',
+      page: 1,
+    },
+  });
 
-  // Pagination
-  const [page, setPage] = useState(1);
+  const viewMode = filters.viewMode;
+  const setViewMode = (v: 'day' | 'week' | 'all') => setFilterField('viewMode', v);
+  const selectedDate = filters.selectedDate;
+  const setSelectedDate = (v: string) => setFilterField('selectedDate', v);
+  const selectedClinician = filters.selectedClinician;
+  const setSelectedClinician = (v: string) => setFilterField('selectedClinician', v);
+  const selectedStatus = filters.selectedStatus;
+  const setSelectedStatus = (v: AppointmentStatus | 'all') => setFilterField('selectedStatus', v);
+  const selectedType = filters.selectedType;
+  const setSelectedType = (v: AppointmentType | 'all') => setFilterField('selectedType', v);
+  const searchQuery = filters.searchQuery;
+  const setSearchQuery = (v: string) => setFilterField('searchQuery', v);
+  const page = filters.page;
+  const setPage = (pageOrFn: number | ((prev: number) => number)) => {
+    if (typeof pageOrFn === 'function') {
+      const next = pageOrFn(page);
+      setFilterField('page', next);
+    } else {
+      setFilterField('page', pageOrFn);
+    }
+  };
+
+  // Pagination totals
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 

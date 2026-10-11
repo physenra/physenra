@@ -3,7 +3,17 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { clinicalNoteService } from '../../services/clinicalNoteService';
 import { clinicalVisitService } from '../../services/clinicalVisitService';
+import { useFormDraft } from '../../hooks/useFormDraft';
+import { DraftBanner } from '../../components/ui/DraftBanner';
 import type { ClinicalVisitWithRelations } from '../../types/models';
+
+interface NoteDraftData {
+  selectedVisitId: string;
+  subjective: string;
+  objective: string;
+  assessment: string;
+  plan: string;
+}
 
 export const CreateClinicalNotePage: React.FC = () => {
   const navigate = useNavigate();
@@ -11,14 +21,38 @@ export const CreateClinicalNotePage: React.FC = () => {
   const initialVisitId = searchParams.get('visitId') || searchParams.get('visit_id') || '';
 
   const [visits, setVisits] = useState<ClinicalVisitWithRelations[]>([]);
-  const [selectedVisitId, setSelectedVisitId] = useState(initialVisitId);
   const [selectedVisit, setSelectedVisit] = useState<ClinicalVisitWithRelations | null>(null);
 
-  // SOAP Fields
-  const [subjective, setSubjective] = useState('');
-  const [objective, setObjective] = useState('');
-  const [assessment, setAssessment] = useState('');
-  const [plan, setPlan] = useState('');
+  // Platform-wide draft preservation
+  const {
+    data: draftData,
+    updateField,
+    isDirty,
+    isRestored,
+    restoredAt,
+    discardDraft,
+    markSaved,
+  } = useFormDraft<NoteDraftData>({
+    formId: `clinical_note_new_${initialVisitId || 'default'}`,
+    initialData: {
+      selectedVisitId: initialVisitId,
+      subjective: '',
+      objective: '',
+      assessment: '',
+      plan: '',
+    },
+  });
+
+  const selectedVisitId = draftData.selectedVisitId || initialVisitId;
+  const setSelectedVisitId = (val: string) => updateField('selectedVisitId', val);
+  const subjective = draftData.subjective;
+  const setSubjective = (val: string) => updateField('subjective', val);
+  const objective = draftData.objective;
+  const setObjective = (val: string) => updateField('objective', val);
+  const assessment = draftData.assessment;
+  const setAssessment = (val: string) => updateField('assessment', val);
+  const plan = draftData.plan;
+  const setPlan = (val: string) => updateField('plan', val);
 
   // Status & loading states
   const [isLoadingVisits, setIsLoadingVisits] = useState(true);
@@ -124,6 +158,7 @@ export const CreateClinicalNotePage: React.FC = () => {
         plan,
       });
 
+      markSaved();
       navigate(`/app/clinical-notes/${createdNote.id}`);
     } catch (err: any) {
       setError(err.message || 'Failed to create clinical note.');
@@ -166,6 +201,15 @@ export const CreateClinicalNotePage: React.FC = () => {
         <strong>Clinical Architecture Invariant:</strong> Patient ≠ Episode of Care ≠ Appointment ≠ Clinical Visit ≠ Clinical Note.
         The clinical note is medico-legal documentation recording evaluation and treatment. Finalizing a note permanently locks its content.
       </div>
+
+      {/* Form Draft Preservation & Restoration Banner */}
+      <DraftBanner
+        isRestored={isRestored}
+        restoredAt={restoredAt}
+        isDirty={isDirty}
+        onDiscard={discardDraft}
+        entityName="clinical note"
+      />
 
       {/* Error Alert */}
       {error && (
