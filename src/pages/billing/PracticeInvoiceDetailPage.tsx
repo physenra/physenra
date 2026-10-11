@@ -248,8 +248,14 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
         .filter(Boolean)
         .join(' | ');
 
+      const reqId = bankTransferRequest.id || (bankTransferRequest as any).request_id;
+      if (!reqId) {
+        setErrorMessage('Unable to identify bank transfer request. Please refresh the page and try again.');
+        return;
+      }
+
       const updated = await saasSubscriptionService.submitBankTransferReference(
-        bankTransferRequest.id,
+        reqId,
         trimmedRef,
         formattedDate,
         combinedNotes || undefined

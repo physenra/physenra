@@ -32,6 +32,14 @@ const migrationPath = path.join(
 );
 const migrationContent = fs.readFileSync(migrationPath, 'utf8');
 
+const fixMigrationPath = path.join(
+  ROOT_DIR,
+  'supabase',
+  'migrations',
+  '20261011220000_fix_submit_bank_transfer_reference_signature.sql'
+);
+const fixMigrationContent = fs.readFileSync(fixMigrationPath, 'utf8');
+
 const servicePath = path.join(SRC_DIR, 'services', 'saasSubscriptionService.ts');
 const serviceContent = fs.readFileSync(servicePath, 'utf8');
 
@@ -422,6 +430,57 @@ test('=== PHYSENRA MANUAL BANK TRANSFER & ADMIN PAYMENT CONFIRMATION V1 SUITE ==
       );
       assert.match(practiceInvoiceDetailContent, /disabled=\{submittingReference\}/);
       assert.match(practiceInvoiceDetailContent, /Submitting Reference\.\.\./);
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 9: RPC Signature Mismatch Resolution & Request ID Normalization
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 9: RPC Signature Mismatch Resolution & ID Normalization ---', async (t9) => {
+    await t9.test('TEST 42: Migration 20261011220000 drops legacy signature and implements flexible defaults', () => {
+      assert.match(fixMigrationContent, /DROP FUNCTION IF EXISTS public\.submit_bank_transfer_reference\(uuid, text, timestamptz, text\);/i);
+      assert.match(fixMigrationContent, /p_request_id uuid DEFAULT NULL/i);
+      assert.match(fixMigrationContent, /p_customer_reference text DEFAULT NULL/i);
+      assert.match(fixMigrationContent, /p_transferred_at timestamptz DEFAULT NULL/i);
+      assert.match(fixMigrationContent, /p_notes text DEFAULT NULL/i);
+      assert.match(fixMigrationContent, /p_id uuid DEFAULT NULL/i);
+      assert.match(fixMigrationContent, /v_effective_id := COALESCE\(p_request_id, p_id\);/i);
+      assert.match(fixMigrationContent, /Bank transfer request ID is required to submit transfer reference/i);
+    });
+
+    await t9.test('TEST 43: create_bank_transfer_payment_request returns both id and request_id in JSON payload', () => {
+      assert.match(fixMigrationContent, /'request_id', v_req_id/);
+      assert.match(fixMigrationContent, /'id', v_req_id/);
+      assert.match(migrationContent, /'request_id', v_req_id/);
+      assert.match(migrationContent, /'id', v_req_id/);
+    });
+
+    await t9.test('TEST 44: TypeScript contracts in database.ts support optional p_request_id and p_id for PostgREST', () => {
+      assert.match(databaseTypesContent, /submit_bank_transfer_reference:\s*\{/);
+      assert.match(databaseTypesContent, /p_request_id\?:\s*string/);
+      assert.match(databaseTypesContent, /p_id\?:\s*string/);
+    });
+
+    await t9.test('TEST 45: saasSubscriptionService.createBankTransferPaymentRequest normalizes both id and request_id', () => {
+      assert.match(serviceContent, /const reqId = \(data as any\)\?\.id \|\| \(data as any\)\?\.request_id;/);
+      assert.match(serviceContent, /id: reqId,/);
+    });
+
+    await t9.test('TEST 46: saasSubscriptionService.submitBankTransferReference verifies requestId and sends both aliases', () => {
+      assert.match(serviceContent, /if \(!requestId\) \{[\s\S]*?throw new Error\('Bank transfer request ID is required/);
+      assert.match(serviceContent, /p_request_id: requestId,/);
+      assert.match(serviceContent, /p_id: requestId,/);
+    });
+
+    await t9.test('TEST 47: PracticeBillingPage normalizes request.id in openTransferModal and resolves ID in submit and cancel', () => {
+      assert.match(practiceBillingContent, /id: request\.id \|\| request\.request_id,/);
+      assert.match(practiceBillingContent, /const reqId = selectedTransferRequest\.id \|\| \(selectedTransferRequest as any\)\.request_id;/);
+      assert.match(practiceBillingContent, /const effectiveId = requestId \|\| selectedTransferRequest\?\.id \|\| \(selectedTransferRequest as any\)\?\.request_id;/);
+    });
+
+    await t9.test('TEST 48: PracticeInvoiceDetailPage defensively resolves reqId before submitting transfer reference', () => {
+      assert.match(practiceInvoiceDetailContent, /const reqId = bankTransferRequest\.id \|\| \(bankTransferRequest as any\)\.request_id;/);
+      assert.match(practiceInvoiceDetailContent, /if \(!reqId\) \{/);
     });
   });
 });

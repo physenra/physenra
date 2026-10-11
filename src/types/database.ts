@@ -4840,10 +4840,11 @@ export interface Database {
       };
       submit_bank_transfer_reference: {
         Args: {
-          p_request_id: string;
-          p_customer_reference: string;
+          p_request_id?: string;
+          p_customer_reference?: string;
           p_transferred_at?: string | null;
           p_notes?: string | null;
+          p_id?: string;
         };
         Returns: Json;
       };

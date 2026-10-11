@@ -1247,7 +1247,7 @@ export const saasSubscriptionService = {
   async createBankTransferPaymentRequest(
     practiceId: string,
     invoiceId: string
-  ): Promise<any> {
+  ): Promise<SaasBankTransferRequest> {
     const { data, error } = await supabase.rpc('create_bank_transfer_payment_request', {
       p_practice_id: practiceId,
       p_invoice_id: invoiceId,
@@ -1257,7 +1257,24 @@ export const saasSubscriptionService = {
       throw new Error(`Failed to create bank transfer request: ${error.message}`);
     }
 
-    return data;
+    const reqId = (data as any)?.id || (data as any)?.request_id;
+    if (reqId) {
+      const { data: fullRow, error: fetchErr } = await supabase
+        .from('saas_bank_transfer_requests')
+        .select('*')
+        .eq('id', reqId)
+        .maybeSingle();
+
+      if (!fetchErr && fullRow) {
+        return fullRow as SaasBankTransferRequest;
+      }
+    }
+
+    return {
+      ...(data as any),
+      id: reqId,
+      request_id: reqId,
+    } as SaasBankTransferRequest;
   },
 
   /**
@@ -1271,8 +1288,13 @@ export const saasSubscriptionService = {
     transferredAt?: string,
     notes?: string
   ): Promise<SaasBankTransferRequest> {
+    if (!requestId) {
+      throw new Error('Bank transfer request ID is required to submit transfer reference.');
+    }
+
     const { data, error } = await supabase.rpc('submit_bank_transfer_reference', {
       p_request_id: requestId,
+      p_id: requestId,
       p_customer_reference: customerReference.trim(),
       p_transferred_at: transferredAt || null,
       p_notes: notes ? notes.trim() : null,
@@ -1296,10 +1318,18 @@ export const saasSubscriptionService = {
     // Fallback if select is blocked by policy or returns empty
     const rpcData = data as any;
     if (rpcData?.request) {
-      return rpcData.request as SaasBankTransferRequest;
+      return {
+        ...rpcData.request,
+        id: rpcData.request.id || requestId,
+        request_id: rpcData.request.request_id || requestId,
+      } as SaasBankTransferRequest;
     }
 
-    return rpcData as SaasBankTransferRequest;
+    return {
+      ...rpcData,
+      id: rpcData?.id || rpcData?.request_id || requestId,
+      request_id: rpcData?.request_id || rpcData?.id || requestId,
+    } as SaasBankTransferRequest;
   },
 
   /**

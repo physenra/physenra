@@ -455,6 +455,7 @@ BEGIN
     RETURN jsonb_build_object(
       'success', true,
       'is_reused', true,
+      'id', v_existing.id,
       'request_id', v_existing.id,
       'request_number', v_existing.request_number,
       'status', v_existing.status,
@@ -519,6 +520,7 @@ BEGIN
   RETURN jsonb_build_object(
     'success', true,
     'is_reused', false,
+    'id', v_req_id,
     'request_id', v_req_id,
     'request_number', v_req_num,
     'status', 'pending_transfer',
@@ -537,18 +539,27 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth, pg_temp;
 -- 9. RPC: submit_bank_transfer_reference
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.submit_bank_transfer_reference(
-  p_request_id uuid,
-  p_customer_reference text,
+  p_request_id uuid DEFAULT NULL,
+  p_customer_reference text DEFAULT NULL,
   p_transferred_at timestamptz DEFAULT NULL,
-  p_notes text DEFAULT NULL
+  p_notes text DEFAULT NULL,
+  p_id uuid DEFAULT NULL
 )
 RETURNS jsonb AS $$
 DECLARE
+  v_effective_id uuid;
   v_user_id uuid;
   v_req record;
   v_updated record;
   v_audit_id uuid;
 BEGIN
+  -- 0. Resolve request ID from p_request_id or p_id
+  v_effective_id := COALESCE(p_request_id, p_id);
+  IF v_effective_id IS NULL THEN
+    RAISE EXCEPTION 'Bank transfer request ID is required to submit transfer reference'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+
   -- 1. Authentication check
   v_user_id := auth.uid();
   IF v_user_id IS NULL THEN
@@ -565,11 +576,11 @@ BEGIN
   -- 3. Lock & Validate Request
   SELECT * INTO v_req
   FROM public.saas_bank_transfer_requests
-  WHERE id = p_request_id
+  WHERE id = v_effective_id
   FOR UPDATE;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Bank transfer request % not found', p_request_id
+    RAISE EXCEPTION 'Bank transfer request % not found', v_effective_id
       USING ERRCODE = 'data_exception';
   END IF;
 
@@ -599,7 +610,7 @@ BEGIN
     SELECT 1 FROM public.saas_bank_transfer_requests
     WHERE customer_reference = TRIM(p_customer_reference)
       AND status = 'confirmed'
-      AND id <> p_request_id
+      AND id <> v_effective_id
   ) THEN
     RAISE EXCEPTION 'This transfer reference has already been confirmed for a previous payment'
       USING ERRCODE = 'unique_violation';
@@ -615,7 +626,7 @@ BEGIN
       submitted_at = now(),
       status = 'submitted_for_review',
       updated_at = now()
-  WHERE id = p_request_id
+  WHERE id = v_effective_id
   RETURNING * INTO v_updated;
 
   -- 8. Audit Logging
@@ -623,7 +634,7 @@ BEGIN
     v_req.practice_id,
     'bank_transfer.reference_submitted',
     'saas_bank_transfer_requests',
-    p_request_id,
+    v_effective_id,
     jsonb_build_object(
       'request_number', v_req.request_number,
       'customer_reference', TRIM(p_customer_reference),
@@ -634,7 +645,8 @@ BEGIN
 
   RETURN jsonb_build_object(
     'success', true,
-    'request_id', p_request_id,
+    'id', v_effective_id,
+    'request_id', v_effective_id,
     'request_number', v_req.request_number,
     'status', 'submitted_for_review',
     'message', 'Transfer reference submitted. Physenra administration will verify funds receipt before activating your subscription.',

@@ -120,8 +120,21 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
   const [modalErrorMessage, setModalErrorMessage] = useState<string | null>(null);
   const [modalSuccessMessage, setModalSuccessMessage] = useState<string | null>(null);
 
-  const openTransferModal = (request: SaasBankTransferRequest) => {
-    setSelectedTransferRequest(request);
+  const openTransferModal = (request: any) => {
+    const normalizedRequest: SaasBankTransferRequest = {
+      ...request,
+      id: request.id || request.request_id,
+    };
+    setSelectedTransferRequest(normalizedRequest);
+    setCustomerRefInput(normalizedRequest.customer_reference || '');
+    setCustomerBankInput('');
+    const rawDate = normalizedRequest.customer_transferred_at || (normalizedRequest as any).transferred_at;
+    setTransferDateInput(
+      rawDate
+        ? new Date(rawDate).toISOString().slice(0, 10)
+        : ''
+    );
+    setTransferNotesInput(normalizedRequest.customer_notes || '');
     setModalErrorMessage(null);
     setModalSuccessMessage(null);
   };
@@ -690,6 +703,12 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
       formattedDate = parsedDate.toISOString();
     }
 
+    const reqId = selectedTransferRequest.id || (selectedTransferRequest as any).request_id;
+    if (!reqId) {
+      setModalErrorMessage('Unable to identify bank transfer request. Please refresh the page and try again.');
+      return;
+    }
+
     try {
       setSubmittingReference(true);
       setModalErrorMessage(null);
@@ -704,7 +723,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
         .join(' | ');
 
       const updated = await saasSubscriptionService.submitBankTransferReference(
-        selectedTransferRequest.id,
+        reqId,
         trimmedRef,
         formattedDate,
         combinedNotes || undefined
@@ -729,13 +748,18 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
   };
 
   // C5. Cancel Bank Transfer Request
-  const handleCancelTransferRequest = async (requestId: string) => {
+  const handleCancelTransferRequest = async (requestId?: string) => {
+    const effectiveId = requestId || selectedTransferRequest?.id || (selectedTransferRequest as any)?.request_id;
+    if (!effectiveId) {
+      setModalErrorMessage('Unable to identify bank transfer request to cancel.');
+      return;
+    }
     try {
       setActionLoading(true);
       setModalErrorMessage(null);
       setModalSuccessMessage(null);
       setErrorMessage(null);
-      await saasSubscriptionService.cancelBankTransferRequest(requestId);
+      await saasSubscriptionService.cancelBankTransferRequest(effectiveId);
       closeTransferModal();
       await loadBillingData();
       setSuccessMessage('Bank transfer request has been cancelled.');
@@ -2219,7 +2243,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                   <div className="flex items-center justify-between pt-2">
                     <button
                       type="button"
-                      onClick={() => handleCancelTransferRequest(selectedTransferRequest.id)}
+                      onClick={() => handleCancelTransferRequest(selectedTransferRequest.id || (selectedTransferRequest as any).request_id)}
                       disabled={submittingReference || actionLoading}
                       className="text-xs text-rose-600 hover:text-rose-800 font-semibold disabled:opacity-50"
                     >
