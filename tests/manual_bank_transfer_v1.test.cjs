@@ -329,4 +329,47 @@ test('=== PHYSENRA MANUAL BANK TRANSFER & ADMIN PAYMENT CONFIRMATION V1 SUITE ==
       assert.doesNotMatch(platformSettingsContent, /sk_test_/i);
     });
   });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 7: Verification RPC Signature, Schema Cache & Multi-Tenant Boundaries
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 7: Verification RPC Signature & Schema Cache Integrity ---', async (t7) => {
+    await t7.test('TEST 31: verify_and_enable_bank_transfer_config accepts p_enable and p_enabled with defaults', () => {
+      assert.match(
+        migrationContent,
+        /CREATE OR REPLACE FUNCTION public\.verify_and_enable_bank_transfer_config\(\s*p_enable boolean DEFAULT NULL,\s*p_enabled boolean DEFAULT NULL\s*\)/
+      );
+      assert.match(
+        migrationContent,
+        /v_effective_enable := COALESCE\(p_enable, p_enabled, true\);/
+      );
+    });
+
+    await t7.test('TEST 32: Database types contracts match verify_and_enable_bank_transfer_config signature', () => {
+      assert.match(databaseTypesContent, /verify_and_enable_bank_transfer_config:\s*\{/);
+      assert.match(databaseTypesContent, /p_enable\?:\s*boolean;/);
+      assert.match(databaseTypesContent, /p_enabled\?:\s*boolean;/);
+    });
+
+    await t7.test('TEST 33: update_bank_transfer_config strictly resets is_verified and is_enabled to false', () => {
+      assert.match(migrationContent, /'is_enabled',\s*false/);
+      assert.match(migrationContent, /'is_verified',\s*false/);
+      assert.match(migrationContent, /'platform_settings\.bank_transfer_updated'/);
+    });
+
+    await t7.test('TEST 34: Migration records into schema_migrations and issues NOTIFY pgrst reload schema', () => {
+      assert.match(
+        migrationContent,
+        /INSERT INTO supabase_migrations\.schema_migrations\s*\(version,\s*name\)\s*VALUES\s*\('20261009010000',\s*'manual_bank_transfer_foundation'\)/
+      );
+      assert.match(migrationContent, /NOTIFY pgrst,\s*'reload schema';/);
+    });
+
+    await t7.test('TEST 35: Patient invoices, clinical visits, and clinical wallets are untouched', () => {
+      assert.doesNotMatch(migrationContent, /CREATE TABLE public\.patient_invoices/i);
+      assert.doesNotMatch(migrationContent, /CREATE TABLE public\.patients/i);
+      assert.doesNotMatch(migrationContent, /CREATE TABLE public\.clinical_visits/i);
+    });
+  });
 });
+

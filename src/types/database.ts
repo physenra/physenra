@@ -4826,7 +4826,8 @@ export interface Database {
       };
       verify_and_enable_bank_transfer_config: {
         Args: {
-          p_enable: boolean;
+          p_enable?: boolean;
+          p_enabled?: boolean;
         };
         Returns: Json;
       };

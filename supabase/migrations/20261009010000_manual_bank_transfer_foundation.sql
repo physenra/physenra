@@ -281,10 +281,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth, pg_temp;
 -- 7. RPC: verify_and_enable_bank_transfer_config
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.verify_and_enable_bank_transfer_config(
-  p_enable boolean
+  p_enable boolean DEFAULT NULL,
+  p_enabled boolean DEFAULT NULL
 )
 RETURNS jsonb AS $$
 DECLARE
+  v_effective_enable boolean;
   v_user_id uuid;
   v_setting record;
   v_val jsonb;
@@ -294,6 +296,9 @@ DECLARE
   v_new_val jsonb;
   v_audit_id uuid;
 BEGIN
+  -- 0. Resolve parameter: supports either p_enable or p_enabled; defaults to true
+  v_effective_enable := COALESCE(p_enable, p_enabled, true);
+
   -- 1. Authorization Guard: Platform Admin only
   v_user_id := auth.uid();
   IF NOT COALESCE(public.is_platform_admin(), false) THEN
@@ -330,7 +335,7 @@ BEGIN
 
   -- 4. Apply Verification and Enablement
   v_new_val := jsonb_build_object(
-    'is_enabled', p_enable,
+    'is_enabled', v_effective_enable,
     'is_verified', true,
     'bank_name', v_bank_name,
     'account_name', v_acct_name,
@@ -356,7 +361,7 @@ BEGIN
     NULL,
     jsonb_build_object(
       'is_verified', true,
-      'is_enabled', p_enable,
+      'is_enabled', v_effective_enable,
       'verified_by', v_user_id,
       'verified_at', now()
     ),
@@ -947,3 +952,14 @@ GRANT EXECUTE ON FUNCTION public.reject_bank_transfer_payment TO authenticated, 
 
 REVOKE EXECUTE ON FUNCTION public.cancel_bank_transfer_payment_request FROM anon, public;
 GRANT EXECUTE ON FUNCTION public.cancel_bank_transfer_payment_request TO authenticated, service_role;
+
+-- ------------------------------------------------------------------------------
+-- 15. Record Migration & Reload PostgREST Schema Cache
+-- ------------------------------------------------------------------------------
+INSERT INTO supabase_migrations.schema_migrations (version, name)
+VALUES ('20261009010000', 'manual_bank_transfer_foundation')
+ON CONFLICT (version) DO NOTHING;
+
+NOTIFY pgrst, 'reload schema';
+
+
