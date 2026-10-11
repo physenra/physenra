@@ -371,5 +371,59 @@ test('=== PHYSENRA MANUAL BANK TRANSFER & ADMIN PAYMENT CONFIRMATION V1 SUITE ==
       assert.doesNotMatch(migrationContent, /CREATE TABLE public\.clinical_visits/i);
     });
   });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 8: Bank Transfer Request Submission Feedback & State Preservation
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 8: Bank Transfer Submission Feedback & State Preservation ---', async (t8) => {
+    await t8.test('TEST 36: submit_bank_transfer_reference disallows using request_number as customer reference', () => {
+      assert.match(
+        migrationContent,
+        /UPPER\(TRIM\(p_customer_reference\)\)\s*=\s*UPPER\(TRIM\(v_req\.request_number\)\)/
+      );
+      assert.match(
+        migrationContent,
+        /Please enter the transaction reference from your bank receipt or payment session, not the Physenra request number/
+      );
+    });
+
+    await t8.test('TEST 37: submit_bank_transfer_reference returns full updated request row in JSON response', () => {
+      assert.match(migrationContent, /RETURNING \* INTO v_updated;/);
+      assert.match(migrationContent, /'request',\s*row_to_json\(v_updated\)/);
+    });
+
+    await t8.test('TEST 38: saasSubscriptionService.submitBankTransferReference returns complete SaasBankTransferRequest', () => {
+      assert.match(
+        serviceContent,
+        /submitBankTransferReference\([\s\S]*?\):\s*Promise<SaasBankTransferRequest>/
+      );
+      assert.match(
+        serviceContent,
+        /\.from\('saas_bank_transfer_requests'\)[\s\S]*?\.select\('\*'\)[\s\S]*?\.eq\('id',\s*requestId\)/
+      );
+    });
+
+    await t8.test('TEST 39: PracticeBillingPage renders dedicated inline modal feedback alerts inside Modal 4', () => {
+      assert.match(practiceBillingContent, /modalErrorMessage\s*&&\s*\(/);
+      assert.match(practiceBillingContent, /modalSuccessMessage\s*&&\s*\(/);
+      assert.match(practiceBillingContent, /setModalErrorMessage/);
+      assert.match(practiceBillingContent, /setModalSuccessMessage/);
+    });
+
+    await t8.test('TEST 40: PracticeBillingPage disables submission and renders spinner while submitting', () => {
+      assert.match(practiceBillingContent, /disabled=\{submittingReference\}/);
+      assert.match(practiceBillingContent, /Submitting for Review\.\.\./);
+    });
+
+    await t8.test('TEST 41: PracticeInvoiceDetailPage validates against request_number and renders submission spinner', () => {
+      assert.match(
+        practiceInvoiceDetailContent,
+        /trimmedRef\.toUpperCase\(\)\s*===\s*bankTransferRequest\.request_number\.toUpperCase\(\)/
+      );
+      assert.match(practiceInvoiceDetailContent, /disabled=\{submittingReference\}/);
+      assert.match(practiceInvoiceDetailContent, /Submitting Reference\.\.\./);
+    });
+  });
 });
+
 

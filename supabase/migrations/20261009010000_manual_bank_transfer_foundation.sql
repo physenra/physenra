@@ -546,6 +546,7 @@ RETURNS jsonb AS $$
 DECLARE
   v_user_id uuid;
   v_req record;
+  v_updated record;
   v_audit_id uuid;
 BEGIN
   -- 1. Authentication check
@@ -572,9 +573,18 @@ BEGIN
       USING ERRCODE = 'data_exception';
   END IF;
 
-  -- 4. Authorization check: caller must be practice_owner
-  IF NOT public.user_has_practice_role(v_req.practice_id, ARRAY['practice_owner']) THEN
-    RAISE EXCEPTION 'Access denied: Only the practice owner can submit transfer references'
+  -- Disallow entering the Physenra request reference instead of the actual bank transaction reference
+  IF UPPER(TRIM(p_customer_reference)) = UPPER(TRIM(v_req.request_number)) THEN
+    RAISE EXCEPTION 'Please enter the transaction reference from your bank receipt or payment session, not the Physenra request number (%)', v_req.request_number
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+
+  -- 4. Authorization check: caller must be practice_owner, practice_manager, or platform_admin
+  IF NOT (
+    public.user_has_practice_role(v_req.practice_id, ARRAY['practice_owner', 'practice_manager'])
+    OR COALESCE(public.is_platform_admin(), false)
+  ) THEN
+    RAISE EXCEPTION 'Access denied: Only practice administrators or owners can submit transfer references'
       USING ERRCODE = 'insufficient_privilege';
   END IF;
 
@@ -601,11 +611,12 @@ BEGIN
   UPDATE public.saas_bank_transfer_requests
   SET customer_reference = TRIM(p_customer_reference),
       customer_transferred_at = COALESCE(p_transferred_at, now()),
-      customer_notes = TRIM(p_notes),
+      customer_notes = NULLIF(TRIM(p_notes), ''),
       submitted_at = now(),
       status = 'submitted_for_review',
       updated_at = now()
-  WHERE id = p_request_id;
+  WHERE id = p_request_id
+  RETURNING * INTO v_updated;
 
   -- 8. Audit Logging
   v_audit_id := public.log_audit_event(
@@ -626,7 +637,8 @@ BEGIN
     'request_id', p_request_id,
     'request_number', v_req.request_number,
     'status', 'submitted_for_review',
-    'message', 'Transfer reference submitted. Physenra administration will verify funds receipt before activating your subscription.'
+    'message', 'Transfer reference submitted. Physenra administration will verify funds receipt before activating your subscription.',
+    'request', row_to_json(v_updated)
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth, pg_temp;

@@ -117,6 +117,20 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
   const [transferDateInput, setTransferDateInput] = useState<string>('');
   const [transferNotesInput, setTransferNotesInput] = useState<string>('');
   const [submittingReference, setSubmittingReference] = useState<boolean>(false);
+  const [modalErrorMessage, setModalErrorMessage] = useState<string | null>(null);
+  const [modalSuccessMessage, setModalSuccessMessage] = useState<string | null>(null);
+
+  const openTransferModal = (request: SaasBankTransferRequest) => {
+    setSelectedTransferRequest(request);
+    setModalErrorMessage(null);
+    setModalSuccessMessage(null);
+  };
+
+  const closeTransferModal = () => {
+    setSelectedTransferRequest(null);
+    setModalErrorMessage(null);
+    setModalSuccessMessage(null);
+  };
 
   const isReadOnly = !isOwner;
 
@@ -483,7 +497,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
         setPlanToChange(null);
         setChangeType(null);
         await loadBillingData();
-        setSelectedTransferRequest(btr);
+        openTransferModal(btr);
         setSuccessMessage(`Bank transfer request created (${btr.request_number}). Please make the transfer and submit your transaction reference.`);
         return;
       }
@@ -622,7 +636,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
         invoiceId
       );
       await loadBillingData();
-      setSelectedTransferRequest(btr);
+      openTransferModal(btr);
       setSuccessMessage(`Bank transfer request created (${btr.request_number}).`);
     } catch (err: any) {
       console.error('Failed to create bank transfer request:', err);
@@ -647,14 +661,41 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
   const handleSubmitReference = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTransferRequest) return;
-    if (!customerRefInput.trim()) {
-      setErrorMessage('Please provide your bank transfer reference or transaction narration.');
+
+    const trimmedRef = customerRefInput.trim();
+    if (!trimmedRef) {
+      setModalErrorMessage('Please provide your bank transfer reference, transaction session ID, or narration.');
       return;
+    }
+
+    if (trimmedRef.length < 3) {
+      setModalErrorMessage('Bank transaction reference must be at least 3 characters.');
+      return;
+    }
+
+    if (trimmedRef.toUpperCase() === selectedTransferRequest.request_number.toUpperCase()) {
+      setModalErrorMessage(
+        `Please enter the transaction reference from your bank receipt or payment session, not the Physenra request number (${selectedTransferRequest.request_number}).`
+      );
+      return;
+    }
+
+    let formattedDate: string | undefined = undefined;
+    if (transferDateInput.trim()) {
+      const parsedDate = new Date(transferDateInput);
+      if (isNaN(parsedDate.getTime())) {
+        setModalErrorMessage('Please enter a valid transfer date.');
+        return;
+      }
+      formattedDate = parsedDate.toISOString();
     }
 
     try {
       setSubmittingReference(true);
+      setModalErrorMessage(null);
+      setModalSuccessMessage(null);
       setErrorMessage(null);
+
       const combinedNotes = [
         customerBankInput.trim() ? `Remitter Bank: ${customerBankInput.trim()}` : '',
         transferNotesInput.trim(),
@@ -664,23 +705,24 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
 
       const updated = await saasSubscriptionService.submitBankTransferReference(
         selectedTransferRequest.id,
-        customerRefInput.trim(),
-        transferDateInput ? new Date(transferDateInput).toISOString() : undefined,
+        trimmedRef,
+        formattedDate,
         combinedNotes || undefined
       );
 
       setSelectedTransferRequest(updated);
-      await loadBillingData();
+      setModalSuccessMessage(
+        `Payment reference for ${updated.request_number} submitted successfully! Physenra administration will verify funds receipt before activating your subscription.`
+      );
       setSuccessMessage(
         `Transfer reference for ${updated.request_number} submitted for Platform Admin review. Entitlements will activate once confirmed.`
       );
-      setCustomerRefInput('');
-      setCustomerBankInput('');
-      setTransferDateInput('');
-      setTransferNotesInput('');
+      loadBillingData().catch(console.error);
     } catch (err: any) {
       console.error('Failed to submit transfer reference:', err);
-      setErrorMessage(err.message || 'Failed to submit transfer reference.');
+      const errMsg = err.message || 'Failed to submit transfer reference.';
+      setModalErrorMessage(errMsg);
+      setErrorMessage(errMsg);
     } finally {
       setSubmittingReference(false);
     }
@@ -690,14 +732,18 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
   const handleCancelTransferRequest = async (requestId: string) => {
     try {
       setActionLoading(true);
+      setModalErrorMessage(null);
+      setModalSuccessMessage(null);
       setErrorMessage(null);
       await saasSubscriptionService.cancelBankTransferRequest(requestId);
-      setSelectedTransferRequest(null);
+      closeTransferModal();
       await loadBillingData();
       setSuccessMessage('Bank transfer request has been cancelled.');
     } catch (err: any) {
       console.error('Failed to cancel bank transfer request:', err);
-      setErrorMessage(err.message || 'Failed to cancel bank transfer request.');
+      const errMsg = err.message || 'Failed to cancel bank transfer request.';
+      setModalErrorMessage(errMsg);
+      setErrorMessage(errMsg);
     } finally {
       setActionLoading(false);
     }
@@ -1211,7 +1257,11 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                             {inv.status === 'open' && !isReadOnly ? (
                               activeBtr ? (
                                 <button
-                                  onClick={() => setSelectedTransferRequest(activeBtr)}
+                                  onClick={() => {
+                                    setSelectedTransferRequest(activeBtr);
+                                    setModalErrorMessage(null);
+                                    setModalSuccessMessage(null);
+                                  }}
                                   className="px-2.5 py-1 bg-amber-600 text-white text-xs font-semibold rounded hover:bg-amber-700 transition"
                                 >
                                   View Transfer
@@ -1519,7 +1569,11 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                               <div className="flex items-center justify-end gap-2">
                                 {activeBtr ? (
                                   <button
-                                    onClick={() => setSelectedTransferRequest(activeBtr)}
+                                    onClick={() => {
+                                      setSelectedTransferRequest(activeBtr);
+                                      setModalErrorMessage(null);
+                                      setModalSuccessMessage(null);
+                                    }}
                                     className="px-3 py-1.5 bg-amber-600 text-white text-xs font-semibold rounded-lg hover:bg-amber-700 transition shadow-sm"
                                   >
                                     View Transfer
@@ -1958,12 +2012,41 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                 </span>
               </div>
               <button
-                onClick={() => setSelectedTransferRequest(null)}
+                onClick={closeTransferModal}
                 className="text-slate-400 hover:text-slate-600"
               >
                 <X size={20} />
               </button>
             </div>
+
+            {/* Modal Inline Feedback Alerts */}
+            {modalErrorMessage && (
+              <div className="mt-4 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-800 animate-in fade-in">
+                <AlertCircle size={16} className="text-rose-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 font-medium">{modalErrorMessage}</div>
+                <button
+                  type="button"
+                  onClick={() => setModalErrorMessage(null)}
+                  className="text-rose-500 hover:text-rose-700"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {modalSuccessMessage && (
+              <div className="mt-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-800 animate-in fade-in">
+                <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 font-medium">{modalSuccessMessage}</div>
+                <button
+                  type="button"
+                  onClick={() => setModalSuccessMessage(null)}
+                  className="text-emerald-500 hover:text-emerald-700"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
 
             <div className="py-4 space-y-4 text-sm text-slate-600">
               {/* Status Banner */}
@@ -2077,11 +2160,18 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                     <input
                       type="text"
                       required
+                      disabled={submittingReference}
                       value={customerRefInput}
-                      onChange={(e) => setCustomerRefInput(e.target.value)}
+                      onChange={(e) => {
+                        setCustomerRefInput(e.target.value);
+                        if (modalErrorMessage) setModalErrorMessage(null);
+                      }}
                       placeholder="e.g. TRF-123456789 or sender remark"
-                      className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600"
+                      className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600 disabled:opacity-60 disabled:bg-slate-50"
                     />
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      Enter the bank transaction reference, session ID, or narration from your transfer receipt. Do not enter the Physenra request number.
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
@@ -2091,10 +2181,11 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                       </label>
                       <input
                         type="text"
+                        disabled={submittingReference}
                         value={customerBankInput}
                         onChange={(e) => setCustomerBankInput(e.target.value)}
                         placeholder="e.g. Access Bank"
-                        className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600"
+                        className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600 disabled:opacity-60 disabled:bg-slate-50"
                       />
                     </div>
                     <div>
@@ -2103,9 +2194,10 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                       </label>
                       <input
                         type="date"
+                        disabled={submittingReference}
                         value={transferDateInput}
                         onChange={(e) => setTransferDateInput(e.target.value)}
-                        className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600"
+                        className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600 disabled:opacity-60 disabled:bg-slate-50"
                       />
                     </div>
                   </div>
@@ -2116,10 +2208,11 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                     </label>
                     <textarea
                       rows={2}
+                      disabled={submittingReference}
                       value={transferNotesInput}
                       onChange={(e) => setTransferNotesInput(e.target.value)}
                       placeholder="Sender account name, reference codes, etc."
-                      className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600"
+                      className="w-full text-xs p-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600 disabled:opacity-60 disabled:bg-slate-50"
                     />
                   </div>
 
@@ -2127,17 +2220,18 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                     <button
                       type="button"
                       onClick={() => handleCancelTransferRequest(selectedTransferRequest.id)}
-                      disabled={actionLoading}
-                      className="text-xs text-rose-600 hover:text-rose-800 font-semibold"
+                      disabled={submittingReference || actionLoading}
+                      className="text-xs text-rose-600 hover:text-rose-800 font-semibold disabled:opacity-50"
                     >
                       Cancel Request
                     </button>
                     <button
                       type="submit"
                       disabled={submittingReference || !customerRefInput.trim()}
-                      className="px-4 py-2 bg-teal-600 text-white rounded-lg text-xs font-semibold hover:bg-teal-700 transition disabled:opacity-50 shadow-sm"
+                      className="px-4 py-2 bg-teal-600 text-white rounded-lg text-xs font-semibold hover:bg-teal-700 transition disabled:opacity-50 shadow-sm flex items-center gap-1.5"
                     >
-                      {submittingReference ? 'Submitting...' : 'Submit for Admin Review'}
+                      {submittingReference && <Clock className="w-3.5 h-3.5 animate-spin" />}
+                      {submittingReference ? 'Submitting for Review...' : 'Submit for Admin Review'}
                     </button>
                   </div>
                 </form>
@@ -2174,10 +2268,12 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
             <div className="pt-4 border-t border-slate-100 flex items-center justify-end">
               <button
                 type="button"
-                onClick={() => setSelectedTransferRequest(null)}
-                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800"
+                onClick={closeTransferModal}
+                className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800 font-medium"
               >
-                Close
+                {selectedTransferRequest.status === 'submitted_for_review'
+                  ? 'Done — Back to Billing'
+                  : 'Close'}
               </button>
             </div>
           </div>

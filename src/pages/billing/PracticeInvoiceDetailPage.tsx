@@ -206,13 +206,41 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
 
   const handleSubmitReference = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bankTransferRequest || !customerRefInput.trim()) {
-      setErrorMessage('Please provide your bank transfer reference or transaction narration.');
+    if (!bankTransferRequest) return;
+
+    const trimmedRef = customerRefInput.trim();
+    if (!trimmedRef) {
+      setErrorMessage('Please provide your bank transfer reference, transaction session ID, or narration.');
       return;
+    }
+
+    if (trimmedRef.length < 3) {
+      setErrorMessage('Bank transaction reference must be at least 3 characters.');
+      return;
+    }
+
+    if (trimmedRef.toUpperCase() === bankTransferRequest.request_number.toUpperCase()) {
+      setErrorMessage(
+        `Please enter the transaction reference from your bank receipt or payment session, not the Physenra request number (${bankTransferRequest.request_number}).`
+      );
+      return;
+    }
+
+    let formattedDate: string | undefined = undefined;
+    if (transferDateInput.trim()) {
+      const parsedDate = new Date(transferDateInput);
+      if (isNaN(parsedDate.getTime())) {
+        setErrorMessage('Please enter a valid transfer date.');
+        return;
+      }
+      formattedDate = parsedDate.toISOString();
     }
 
     try {
       setSubmittingReference(true);
+      setErrorMessage(null);
+      setActionSuccess(null);
+
       const combinedNotes = [
         customerBankInput.trim() ? `Remitter Bank: ${customerBankInput.trim()}` : '',
         transferNotesInput.trim(),
@@ -222,13 +250,15 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
 
       const updated = await saasSubscriptionService.submitBankTransferReference(
         bankTransferRequest.id,
-        customerRefInput.trim(),
-        transferDateInput ? new Date(transferDateInput).toISOString() : undefined,
+        trimmedRef,
+        formattedDate,
         combinedNotes || undefined
       );
 
       setBankTransferRequest(updated);
-      setActionSuccess('Transfer reference submitted for Platform Admin review. Entitlements will activate once confirmed.');
+      setActionSuccess(
+        `Transfer reference for ${updated.request_number} submitted for Platform Admin review. Entitlements will activate once confirmed.`
+      );
       setCustomerRefInput('');
       setCustomerBankInput('');
       setTransferDateInput('');
@@ -479,20 +509,25 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
                       <input
                         type="text"
                         required
+                        disabled={submittingReference}
                         value={customerRefInput}
                         onChange={(e) => setCustomerRefInput(e.target.value)}
                         placeholder="e.g. TRF-12345678 or narration"
-                        className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600"
+                        className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600 disabled:opacity-60 disabled:bg-slate-50"
                       />
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        Enter the transaction reference or session ID from your bank payment confirmation. Do not enter the Physenra request number.
+                      </p>
                     </div>
                     <div>
                       <label className="block font-semibold text-slate-700 mb-1">Your Bank (Optional)</label>
                       <input
                         type="text"
+                        disabled={submittingReference}
                         value={customerBankInput}
                         onChange={(e) => setCustomerBankInput(e.target.value)}
                         placeholder="e.g. Zenith Bank"
-                        className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600"
+                        className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600 disabled:opacity-60 disabled:bg-slate-50"
                       />
                     </div>
                   </div>
@@ -500,18 +535,20 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
                     <label className="block font-semibold text-slate-700 mb-1">Additional Notes (Optional)</label>
                     <input
                       type="text"
+                      disabled={submittingReference}
                       value={transferNotesInput}
                       onChange={(e) => setTransferNotesInput(e.target.value)}
                       placeholder="Account holder name, date of transfer, etc."
-                      className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600"
+                      className="w-full p-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600 disabled:opacity-60 disabled:bg-slate-50"
                     />
                   </div>
                   <div className="flex justify-end pt-1">
                     <button
                       type="submit"
                       disabled={submittingReference || !customerRefInput.trim()}
-                      className="px-4 py-2 bg-teal-600 text-white rounded-lg text-xs font-semibold hover:bg-teal-700 transition disabled:opacity-50 shadow-sm"
+                      className="px-4 py-2 bg-teal-600 text-white rounded-lg text-xs font-semibold hover:bg-teal-700 transition disabled:opacity-50 shadow-sm flex items-center gap-1.5"
                     >
+                      {submittingReference && <Clock className="w-3.5 h-3.5 animate-spin" />}
                       {submittingReference ? 'Submitting Reference...' : 'Submit Reference for Admin Review'}
                     </button>
                   </div>

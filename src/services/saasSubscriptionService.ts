@@ -1261,27 +1261,45 @@ export const saasSubscriptionService = {
   },
 
   /**
-   * Practice Owner: Submits a payment reference and transfer date after paying at their bank.
+   * Practice Owner / Manager: Submits a payment reference and transfer date after paying at their bank.
    * Moves request into 'submitted_for_review'. Does NOT activate subscription.
+   * Returns the authoritative complete SaasBankTransferRequest row.
    */
   async submitBankTransferReference(
     requestId: string,
     customerReference: string,
     transferredAt?: string,
     notes?: string
-  ): Promise<any> {
+  ): Promise<SaasBankTransferRequest> {
     const { data, error } = await supabase.rpc('submit_bank_transfer_reference', {
       p_request_id: requestId,
-      p_customer_reference: customerReference,
+      p_customer_reference: customerReference.trim(),
       p_transferred_at: transferredAt || null,
-      p_notes: notes || null,
+      p_notes: notes ? notes.trim() : null,
     });
 
     if (error) {
       throw new Error(`Failed to submit transfer reference: ${error.message}`);
     }
 
-    return data;
+    // Authoritatively re-fetch the complete updated request from the database
+    const { data: updatedReq, error: fetchErr } = await supabase
+      .from('saas_bank_transfer_requests')
+      .select('*')
+      .eq('id', requestId)
+      .maybeSingle();
+
+    if (!fetchErr && updatedReq) {
+      return updatedReq as SaasBankTransferRequest;
+    }
+
+    // Fallback if select is blocked by policy or returns empty
+    const rpcData = data as any;
+    if (rpcData?.request) {
+      return rpcData.request as SaasBankTransferRequest;
+    }
+
+    return rpcData as SaasBankTransferRequest;
   },
 
   /**
