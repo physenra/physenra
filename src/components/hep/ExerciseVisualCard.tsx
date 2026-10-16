@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
-import { Dumbbell, ShieldCheck, Clock } from 'lucide-react';
-import { getExerciseVisual, ExerciseVisualMetadata } from '../../services/exerciseVisualRegistry';
+import { Dumbbell, ShieldCheck, Clock, Camera, AlertCircle } from 'lucide-react';
+import {
+  getExerciseVisual,
+  getExercisePhotoDemonstration,
+  ExerciseVisualMetadata,
+} from '../../services/exerciseVisualRegistry';
 import type { ExerciseBodyRegion, ExerciseCategory } from '../../types/models';
 
 interface ExerciseVisualCardProps {
@@ -12,6 +16,8 @@ interface ExerciseVisualCardProps {
   showPhases?: boolean;
   showApprovalBadge?: boolean;
   isPrintView?: boolean;
+  allowPhotoToggle?: boolean;
+  showPhotoReviewPreview?: boolean;
   style?: React.CSSProperties;
 }
 
@@ -24,10 +30,14 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
   showPhases = false,
   showApprovalBadge = false,
   isPrintView = false,
+  allowPhotoToggle = false,
+  showPhotoReviewPreview = false,
   style = {},
 }) => {
   const [imageError, setImageError] = useState(false);
   const visual: ExerciseVisualMetadata | null = getExerciseVisual(exerciseId);
+  const photo = getExercisePhotoDemonstration(exerciseId);
+  const isPhotoApproved = photo?.photoClinicalReviewStatus === 'approved';
 
   // Sizing definitions
   const dimensions = {
@@ -37,8 +47,20 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
     lg: { width: '100%', maxWidth: '340px', height: 'auto', borderRadius: '8px' },
   }[size];
 
-  // If approved visual exists and image has not errored
-  if (visual && visual.assetPath && !imageError) {
+  // Default to approved photo if available, or respect showPhotoReviewPreview, otherwise illustration
+  const [activeView, setActiveView] = useState<'illustration' | 'photo'>(
+    isPhotoApproved ? 'photo' : (showPhotoReviewPreview ? 'photo' : 'illustration')
+  );
+
+  const canShowPhoto = photo !== null && (isPhotoApproved || allowPhotoToggle || showPhotoReviewPreview);
+  const isShowingPhoto = activeView === 'photo' && canShowPhoto;
+  const currentAssetPath = isShowingPhoto ? photo.photoAssetPath : visual?.assetPath;
+  const currentAltText = isShowingPhoto
+    ? photo.photoAltText
+    : visual?.altText || `${exerciseName} technique illustration`;
+
+  // If a valid visual asset exists (approved vector or approved/preview photo)
+  if (currentAssetPath && !imageError) {
     return (
       <div
         className="exercise-visual-container"
@@ -54,27 +76,27 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
             position: 'relative',
             overflow: 'hidden',
             backgroundColor: '#f8fafc',
-            border: '1px solid #e2e8f0',
+            border: isShowingPhoto && !isPhotoApproved ? '1px solid #fed7aa' : '1px solid #e2e8f0',
             borderRadius: dimensions.borderRadius,
             width: dimensions.width,
             maxWidth: '100%',
           }}
         >
           <img
-            src={visual.assetPath}
-            alt={visual.altText || `${exerciseName} technique illustration`}
+            src={currentAssetPath}
+            alt={currentAltText}
             loading="lazy"
             onError={() => setImageError(true)}
             style={{
               width: '100%',
               height: size === 'thumbnail' ? '60px' : 'auto',
               display: 'block',
-              objectFit: 'contain',
+              objectFit: isShowingPhoto ? 'cover' : 'contain',
               aspectRatio: '320 / 220',
             }}
           />
 
-          {/* Clinical approval indicator tag */}
+          {/* Badges */}
           {showApprovalBadge && !isPrintView && size !== 'thumbnail' && (
             <div
               style={{
@@ -84,25 +106,90 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '0.25rem',
-                backgroundColor: 'rgba(255, 255, 255, 0.92)',
+                backgroundColor: isShowingPhoto && !isPhotoApproved ? 'rgba(255, 251, 235, 0.95)' : 'rgba(255, 255, 255, 0.92)',
                 backdropFilter: 'blur(4px)',
                 padding: '0.15rem 0.4rem',
                 borderRadius: '4px',
                 fontSize: '0.625rem',
                 fontWeight: 600,
-                color: '#0d9488',
+                color: isShowingPhoto && !isPhotoApproved ? '#b45309' : '#0d9488',
                 boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-                border: '1px solid #ccfbf1',
+                border: isShowingPhoto && !isPhotoApproved ? '1px solid #fde68a' : '1px solid #ccfbf1',
               }}
             >
-              <ShieldCheck size={11} />
-              <span>Clinically Reviewed</span>
+              {isShowingPhoto ? (
+                isPhotoApproved ? (
+                  <>
+                    <ShieldCheck size={11} />
+                    <span>Clinically Verified Photo</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle size={11} />
+                    <span>AI Generated • Pending PT Review</span>
+                  </>
+                )
+              ) : (
+                <>
+                  <ShieldCheck size={11} />
+                  <span>Clinically Reviewed</span>
+                </>
+              )}
             </div>
           )}
         </div>
 
+        {/* View Toggle Bar (enabled for approved photos or clinician review) */}
+        {(allowPhotoToggle || isPhotoApproved) && photo && visual && visual.assetPath && size !== 'thumbnail' && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              marginTop: '0.15rem',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setActiveView('illustration')}
+              style={{
+                fontSize: '0.6875rem',
+                padding: '0.15rem 0.45rem',
+                borderRadius: '4px',
+                border: '1px solid #cbd5e1',
+                backgroundColor: activeView === 'illustration' ? '#0284c7' : '#ffffff',
+                color: activeView === 'illustration' ? '#ffffff' : '#475569',
+                cursor: 'pointer',
+                fontWeight: activeView === 'illustration' ? 600 : 400,
+              }}
+            >
+              Illustration
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView('photo')}
+              style={{
+                fontSize: '0.6875rem',
+                padding: '0.15rem 0.45rem',
+                borderRadius: '4px',
+                border: '1px solid #cbd5e1',
+                backgroundColor: activeView === 'photo' ? (isPhotoApproved ? '#0d9488' : '#b45309') : '#ffffff',
+                color: activeView === 'photo' ? '#ffffff' : '#475569',
+                cursor: 'pointer',
+                fontWeight: activeView === 'photo' ? 600 : 400,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.2rem',
+              }}
+            >
+              <Camera size={11} />
+              {isPhotoApproved ? 'Photo Demo' : 'Photo Demo (In Review)'}
+            </button>
+          </div>
+        )}
+
         {/* Movement phases breakdown */}
-        {showPhases && visual.movementPhases && (
+        {showPhases && visual?.movementPhases && (
           <div
             style={{
               fontSize: '0.75rem',

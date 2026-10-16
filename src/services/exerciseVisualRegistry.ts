@@ -15,6 +15,16 @@ export interface ExerciseVisualMetadata {
   attribution: string;
   reviewedBy: string;
   reviewedAt: string | null;
+
+  // Hyperrealistic Photographic Exercise Demonstrations (Fictional Nigerian Demonstrations)
+  photoAssetPath?: string | null;
+  photoAltText?: string | null;
+  photoAiGenerated?: boolean;
+  photoDemographic?: string | null;
+  photoClinicalReviewStatus?: 'approved' | 'pending_physiotherapist_review';
+  photoClinicalObservationNotes?: string | null;
+  photoReviewedBy?: string | null;
+  photoReviewedAt?: string | null;
 }
 
 /**
@@ -41,6 +51,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/quad-sets.jpg',
+    photoAltText: 'Photograph of fictional Nigerian female patient in athletic wear seated in long-sitting position performing isometric quad set with rolled towel under knee.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian female, early 30s, warm rich brown skin',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Long-sitting posture verified; rolled towel placement under knee joint correct; active isometric quadriceps contraction with ankle dorsiflexion matches clinical instruction.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-17T00:35:00Z',
   },
 
   // 2. Straight Leg Raise
@@ -57,6 +75,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/straight-leg-raise.jpg',
+    photoAltText: 'Photograph of fictional Nigerian male patient lying supine on blue mat raising target straight leg to 45 degrees with locked knee and opposite knee bent at 90 degrees.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian male, late 20s/early 30s, deep brown skin',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Supine positioning confirmed; contralateral knee flexed 90 degrees with foot planted flat for pelvis stabilization; target leg raised to 45 degrees with locked knee meets biomechanical criteria.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-17T00:35:00Z',
   },
 
   // 3. Glute Bridge
@@ -73,6 +99,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/glute-bridge.jpg',
+    photoAltText: 'Photograph of fictional Nigerian female patient lying supine on clinic mat elevating pelvis into straight bridge alignment from knees to shoulders.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian female, late 20s, dark brown skin, braided hair',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Double-leg bridge verified; feet flat at hip width; pelvis elevated into straight diagonal alignment between knees, hips, and shoulders; cervical spine neutral.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-17T00:35:00Z',
   },
 
   // 4. Heel Slides
@@ -137,6 +171,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/seated-chin-tuck.jpg',
+    photoAltText: 'Photograph of fictional Nigerian female patient seated upright on stool demonstrating cervical retraction chin tuck with horizontal head glide and level gaze.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian female, late 30s, warm brown skin',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Upright seated posture confirmed; horizontal cervical retraction glide demonstrated without neck flexion or head tilting; shoulders relaxed downward.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-17T00:35:00Z',
   },
 
   // 8. Ankle Pumps
@@ -169,6 +211,12 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/standing-calf-stretch.jpg',
+    photoAltText: 'Photograph of fictional Nigerian female patient performing standing calf stretch with hands against wall and rear straight leg.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian female, mid-30s, rich brown skin',
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: 'Discrepancy noted during clinical safety audit: rear heel is slightly elevated off floor rather than pressed completely flat. Requires physiotherapist remediation before live patient-facing approval.',
   },
 
   // 10. Cat-Camel
@@ -281,6 +329,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/prone-on-elbows.jpg',
+    photoAltText: 'Photograph of fictional Nigerian male patient lying prone on treatment plinth propped on forearms with pelvis flat in McKenzie lumbar extension.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian male, mid-30s, dark brown skin',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: McKenzie Prone on Elbows introductory extension posture confirmed; forearms resting beneath shoulders on plinth; pelvis and lower extremities resting flat; gentle lumbar lordosis.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-17T00:35:00Z',
   },
 
   // 17. Side Plank
@@ -425,6 +481,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/sit-to-stand.jpg',
+    photoAltText: 'Photograph of fictional older Nigerian gentleman in mid-60s rising from armless wooden chair with arms crossed over chest in standardized 30CST protocol.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian male older adult/geriatric, mid-60s, silver hair, warm mahogany skin tone',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Validated 30-Second Chair Stand test protocol confirmed; arms crossed at wrists over chest; rising from armless sturdy wooden chair; erect posture; authentic geriatric representation.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-17T00:35:00Z',
   },
 
   // 52. Tandem Stance
@@ -495,6 +559,36 @@ export function hasApprovedVisual(exerciseId: string): boolean {
 }
 
 /**
+ * Retrieve photographic demonstration metadata for an exercise ID.
+ * Accessible in clinician review portals and catalog audit tools.
+ */
+export function getExercisePhotoDemonstration(exerciseId: string): {
+  exerciseId: string;
+  photoAssetPath: string;
+  photoAltText: string;
+  photoAiGenerated: boolean;
+  photoDemographic: string;
+  photoClinicalReviewStatus: 'approved' | 'pending_physiotherapist_review';
+  photoClinicalObservationNotes?: string | null;
+  photoReviewedBy?: string | null;
+  photoReviewedAt?: string | null;
+} | null {
+  const meta = EXERCISE_VISUALS_REGISTRY[exerciseId];
+  if (!meta || !meta.photoAssetPath) return null;
+  return {
+    exerciseId: meta.exerciseId,
+    photoAssetPath: meta.photoAssetPath,
+    photoAltText: meta.photoAltText || meta.altText,
+    photoAiGenerated: !!meta.photoAiGenerated,
+    photoDemographic: meta.photoDemographic || 'Nigerian Patient Demonstration',
+    photoClinicalReviewStatus: meta.photoClinicalReviewStatus || 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: meta.photoClinicalObservationNotes || null,
+    photoReviewedBy: meta.photoReviewedBy || null,
+    photoReviewedAt: meta.photoReviewedAt || null,
+  };
+}
+
+/**
  * Summary metrics of catalog visuals for audit, governance, and dashboard reporting.
  */
 export function getVisualStatusSummary(totalCatalogCount: number = 59): {
@@ -517,3 +611,26 @@ export function getVisualStatusSummary(totalCatalogCount: number = 59): {
     approvalRatePercentage,
   };
 }
+
+/**
+ * Summary metrics of hyperrealistic photographic demonstration assets.
+ */
+export function getPhotoDemonstrationSummary(): {
+  totalPhotos: number;
+  approvedPhotos: number;
+  pendingReviewPhotos: number;
+  aiGeneratedCount: number;
+} {
+  const items = Object.values(EXERCISE_VISUALS_REGISTRY).filter((i) => !!i.photoAssetPath);
+  const approvedPhotos = items.filter((i) => i.photoClinicalReviewStatus === 'approved').length;
+  const pendingReviewPhotos = items.filter((i) => i.photoClinicalReviewStatus === 'pending_physiotherapist_review').length;
+  const aiGeneratedCount = items.filter((i) => i.photoAiGenerated).length;
+
+  return {
+    totalPhotos: items.length,
+    approvedPhotos,
+    pendingReviewPhotos,
+    aiGeneratedCount,
+  };
+}
+

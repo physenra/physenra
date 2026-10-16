@@ -10,6 +10,8 @@ const {
   getExerciseVisual,
   hasApprovedVisual,
   getVisualStatusSummary,
+  getExercisePhotoDemonstration,
+  getPhotoDemonstrationSummary,
 } = require('../src/services/exerciseVisualRegistry.ts');
 
 describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
@@ -152,11 +154,76 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
     }
 
     // Check all SVG files for security invariants
-    for (const file of fs.readdirSync(exercisesDir)) {
+    const svgFiles = fs.readdirSync(exercisesDir).filter((f) => f.endsWith('.svg'));
+    for (const file of svgFiles) {
       const content = fs.readFileSync(path.join(exercisesDir, file), 'utf8');
       for (const pattern of forbiddenPatterns) {
         assert.ok(!pattern.test(content), `Forbidden pattern ${pattern} found in SVG ${file}`);
       }
+    }
+  });
+
+  test('Nigerian Photographic Demonstrations: Registry integrity and asset existence', () => {
+    const photoSummary = getPhotoDemonstrationSummary();
+    assert.equal(photoSummary.totalPhotos, 7, 'Must have 7 photographic demonstrations registered');
+    assert.equal(photoSummary.approvedPhotos, 6, 'Exactly 6 verified photos must be approved by physiotherapist');
+    assert.equal(photoSummary.pendingReviewPhotos, 1, 'Calf stretch photo must remain pending_physiotherapist_review');
+    assert.equal(photoSummary.aiGeneratedCount, 7, 'All 7 photos must declare aiGenerated: true');
+
+    const photosDir = path.resolve(__dirname, '../public/images/exercises/photographs');
+    assert.ok(fs.existsSync(photosDir), 'Photographs directory must exist');
+
+    for (const visual of Object.values(EXERCISE_VISUALS_REGISTRY)) {
+      if (visual.photoAssetPath) {
+        assert.ok(visual.photoAiGenerated, `Photo for ${visual.title} must be flagged aiGenerated`);
+        assert.ok(visual.photoDemographic, `Photo for ${visual.title} must specify Nigerian demographic representation`);
+        assert.ok(
+          visual.photoAltText && visual.photoAltText.length > 20,
+          `Photo for ${visual.title} must have descriptive alt text`
+        );
+
+        if (visual.photoClinicalReviewStatus === 'approved') {
+          assert.ok(visual.photoReviewedBy, `Approved photo ${visual.title} must have photoReviewedBy`);
+          assert.ok(visual.photoReviewedAt, `Approved photo ${visual.title} must have photoReviewedAt timestamp`);
+          assert.ok(!isNaN(Date.parse(visual.photoReviewedAt)), `photoReviewedAt must be valid ISO date for ${visual.title}`);
+        } else {
+          assert.equal(visual.photoClinicalReviewStatus, 'pending_physiotherapist_review');
+          assert.equal(visual.slug, 'standing-calf-stretch', 'Only the calf stretch photo should be pending review');
+        }
+
+        const relativePath = visual.photoAssetPath.replace(/^\//, '');
+        const absolutePath = path.resolve(__dirname, '..', 'public', relativePath);
+        assert.ok(fs.existsSync(absolutePath), `Photo file must exist at ${absolutePath}`);
+
+        const stats = fs.statSync(absolutePath);
+        assert.ok(stats.size > 20000, `Photo ${visual.photoAssetPath} must be > 20KB`);
+        assert.ok(stats.size < 120000, `Photo ${visual.photoAssetPath} must be < 120KB for fast mobile performance (was ${stats.size} bytes)`);
+      }
+    }
+  });
+
+  test('Clinical Review Safety Guard: Calf stretch with heel discrepancy remains pending review', () => {
+    const calfStretchPhoto = getExercisePhotoDemonstration('00000000-0000-0000-0000-000000000009');
+    assert.ok(calfStretchPhoto !== null);
+    assert.equal(calfStretchPhoto.photoClinicalReviewStatus, 'pending_physiotherapist_review');
+    assert.ok(calfStretchPhoto.photoClinicalObservationNotes.includes('rear heel is slightly elevated'));
+
+    // Approved photos
+    const approvedIds = [
+      '00000000-0000-0000-0000-000000000001', // Quad Sets
+      '00000000-0000-0000-0000-000000000002', // Straight Leg Raise
+      '00000000-0000-0000-0000-000000000003', // Glute Bridge
+      '00000000-0000-0000-0000-000000000007', // Seated Chin Tucks
+      '00000000-0000-0000-0000-000000000016', // McKenzie Prone Extension
+      '00000000-0000-0000-0000-000000000050', // 30-Second Chair Stand
+    ];
+
+    for (const id of approvedIds) {
+      const demo = getExercisePhotoDemonstration(id);
+      assert.ok(demo !== null);
+      assert.equal(demo.photoClinicalReviewStatus, 'approved');
+      assert.ok(demo.photoReviewedBy.includes('Dr. A. Adeleke, PT'));
+      assert.ok(demo.photoReviewedAt !== null);
     }
   });
 });
