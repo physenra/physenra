@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="100%" height="100%">
+  <title>Quad Sets (Isometric Quadriceps Contraction)</title>
+  <desc>Patient in supine or long-sitting position with target leg extended, pressing back of knee down into mat and tightening thigh.</desc>
+  <defs>
+    <linearGradient id="quadGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#0d9488" stop-opacity="0.6"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0284c7" />
+    </marker>
+  </defs>
+
+  <!-- Background card -->
+  <rect width="320" height="220" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Clinical Focus Badge -->
+  <rect x="16" y="14" width="130" height="22" rx="4" fill="#e0f2fe"/>
+  <text x="24" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#0369a1" letter-spacing="0.5">KNEE • STRENGTHENING</text>
+
+  <!-- Treatment Mat / Bed -->
+  <line x1="30" y1="165" x2="290" y2="165" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+  <rect x="40" y="165" width="240" height="8" rx="2" fill="#e2e8f0"/>
+
+  <!-- Towel Roll under knee -->
+  <ellipse cx="195" cy="160" rx="14" ry="7" fill="#94a3b8" opacity="0.7"/>
+
+  <!-- Patient Body (Long Sitting / Reclined Supine) -->
+  <!-- Torso & Head -->
+  <circle cx="85" cy="95" r="14" fill="#cbd5e1" stroke="#1e293b" stroke-width="3.5"/>
+  <path d="M 85 110 C 95 130, 110 155, 130 162" fill="none" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round"/>
+  <!-- Support Arm -->
+  <path d="M 98 128 L 80 165" stroke="#1e293b" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Thigh / Quadriceps Muscle Active Zone -->
+  <path d="M 130 162 C 150 156, 175 156, 195 158" fill="none" stroke="url(#quadGrad)" stroke-width="16" stroke-linecap="round"/>
+  <!-- Leg Contour -->
+  <path d="M 130 162 L 195 158 L 265 160" fill="none" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Foot (Dorsiflexed) -->
+  <path d="M 265 160 L 268 142 L 278 145" fill="none" stroke="#1e293b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Isometric Downward Knee Force Vector -->
+  <line x1="195" y1="135" x2="195" y2="152" stroke="#0284c7" stroke-width="3.5" marker-end="url(#arrow)"/>
+
+  <!-- Muscle Contraction Sparkle/Cues -->
+  <circle cx="162" cy="154" r="3" fill="#0d9488"/>
+  <circle cx="170" cy="148" r="2.5" fill="#0284c7"/>
+  <circle cx="155" cy="149" r="2" fill="#0284c7"/>
+
+  <!-- Text Cues -->
+  <text x="160" y="75" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Tighten Thigh Muscle</text>
+  <text x="160" y="92" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Press knee downward into mat</text>
+  <text x="160" y="106" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Hold contraction 5 seconds</text>
+</svg>

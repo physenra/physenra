@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="100%" height="100%">
+  <title>Ankle Pumps (Plantarflexion &amp; Dorsiflexion)</title>
+  <desc>Lower leg extended on mat, flexing foot up toward shin and pointing toes downward to enhance venous return and range of motion.</desc>
+  <defs>
+    <marker id="arrowUp" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 0 10 L 5 0 L 10 10 z" fill="#0284c7" />
+    </marker>
+    <marker id="arrowDown" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 0 0 L 5 10 L 10 0 z" fill="#0284c7" />
+    </marker>
+  </defs>
+
+  <rect width="320" height="220" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Clinical Focus Badge -->
+  <rect x="16" y="14" width="150" height="22" rx="4" fill="#e0f2fe"/>
+  <text x="24" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#0369a1" letter-spacing="0.5">ANKLE / VASCULAR • MOBILITY</text>
+
+  <!-- Ground Line -->
+  <line x1="25" y1="170" x2="295" y2="170" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Lower Leg / Calf Resting on Mat/Pillow -->
+  <ellipse cx="90" cy="165" rx="35" ry="12" fill="#e2e8f0"/>
+  <path d="M 40 155 L 140 155 L 175 155" stroke="#1e293b" stroke-width="6" stroke-linecap="round"/>
+  <path d="M 40 135 L 140 142 L 170 148" stroke="#1e293b" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Ankle Joint Center -->
+  <circle cx="175" cy="152" r="5" fill="#0d9488"/>
+
+  <!-- Ghosted Plantarflexed Foot (Pointed down) -->
+  <path d="M 175 152 L 235 168 L 245 160" stroke="#cbd5e1" stroke-width="4.5" stroke-dasharray="3 3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Active Dorsiflexed Foot (Pulled up toward shin) -->
+  <path d="M 175 152 L 205 105 L 222 115" stroke="#1e293b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Bidirectional Movement Arc -->
+  <path d="M 225 110 C 245 125, 250 145, 240 162" fill="none" stroke="#0284c7" stroke-width="3" stroke-dasharray="3 3"/>
+  <line x1="225" y1="112" x2="220" y2="105" stroke="#0284c7" stroke-width="3" marker-end="url(#arrowUp)"/>
+  <line x1="239" y1="160" x2="236" y2="168" stroke="#0284c7" stroke-width="3" marker-end="url(#arrowDown)"/>
+
+  <!-- Cues -->
+  <text x="175" y="55" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Dorsiflex &amp; Plantarflex</text>
+  <text x="175" y="72" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Pull toes up toward knee</text>
+  <text x="175" y="86" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Point toes firmly away</text>
+  <text x="175" y="100" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Rhythmic 20–30 pumps</text>
+</svg>

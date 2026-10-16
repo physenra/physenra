@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="100%" height="100%">
+  <title>Side-Lying Clamshells with Resistance Band</title>
+  <desc>Patient side-lying with hips and knees flexed to 90 degrees and feet together, rotating the top knee upward against a resistance band.</desc>
+  <defs>
+    <linearGradient id="gluteMedGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#0d9488" stop-opacity="0.6"/>
+    </linearGradient>
+    <marker id="arrowArc" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 0 10 L 5 0 L 10 10 z" fill="#0284c7" />
+    </marker>
+  </defs>
+
+  <rect width="320" height="220" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Clinical Focus Badge -->
+  <rect x="16" y="14" width="180" height="22" rx="4" fill="#e0f2fe"/>
+  <text x="24" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#0369a1" letter-spacing="0.5">HIP / GLUTE MED • STRENGTH</text>
+
+  <!-- Ground Line -->
+  <line x1="25" y1="180" x2="295" y2="180" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Head Supported on Hand/Pillow -->
+  <circle cx="65" cy="155" r="12" fill="#cbd5e1" stroke="#1e293b" stroke-width="3.5"/>
+  <path d="M 75 165 L 140 165" stroke="#1e293b" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Gluteus Medius Activation Zone -->
+  <ellipse cx="140" cy="155" rx="16" ry="12" fill="url(#gluteMedGrad)"/>
+
+  <!-- Bottom Leg (Resting on Mat, knee bent 90°) -->
+  <path d="M 140 165 L 185 178 L 225 178" fill="none" stroke="#94a3b8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Top Leg (Elevated Clamshell Open Position) -->
+  <path d="M 140 165 L 185 130 L 225 178" fill="none" stroke="#1e293b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Feet Anchored Together Indicator -->
+  <circle cx="225" cy="178" r="5" fill="#0d9488"/>
+
+  <!-- Resistance Band around Thighs -->
+  <ellipse cx="165" cy="152" rx="8" ry="16" fill="none" stroke="#ec4899" stroke-width="3"/>
+
+  <!-- Upward Opening Arc -->
+  <path d="M 195 170 C 205 155, 202 142, 192 135" fill="none" stroke="#0284c7" stroke-width="2.5" stroke-dasharray="2 2" marker-end="url(#arrowArc)"/>
+
+  <!-- Cues -->
+  <text x="175" y="60" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Keep Feet Glued Together</text>
+  <text x="175" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Open top knee like a clamshell</text>
+  <text x="175" y="90" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Do not let pelvis roll backward</text>
+  <text x="175" y="104" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Hold 2s at top, lower slowly</text>
+</svg>

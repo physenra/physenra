@@ -7,6 +7,7 @@ import { patientService } from '../../services/patientService';
 import { episodeService } from '../../services/episodeService';
 import { clinicalVisitService } from '../../services/clinicalVisitService';
 import { appointmentService } from '../../services/appointmentService';
+import { ExerciseVisualCard } from '../../components/hep/ExerciseVisualCard';
 import type {
   Exercise,
   Patient,
@@ -745,15 +746,27 @@ export const CreateHEPPage: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Dosage Input Grid */}
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                    gap: '0.75rem',
-                    marginBottom: '0.75rem',
-                  }}
-                >
+                {/* Exercise Visual & Dosage Controls */}
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                  <ExerciseVisualCard
+                    exerciseId={item.exercise_id}
+                    exerciseName={item.exercise_name}
+                    bodyRegion={item.exercise_body_region}
+                    category={item.exercise_category}
+                    size="sm"
+                    showApprovalBadge={true}
+                    style={{ flexShrink: 0 }}
+                  />
+                  <div style={{ flex: 1, minWidth: '240px' }}>
+                    {/* Dosage Input Grid */}
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                        gap: '0.75rem',
+                        marginBottom: '0.75rem',
+                      }}
+                    >
                   {/* Laterality */}
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '0.2rem' }}>
@@ -873,6 +886,8 @@ export const CreateHEPPage: React.FC = () => {
                       style={{ width: '100%', padding: '0.35rem 0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8125rem' }}
                     />
                   </div>
+                </div>
+                </div>
                 </div>
               </div>
             ))}
@@ -1116,6 +1131,15 @@ export const CreateHEPPage: React.FC = () => {
                       backgroundColor: '#ffffff',
                     }}
                   >
+                    <ExerciseVisualCard
+                      exerciseId={ex.id}
+                      exerciseName={ex.name}
+                      bodyRegion={ex.body_region}
+                      category={ex.category}
+                      size="sm"
+                      showApprovalBadge={true}
+                      style={{ flexShrink: 0 }}
+                    />
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
                         <strong style={{ fontSize: '0.9375rem', color: '#0f172a' }}>{ex.name}</strong>

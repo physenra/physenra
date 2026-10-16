@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="100%" height="100%">
+  <title>Glute Bridge (Supine Double Leg)</title>
+  <desc>Patient supine with knees bent and feet flat, lifting hips up to align with knees and shoulders.</desc>
+  <defs>
+    <linearGradient id="gluteGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#0d9488" stop-opacity="0.6"/>
+    </linearGradient>
+    <marker id="arrowUp" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 0 10 L 5 0 L 10 10 z" fill="#0284c7" />
+    </marker>
+  </defs>
+
+  <rect width="320" height="220" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Clinical Focus Badge -->
+  <rect x="16" y="14" width="145" height="22" rx="4" fill="#e0f2fe"/>
+  <text x="24" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#0369a1" letter-spacing="0.5">LUMBAR / HIP • STRENGTH</text>
+
+  <!-- Ground Line -->
+  <line x1="25" y1="175" x2="295" y2="175" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Ghosted Starting Position (flat on mat) -->
+  <path d="M 125 170 L 175 170 L 210 135 L 235 172" fill="none" stroke="#e2e8f0" stroke-width="3" stroke-dasharray="3 3"/>
+
+  <!-- Head & Shoulders Supported on Ground -->
+  <circle cx="65" cy="162" r="12" fill="#cbd5e1" stroke="#1e293b" stroke-width="3.5"/>
+  <!-- Arms on floor -->
+  <path d="M 85 170 L 145 170" stroke="#94a3b8" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Elevated Bridge Body (Torso -> Pelvis -> Knees -> Feet) -->
+  <!-- Glute Activation Zone -->
+  <ellipse cx="160" cy="125" rx="16" ry="12" fill="url(#gluteGrad)"/>
+  
+  <path d="M 85 168 L 160 120 L 225 120 L 245 172" fill="none" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Feet Flat -->
+  <path d="M 240 172 L 255 172" stroke="#1e293b" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Upward Lift Vector -->
+  <line x1="160" y1="162" x2="160" y2="135" stroke="#0284c7" stroke-width="3" marker-end="url(#arrowUp)"/>
+
+  <!-- Clinical Cues -->
+  <text x="140" y="55" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Bridge Hips Upward</text>
+  <text x="140" y="72" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Squeeze glutes at top</text>
+  <text x="140" y="86" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Keep knees aligned with hips</text>
+</svg>

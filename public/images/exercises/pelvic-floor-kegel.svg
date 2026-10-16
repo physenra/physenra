@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="100%" height="100%">
+  <title>Pelvic Floor Muscle Training (Kegels with Knack Technique)</title>
+  <desc>Cross-sectional biomechanical diagram showing pelvic basin and upward, inward contraction vector of pelvic floor muscle sling.</desc>
+  <defs>
+    <linearGradient id="pelvicGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#0d9488" stop-opacity="0.7"/>
+    </linearGradient>
+    <marker id="arrowUp" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 0 10 L 5 0 L 10 10 z" fill="#0d9488" />
+    </marker>
+  </defs>
+
+  <rect width="320" height="220" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Clinical Focus Badge -->
+  <rect x="16" y="14" width="170" height="22" rx="4" fill="#e0f2fe"/>
+  <text x="24" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#0369a1" letter-spacing="0.5">PELVIC HEALTH • NEUROMUSCULAR</text>
+
+  <!-- Pelvic Basin Anatomical Sling Framework -->
+  <!-- Iliac Crests / Bony Pelvis Rim -->
+  <path d="M 70 85 C 60 115, 65 145, 95 165 C 120 178, 160 182, 185 165 C 215 145, 220 115, 210 85" fill="none" stroke="#cbd5e1" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Sacrum / Spine Base (Posterior anchor) -->
+  <path d="M 140 80 L 140 115" stroke="#94a3b8" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Pelvic Floor Muscle Sling (Levator Ani Hammock) -->
+  <path d="M 90 145 C 115 170, 165 170, 190 145" fill="url(#pelvicGrad)" stroke="#0d9488" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Upward and Inward Contraction Vectors (Lift & Squeeze) -->
+  <path d="M 120 162 C 128 152, 134 140, 135 125" fill="none" stroke="#0d9488" stroke-width="3" marker-end="url(#arrowUp)"/>
+  <path d="M 160 162 C 152 152, 146 140, 145 125" fill="none" stroke="#0d9488" stroke-width="3" marker-end="url(#arrowUp)"/>
+
+  <!-- Subtle Core Transverse Abdominis Cocontraction Arrows -->
+  <line x1="75" y1="120" x2="95" y2="120" stroke="#0284c7" stroke-width="2.5"/>
+  <line x1="205" y1="120" x2="185" y2="120" stroke="#0284c7" stroke-width="2.5"/>
+
+  <!-- Cues -->
+  <text x="215" y="70" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Lift Inward &amp; Up</text>
+  <text x="215" y="86" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Imagine lifting a marble</text>
+  <text x="215" y="100" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Do not hold breath</text>
+  <text x="215" y="114" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Relax glutes and thighs</text>
+  <text x="215" y="128" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Hold 5–10s, full release</text>
+</svg>

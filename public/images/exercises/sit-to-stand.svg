@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="100%" height="100%">
+  <title>Sit-to-Stand Functional Training</title>
+  <desc>Patient rising from a standard chair to a full upright standing position with arms crossed across chest, training lower-extremity power and independence.</desc>
+  <defs>
+    <marker id="arrowUp" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 0 10 L 5 0 L 10 10 z" fill="#0284c7" />
+    </marker>
+  </defs>
+
+  <rect width="320" height="220" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Clinical Focus Badge -->
+  <rect x="16" y="14" width="175" height="22" rx="4" fill="#e0f2fe"/>
+  <text x="24" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#0369a1" letter-spacing="0.5">FUNCTIONAL / MOBILITY • POWER</text>
+
+  <!-- Floor Line -->
+  <line x1="25" y1="195" x2="295" y2="195" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Chair -->
+  <line x1="60" y1="130" x2="60" y2="195" stroke="#94a3b8" stroke-width="3.5"/>
+  <line x1="60" y1="155" x2="105" y2="155" stroke="#94a3b8" stroke-width="3.5"/>
+  <line x1="100" y1="155" x2="100" y2="195" stroke="#94a3b8" stroke-width="3.5"/>
+
+  <!-- Ghosted Seated Position -->
+  <circle cx="80" cy="115" r="10" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="2.5" stroke-dasharray="2 2"/>
+  <path d="M 80 125 L 80 155 L 115 155 L 115 192" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-dasharray="2 2"/>
+
+  <!-- Active Standing Figure (Erect posture) -->
+  <circle cx="150" cy="55" r="12" fill="#cbd5e1" stroke="#1e293b" stroke-width="3.5"/>
+  <!-- Torso -->
+  <line x1="150" y1="67" x2="150" y2="125" stroke="#1e293b" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Crossed Arms Across Chest -->
+  <path d="M 140 85 L 160 92 L 140 98" stroke="#0284c7" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Legs Extended in Full Stand -->
+  <line x1="150" y1="125" x2="150" y2="192" stroke="#1e293b" stroke-width="5" stroke-linecap="round"/>
+  <path d="M 145 192 L 160 192" stroke="#1e293b" stroke-width="4.5"/>
+
+  <!-- Rise Upward Curve Vector Arrow -->
+  <path d="M 95 130 C 115 110, 130 85, 140 70" fill="none" stroke="#0284c7" stroke-width="3" stroke-dasharray="3 3" marker-end="url(#arrowUp)"/>
+
+  <!-- Cues -->
+  <text x="180" y="60" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Power Up from Chair</text>
+  <text x="180" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Cross arms across chest</text>
+  <text x="180" y="90" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Drive through heels</text>
+  <text x="180" y="104" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Stand fully tall at top</text>
+</svg>

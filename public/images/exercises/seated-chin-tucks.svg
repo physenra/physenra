@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="100%" height="100%">
+  <title>Seated Chin Tucks (Cervical Retraction)</title>
+  <desc>Patient seated upright, retracting head horizontally backwards creating a double chin without flexing neck downward.</desc>
+  <defs>
+    <marker id="arrowBack" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 10 0 L 0 5 L 10 10 z" fill="#0284c7" />
+    </marker>
+  </defs>
+
+  <rect width="320" height="220" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Clinical Focus Badge -->
+  <rect x="16" y="14" width="130" height="22" rx="4" fill="#e0f2fe"/>
+  <text x="24" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#0369a1" letter-spacing="0.5">CERVICAL • MOBILITY</text>
+
+  <!-- Chair -->
+  <line x1="85" y1="130" x2="85" y2="195" stroke="#94a3b8" stroke-width="3.5"/>
+  <line x1="85" y1="165" x2="135" y2="165" stroke="#94a3b8" stroke-width="3.5"/>
+  <line x1="130" y1="165" x2="130" y2="195" stroke="#94a3b8" stroke-width="3.5"/>
+
+  <!-- Seated Patient Torso (Upright spine) -->
+  <path d="M 105 165 L 105 115" stroke="#1e293b" stroke-width="5" stroke-linecap="round"/>
+  <!-- Thighs -->
+  <path d="M 105 165 L 145 165 L 145 195" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Ghosted Forward Head Position (Starting forward slouch) -->
+  <circle cx="128" cy="85" r="14" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="2.5" stroke-dasharray="3 3"/>
+  <path d="M 124 98 L 108 115" stroke="#cbd5e1" stroke-width="2.5" stroke-dasharray="3 3"/>
+
+  <!-- Retracted Head Position (Target) -->
+  <circle cx="108" cy="85" r="14" fill="#cbd5e1" stroke="#1e293b" stroke-width="3.5"/>
+  <path d="M 106 99 L 105 115" stroke="#1e293b" stroke-width="4.5"/>
+  <!-- Nose / Profile Indicator -->
+  <path d="M 122 83 L 126 86 L 122 89" fill="none" stroke="#1e293b" stroke-width="2.5"/>
+
+  <!-- Horizontal Retraction Arrow Vector -->
+  <line x1="150" y1="85" x2="130" y2="85" stroke="#0284c7" stroke-width="3.5" marker-end="url(#arrowBack)"/>
+
+  <!-- Finger Guidance Cue at Chin -->
+  <path d="M 142 95 L 122 93" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="144" cy="95" r="3" fill="#0d9488"/>
+
+  <!-- Cues -->
+  <text x="175" y="65" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Retract Head Horizontally</text>
+  <text x="175" y="82" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Draw chin back ("double chin")</text>
+  <text x="175" y="96" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Do not tilt head down or up</text>
+  <text x="175" y="110" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Hold 3–5s, release gently</text>
+</svg>

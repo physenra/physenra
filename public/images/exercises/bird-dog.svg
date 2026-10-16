@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="100%" height="100%">
+  <title>Bird-Dog (Contralateral Core Stabilization)</title>
+  <desc>Patient on hands and knees, extending opposite arm and opposite leg parallel to floor while maintaining a flat, stable spine.</desc>
+  <defs>
+    <marker id="arrowRight" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0284c7" />
+    </marker>
+    <marker id="arrowLeft" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 10 0 L 0 5 L 10 10 z" fill="#0284c7" />
+    </marker>
+  </defs>
+
+  <rect width="320" height="220" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Clinical Focus Badge -->
+  <rect x="16" y="14" width="180" height="22" rx="4" fill="#e0f2fe"/>
+  <text x="24" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#0369a1" letter-spacing="0.5">LUMBAR / CORE • STABILIZATION</text>
+
+  <!-- Mat Surface -->
+  <line x1="25" y1="180" x2="295" y2="180" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Grounded Support Limbs (Left arm & Right knee) -->
+  <line x1="125" y1="130" x2="125" y2="178" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round"/>
+  <line x1="195" y1="130" x2="195" y2="178" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round"/>
+  <line x1="195" y1="178" x2="225" y2="178" stroke="#1e293b" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Horizontal Flat Spine / Pelvis -->
+  <line x1="125" y1="130" x2="195" y2="130" stroke="#1e293b" stroke-width="5" stroke-linecap="round"/>
+  <!-- Head (Neutral spine alignment) -->
+  <circle cx="108" cy="125" r="11" fill="#cbd5e1" stroke="#1e293b" stroke-width="3.5"/>
+
+  <!-- Extended Lead Arm (Parallel to floor) -->
+  <line x1="125" y1="130" x2="55" y2="130" stroke="#0284c7" stroke-width="4.5" stroke-linecap="round"/>
+  <circle cx="50" cy="130" r="4" fill="#0284c7"/>
+
+  <!-- Extended Trailing Leg (Parallel to floor) -->
+  <line x1="195" y1="130" x2="275" y2="130" stroke="#0284c7" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M 275 130 L 285 138" stroke="#0284c7" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Reach Extension Arrows -->
+  <line x1="75" y1="115" x2="52" y2="115" stroke="#0284c7" stroke-width="2.5" marker-end="url(#arrowLeft)"/>
+  <line x1="255" y1="115" x2="278" y2="115" stroke="#0284c7" stroke-width="2.5" marker-end="url(#arrowRight)"/>
+
+  <!-- Core Alignment Level Bubble Cue -->
+  <line x1="140" y1="122" x2="180" y2="122" stroke="#0d9488" stroke-width="2" stroke-dasharray="2 2"/>
+  <circle cx="160" cy="122" r="3" fill="#0d9488"/>
+
+  <!-- Cues -->
+  <text x="110" y="60" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Extend Opposite Arm &amp; Leg</text>
+  <text x="110" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Keep back perfectly flat (no sagging)</text>
+  <text x="110" y="90" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Reach long from fingertips to heel</text>
+  <text x="110" y="104" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Hold 3–5 seconds, switch sides</text>
+</svg>

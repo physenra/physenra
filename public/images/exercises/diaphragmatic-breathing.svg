@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="100%" height="100%">
+  <title>Diaphragmatic Breathing with Lower Rib Cage Expansion</title>
+  <desc>Patient semi-reclined with one hand on chest and one hand on abdomen, breathing deeply to expand the abdomen while keeping the chest quiet.</desc>
+  <defs>
+    <radialGradient id="breathGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0d9488" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0.1"/>
+    </radialGradient>
+    <marker id="arrowExpand" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 0 10 L 5 0 L 10 10 z" fill="#0d9488" />
+    </marker>
+  </defs>
+
+  <rect width="320" height="220" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Clinical Focus Badge -->
+  <rect x="16" y="14" width="180" height="22" rx="4" fill="#e0f2fe"/>
+  <text x="24" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#0369a1" letter-spacing="0.5">PULMONARY • BREATHING CONTROL</text>
+
+  <!-- Mat / Bed Surface -->
+  <line x1="25" y1="180" x2="295" y2="180" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Patient Reclined Supine with Pillow Under Knees -->
+  <!-- Pillow -->
+  <ellipse cx="205" cy="172" rx="18" ry="8" fill="#94a3b8" opacity="0.6"/>
+
+  <!-- Head on Pillow -->
+  <circle cx="65" cy="155" r="12" fill="#cbd5e1" stroke="#1e293b" stroke-width="3.5"/>
+  <path d="M 75 165 L 125 168" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Legs with bent knees resting over pillow -->
+  <path d="M 155 170 L 205 155 L 245 178" fill="none" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Abdominal Expansion Dome (Belly rising on inhale) -->
+  <ellipse cx="140" cy="155" rx="18" ry="12" fill="url(#breathGrad)"/>
+  <path d="M 125 168 C 130 145, 150 145, 155 170" fill="none" stroke="#0d9488" stroke-width="3.5"/>
+
+  <!-- Hand on Upper Chest (Remains quiet/still) -->
+  <path d="M 95 168 L 110 152" stroke="#64748b" stroke-width="3.5" stroke-linecap="round"/>
+  <circle cx="112" cy="150" r="4" fill="#64748b"/>
+
+  <!-- Hand on Abdomen (Rises with inhale) -->
+  <path d="M 120 170 L 138 145" stroke="#0284c7" stroke-width="3.5" stroke-linecap="round"/>
+  <circle cx="138" cy="144" r="4" fill="#0284c7"/>
+
+  <!-- Expansion Arrow Upward from Abdomen -->
+  <line x1="140" y1="140" x2="140" y2="122" stroke="#0d9488" stroke-width="2.5" marker-end="url(#arrowExpand)"/>
+
+  <!-- Cues -->
+  <text x="165" y="60" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Belly Rises, Chest Quiet</text>
+  <text x="165" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Inhale through nose for 3 seconds</text>
+  <text x="165" y="90" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Feel belly push hand upward</text>
+  <text x="165" y="104" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Exhale slowly through relaxed mouth</text>
+</svg>

@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="100%" height="100%">
+  <title>Scapular Retraction (Pinch)</title>
+  <desc>Posterior view of patient drawing shoulder blades together and down toward spine.</desc>
+  <defs>
+    <linearGradient id="scapGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#0d9488" stop-opacity="0.5"/>
+    </linearGradient>
+    <marker id="arrowRight" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0284c7" />
+    </marker>
+    <marker id="arrowLeft" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 10 0 L 0 5 L 10 10 z" fill="#0284c7" />
+    </marker>
+  </defs>
+
+  <rect width="320" height="220" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Clinical Focus Badge -->
+  <rect x="16" y="14" width="170" height="22" rx="4" fill="#e0f2fe"/>
+  <text x="24" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#0369a1" letter-spacing="0.5">SHOULDER / POSTURE • STRENGTH</text>
+
+  <!-- Posterior View of Patient Torso -->
+  <!-- Head & Neck -->
+  <circle cx="160" cy="65" r="14" fill="#cbd5e1" stroke="#1e293b" stroke-width="3.5"/>
+  <path d="M 156 79 L 156 90 M 164 79 L 164 90" stroke="#1e293b" stroke-width="3"/>
+
+  <!-- Shoulders & Upper Back Outline -->
+  <path d="M 105 110 C 130 95, 190 95, 215 110 L 210 190 C 180 195, 140 195, 110 190 Z" fill="#ffffff" stroke="#1e293b" stroke-width="3.5" stroke-linejoin="round"/>
+
+  <!-- Spine Centerline -->
+  <line x1="160" y1="92" x2="160" y2="190" stroke="#94a3b8" stroke-width="2" stroke-dasharray="3 3"/>
+
+  <!-- Left Scapula (Retracting) -->
+  <path d="M 125 115 L 145 125 L 135 155 Z" fill="url(#scapGrad)" stroke="#0d9488" stroke-width="2.5"/>
+  <!-- Right Scapula (Retracting) -->
+  <path d="M 195 115 L 175 125 L 185 155 Z" fill="url(#scapGrad)" stroke="#0d9488" stroke-width="2.5"/>
+
+  <!-- Convergence Movement Arrows (Pinch together) -->
+  <line x1="115" y1="135" x2="140" y2="135" stroke="#0284c7" stroke-width="3" marker-end="url(#arrowRight)"/>
+  <line x1="205" y1="135" x2="180" y2="135" stroke="#0284c7" stroke-width="3" marker-end="url(#arrowLeft)"/>
+
+  <!-- Arms at Sides -->
+  <path d="M 105 110 L 95 170" stroke="#1e293b" stroke-width="4" stroke-linecap="round"/>
+  <path d="M 215 110 L 225 170" stroke="#1e293b" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Cues -->
+  <text x="235" y="65" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Pinch Blades</text>
+  <text x="235" y="80" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Draw back & down</text>
+  <text x="235" y="94" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Hold 5 seconds</text>
+</svg>

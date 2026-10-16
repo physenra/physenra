@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="100%" height="100%">
+  <title>Side Plank (Quadratus Lumborum Stabilization)</title>
+  <desc>Patient side-lying propped up on forearm with elbow directly below shoulder, elevating pelvis into a straight diagonal line from head to feet.</desc>
+  <defs>
+    <linearGradient id="qlGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#0d9488" stop-opacity="0.6"/>
+    </linearGradient>
+    <marker id="arrowUp" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 0 10 L 5 0 L 10 10 z" fill="#0284c7" />
+    </marker>
+  </defs>
+
+  <rect width="320" height="220" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Clinical Focus Badge -->
+  <rect x="16" y="14" width="175" height="22" rx="4" fill="#e0f2fe"/>
+  <text x="24" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#0369a1" letter-spacing="0.5">LATERAL CORE • STABILIZATION</text>
+
+  <!-- Ground Line -->
+  <line x1="25" y1="185" x2="295" y2="185" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Forearm & Elbow Base of Support -->
+  <line x1="85" y1="135" x2="85" y2="182" stroke="#1e293b" stroke-width="5" stroke-linecap="round"/>
+  <line x1="85" y1="182" x2="120" y2="182" stroke="#1e293b" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Head -->
+  <circle cx="68" cy="115" r="12" fill="#cbd5e1" stroke="#1e293b" stroke-width="3.5"/>
+
+  <!-- Quadratus Lumborum & Oblique Active Muscle Zone -->
+  <ellipse cx="155" cy="148" rx="18" ry="10" fill="url(#qlGrad)"/>
+
+  <!-- Elevated Body Diagonal Alignment (Shoulder -> Hip -> Feet) -->
+  <line x1="85" y1="135" x2="255" y2="182" stroke="#1e293b" stroke-width="5.5" stroke-linecap="round"/>
+  <!-- Top Arm resting on hip or ceiling -->
+  <path d="M 85 135 L 140 125 L 155 142" stroke="#0284c7" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Ghosted Hip on Ground (Starting position) -->
+  <path d="M 85 135 L 150 182 L 255 182" stroke="#cbd5e1" stroke-width="3" stroke-dasharray="3 3"/>
+
+  <!-- Lift Vector Arrow -->
+  <line x1="150" y1="175" x2="150" y2="152" stroke="#0284c7" stroke-width="3" marker-end="url(#arrowUp)"/>
+
+  <!-- Cues -->
+  <text x="175" y="60" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Straight Diagonal Line</text>
+  <text x="175" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Elbow directly under shoulder</text>
+  <text x="175" y="90" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Lift bottom hip off ground</text>
+  <text x="175" y="104" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Hold 15–30 seconds per side</text>
+</svg>

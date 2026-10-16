@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { hepService } from '../../services/hepService';
+import { ExerciseVisualCard } from '../../components/hep/ExerciseVisualCard';
 import type {
   HomeExerciseProgramWithRelations,
   HEPStatus,
@@ -762,11 +763,14 @@ export const HEPDetailPage: React.FC = () => {
             {program.items.map((item) => (
               <div
                 key={item.id}
+                className="hep-exercise-card"
                 style={{
                   border: '1px solid #e2e8f0',
                   borderRadius: '8px',
                   padding: '1.25rem',
                   backgroundColor: '#fbfcfd',
+                  breakInside: 'avoid',
+                  pageBreakInside: 'avoid',
                 }}
               >
                 {/* Exercise Header */}
@@ -849,68 +853,95 @@ export const HEPDetailPage: React.FC = () => {
                   )}
                 </div>
 
-                {/* Dosage Parameters Grid */}
+                {/* Exercise Content: Visual Illustration & Dosage Parameters */}
                 <div
                   style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                    gap: '0.75rem',
-                    marginBottom: '0.75rem',
-                    backgroundColor: '#ffffff',
-                    padding: '0.75rem 1rem',
-                    borderRadius: '6px',
-                    border: '1px solid #f1f5f9',
+                    display: 'flex',
+                    flexDirection: 'row',
+                    gap: '1.25rem',
+                    alignItems: 'flex-start',
+                    flexWrap: 'wrap',
                   }}
                 >
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Sets</span>
-                    <strong style={{ fontSize: '0.875rem', color: '#1e293b' }}>{item.sets ?? '—'}</strong>
+                  {/* Left Column: Clinical Vector Illustration & Movement Phases */}
+                  <div style={{ flex: '0 0 auto', width: '220px', maxWidth: '100%' }}>
+                    <ExerciseVisualCard
+                      exerciseId={item.exercise_id}
+                      exerciseName={item.exercise?.name || 'Prescribed Exercise'}
+                      bodyRegion={item.exercise?.body_region || 'other'}
+                      category={item.exercise?.category}
+                      size="md"
+                      showPhases={true}
+                      showApprovalBadge={true}
+                    />
                   </div>
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Reps</span>
-                    <strong style={{ fontSize: '0.875rem', color: '#1e293b' }}>{item.repetitions ?? '—'}</strong>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Hold Time</span>
-                    <strong style={{ fontSize: '0.875rem', color: '#1e293b' }}>
-                      {item.hold_seconds ? `${item.hold_seconds}s` : '—'}
-                    </strong>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Frequency</span>
-                    <strong style={{ fontSize: '0.875rem', color: '#1e293b' }}>{item.frequency || 'Daily'}</strong>
-                  </div>
-                  <div>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Resistance / Load</span>
-                    <strong style={{ fontSize: '0.875rem', color: '#1e293b' }}>{item.intensity_load || 'Bodyweight'}</strong>
-                  </div>
-                  {item.rest_seconds && (
-                    <div>
-                      <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Rest Period</span>
-                      <strong style={{ fontSize: '0.875rem', color: '#1e293b' }}>{item.rest_seconds}s</strong>
-                    </div>
-                  )}
-                </div>
 
-                {/* Patient Instructions & Precautions */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem', fontSize: '0.8125rem' }}>
-                  {item.instructions && (
-                    <div style={{ backgroundColor: '#f8fafc', padding: '0.625rem 0.75rem', borderRadius: '6px' }}>
-                      <strong style={{ color: '#0369a1', display: 'block', marginBottom: '0.15rem' }}>
-                        Patient Cues & Instructions:
-                      </strong>
-                      <span style={{ color: '#334155' }}>{item.instructions}</span>
+                  {/* Right Column: Dosage Parameters Grid & Clinical Cues */}
+                  <div style={{ flex: '1 1 300px', minWidth: '240px' }}>
+                    {/* Dosage Parameters Grid */}
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+                        gap: '0.75rem',
+                        marginBottom: '0.75rem',
+                        backgroundColor: '#ffffff',
+                        padding: '0.75rem 1rem',
+                        borderRadius: '6px',
+                        border: '1px solid #f1f5f9',
+                      }}
+                    >
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Sets</span>
+                        <strong style={{ fontSize: '0.875rem', color: '#1e293b' }}>{item.sets ?? '—'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Reps</span>
+                        <strong style={{ fontSize: '0.875rem', color: '#1e293b' }}>{item.repetitions ?? '—'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Hold Time</span>
+                        <strong style={{ fontSize: '0.875rem', color: '#1e293b' }}>
+                          {item.hold_seconds ? `${item.hold_seconds}s` : '—'}
+                        </strong>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Frequency</span>
+                        <strong style={{ fontSize: '0.875rem', color: '#1e293b' }}>{item.frequency || 'Daily'}</strong>
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Resistance / Load</span>
+                        <strong style={{ fontSize: '0.875rem', color: '#1e293b' }}>{item.intensity_load || 'Bodyweight'}</strong>
+                      </div>
+                      {item.rest_seconds && (
+                        <div>
+                          <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Rest Period</span>
+                          <strong style={{ fontSize: '0.875rem', color: '#1e293b' }}>{item.rest_seconds}s</strong>
+                        </div>
+                      )}
                     </div>
-                  )}
 
-                  {item.precautions && (
-                    <div style={{ backgroundColor: '#fef2f2', padding: '0.625rem 0.75rem', borderRadius: '6px' }}>
-                      <strong style={{ color: '#b91c1c', display: 'block', marginBottom: '0.15rem' }}>
-                        Precautions & Warnings:
-                      </strong>
-                      <span style={{ color: '#7f1d1d' }}>{item.precautions}</span>
+                    {/* Patient Instructions & Precautions */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', fontSize: '0.8125rem' }}>
+                      {item.instructions && (
+                        <div style={{ backgroundColor: '#f8fafc', padding: '0.625rem 0.75rem', borderRadius: '6px' }}>
+                          <strong style={{ color: '#0369a1', display: 'block', marginBottom: '0.15rem' }}>
+                            Patient Cues &amp; Instructions:
+                          </strong>
+                          <span style={{ color: '#334155' }}>{item.instructions}</span>
+                        </div>
+                      )}
+
+                      {item.precautions && (
+                        <div style={{ backgroundColor: '#fef2f2', padding: '0.625rem 0.75rem', borderRadius: '6px' }}>
+                          <strong style={{ color: '#b91c1c', display: 'block', marginBottom: '0.15rem' }}>
+                            Precautions &amp; Warnings:
+                          </strong>
+                          <span style={{ color: '#7f1d1d' }}>{item.precautions}</span>
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             ))}

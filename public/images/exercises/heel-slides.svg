@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="100%" height="100%">
+  <title>Heel Slides (Knee Flexion Mobility)</title>
+  <desc>Patient supine, sliding heel toward buttocks along mat to increase knee flexion.</desc>
+  <defs>
+    <marker id="arrowLeft" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 10 0 L 0 5 L 10 10 z" fill="#0284c7" />
+    </marker>
+  </defs>
+
+  <rect width="320" height="220" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Clinical Focus Badge -->
+  <rect x="16" y="14" width="115" height="22" rx="4" fill="#e0f2fe"/>
+  <text x="24" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#0369a1" letter-spacing="0.5">KNEE • MOBILITY</text>
+
+  <!-- Mat Surface -->
+  <line x1="25" y1="170" x2="295" y2="170" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Supine Body -->
+  <circle cx="55" cy="158" r="12" fill="#cbd5e1" stroke="#1e293b" stroke-width="3.5"/>
+  <path d="M 68 165 L 140 165" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Ghosted Extended Leg (Starting Position) -->
+  <path d="M 140 165 L 265 165" stroke="#cbd5e1" stroke-width="3.5" stroke-dasharray="4 4" stroke-linecap="round"/>
+  <path d="M 265 165 L 268 145" stroke="#cbd5e1" stroke-width="3" stroke-dasharray="3 3"/>
+
+  <!-- Active Flexed Knee (Sliding position) -->
+  <path d="M 140 165 L 180 120 L 210 168" fill="none" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Foot on mat -->
+  <path d="M 205 168 L 222 168" stroke="#1e293b" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Sliding Heel Motion Arrow -->
+  <path d="M 260 180 L 215 180" stroke="#0284c7" stroke-width="3" marker-end="url(#arrowLeft)"/>
+
+  <!-- Towel / Slider under heel -->
+  <ellipse cx="212" cy="171" rx="10" ry="3" fill="#0d9488" opacity="0.6"/>
+
+  <!-- Cues -->
+  <text x="140" y="55" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Slide Heel Toward Buttock</text>
+  <text x="140" y="72" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Keep heel in contact with bed/towel</text>
+  <text x="140" y="86" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Hold end-range stretch 3–5 seconds</text>
+</svg>

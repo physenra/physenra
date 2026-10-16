@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="100%" height="100%">
+  <title>Terminal Knee Extension (TKE) with Band</title>
+  <desc>Patient standing with looped resistance band anchored in front and behind target knee, extending knee back into terminal extension.</desc>
+  <defs>
+    <linearGradient id="vmoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#0d9488" stop-opacity="0.7"/>
+    </linearGradient>
+    <marker id="arrowBack" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 10 0 L 0 5 L 10 10 z" fill="#0284c7" />
+    </marker>
+  </defs>
+
+  <rect width="320" height="220" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Clinical Focus Badge -->
+  <rect x="16" y="14" width="165" height="22" rx="4" fill="#e0f2fe"/>
+  <text x="24" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#0369a1" letter-spacing="0.5">KNEE / VMO • STRENGTHENING</text>
+
+  <!-- Floor Line -->
+  <line x1="25" y1="195" x2="295" y2="195" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Anchor Post on Left -->
+  <line x1="45" y1="80" x2="45" y2="195" stroke="#94a3b8" stroke-width="6"/>
+
+  <!-- Resistance Band from Post to Behind Knee -->
+  <line x1="45" y1="145" x2="155" y2="148" stroke="#ec4899" stroke-width="3.5" stroke-linecap="round"/>
+
+  <!-- Patient Standing -->
+  <circle cx="170" cy="55" r="12" fill="#cbd5e1" stroke="#1e293b" stroke-width="3.5"/>
+  <line x1="170" y1="67" x2="168" y2="125" stroke="#1e293b" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- Opposite Stance Leg (Straight, support) -->
+  <line x1="175" y1="125" x2="185" y2="192" stroke="#94a3b8" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- Target Knee - Active Lockout Position -->
+  <path d="M 165 125 L 155 150 L 155 192" fill="none" stroke="#1e293b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 150 192 L 165 192" stroke="#1e293b" stroke-width="4.5"/>
+
+  <!-- VMO Muscle Activation Zone -->
+  <ellipse cx="158" cy="138" rx="8" ry="12" fill="url(#vmoGrad)"/>
+
+  <!-- Ghosted Flexed Knee Starting Position -->
+  <path d="M 165 125 L 140 148 L 155 192" stroke="#cbd5e1" stroke-width="3" stroke-dasharray="3 3"/>
+
+  <!-- Backward Knee Extension Force Arrow -->
+  <line x1="135" y1="150" x2="150" y2="150" stroke="#0284c7" stroke-width="3" marker-end="url(#arrowBack)"/>
+
+  <!-- Cues -->
+  <text x="195" y="65" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Lock Knee Backward</text>
+  <text x="195" y="81" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Press against band tension</text>
+  <text x="195" y="95" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Squeeze inner quad (VMO)</text>
+  <text x="195" y="109" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Hold lockout 3s, slow return</text>
+</svg>

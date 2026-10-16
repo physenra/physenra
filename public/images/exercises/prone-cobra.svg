@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" width="100%" height="100%">
+  <title>Prone Cobra (Thoracic Postural Extension)</title>
+  <desc>Patient prone on mat, lifting chest and hands slightly off floor with thumbs pointing toward ceiling, engaging mid-back and scapular retractors.</desc>
+  <defs>
+    <marker id="arrowUp" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-angle">
+      <path d="M 0 10 L 5 0 L 10 10 z" fill="#0284c7" />
+    </marker>
+  </defs>
+
+  <rect width="320" height="220" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Clinical Focus Badge -->
+  <rect x="16" y="14" width="165" height="22" rx="4" fill="#e0f2fe"/>
+  <text x="24" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#0369a1" letter-spacing="0.5">THORACIC • STRENGTHENING</text>
+
+  <!-- Mat Surface -->
+  <line x1="25" y1="175" x2="295" y2="175" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Lower Body Resting Flat on Mat -->
+  <path d="M 160 172 L 265 172" stroke="#1e293b" stroke-width="5" stroke-linecap="round"/>
+  <!-- Feet Pointed -->
+  <path d="M 265 172 L 278 175" stroke="#1e293b" stroke-width="4.5" stroke-linecap="round"/>
+
+  <!-- Elevated Upper Torso & Head -->
+  <path d="M 160 172 C 140 168, 110 155, 80 140" fill="none" stroke="#1e293b" stroke-width="5" stroke-linecap="round"/>
+  <!-- Head (Neutral neck, gaze at floor) -->
+  <circle cx="68" cy="130" r="12" fill="#cbd5e1" stroke="#1e293b" stroke-width="3.5"/>
+
+  <!-- Arms Lifted Off Floor (Thumbs pointing up) -->
+  <path d="M 115 148 L 145 135" stroke="#0284c7" stroke-width="4" stroke-linecap="round"/>
+  <!-- Thumbs Up Indicator -->
+  <path d="M 145 135 L 145 125" stroke="#0284c7" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Lift Vector Arrows -->
+  <line x1="85" y1="165" x2="85" y2="148" stroke="#0284c7" stroke-width="2.5" marker-end="url(#arrowUp)"/>
+  <line x1="140" y1="155" x2="140" y2="138" stroke="#0284c7" stroke-width="2.5" marker-end="url(#arrowUp)"/>
+
+  <!-- Active Scapular Squeeze Sparks -->
+  <circle cx="120" cy="140" r="3" fill="#0d9488"/>
+  <circle cx="126" cy="135" r="2" fill="#0d9488"/>
+
+  <!-- Cues -->
+  <text x="175" y="60" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="11" font-weight="600" fill="#0f172a">Lift Chest &amp; Thumbs</text>
+  <text x="175" y="76" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Keep chin tucked, eyes down</text>
+  <text x="175" y="90" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Rotate palms outward (thumbs up)</text>
+  <text x="175" y="104" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" fill="#64748b">Hold 5–10s with steady breath</text>
+</svg>
