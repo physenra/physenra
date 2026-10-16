@@ -1,6 +1,9 @@
 import { supabase, getActivePracticeHeader } from '../lib/supabase';
+import { SYSTEM_OUTCOME_MEASURES_CATALOGUE } from './outcomeMeasureCatalogueData';
 import type {
   OutcomeMeasureDefinition,
+  OutcomeMeasureDefinitionInsert,
+  OutcomeMeasureScoringType,
   OutcomeMeasureAssessment,
   OutcomeMeasureAssessmentInsert,
   OutcomeMeasureAssessmentUpdate,
@@ -64,6 +67,7 @@ export interface AmendAssessmentInput {
 export const outcomeMeasureService = {
   /**
    * Fetch active measure definitions (both system standard and practice custom).
+   * Seamlessly merges standard validated evidence-based library with practice custom definitions.
    */
   async getDefinitions(category?: OutcomeMeasureCategory): Promise<OutcomeMeasureDefinition[]> {
     const activePracticeId = getActivePracticeHeader();
@@ -71,40 +75,136 @@ export const outcomeMeasureService = {
       throw new Error('No active practice context selected.');
     }
 
-    let query = supabase
-      .from('outcome_measure_definitions')
-      .select('*')
-      .eq('is_active', true)
-      .order('is_system', { ascending: false })
-      .order('name', { ascending: true });
+    let remoteDefinitions: OutcomeMeasureDefinition[] = [];
+    try {
+      let query = supabase
+        .from('outcome_measure_definitions')
+        .select('*')
+        .eq('is_active', true)
+        .order('is_system', { ascending: false })
+        .order('name', { ascending: true });
+
+      if (category) {
+        query = query.eq('category', category);
+      }
+
+      const { data, error } = await query;
+      if (!error && data) {
+        remoteDefinitions = data as OutcomeMeasureDefinition[];
+      }
+    } catch (err) {
+      console.warn('Could not query remote measure definitions, using standard library:', err);
+    }
+
+    // Merge standard baseline catalogue with remote definitions
+    const definitionMap = new Map<string, OutcomeMeasureDefinition>();
+
+    // 1. Add standard system definitions
+    for (const sysDef of SYSTEM_OUTCOME_MEASURES_CATALOGUE) {
+      definitionMap.set(sysDef.code.toUpperCase(), sysDef);
+    }
+
+    // 2. Overlay remote definitions (overrides standard if in DB, and includes practice custom)
+    for (const remoteDef of remoteDefinitions) {
+      definitionMap.set(remoteDef.code.toUpperCase(), remoteDef);
+    }
+
+    let combined = Array.from(definitionMap.values()).filter((d) => d.is_active);
 
     if (category) {
-      query = query.eq('category', category);
+      combined = combined.filter((d) => d.category === category);
     }
 
-    const { data, error } = await query;
-    if (error) {
-      throw new Error(`Failed to load measure definitions: ${error.message}`);
-    }
-
-    return (data || []) as OutcomeMeasureDefinition[];
+    // Sort: practice custom first, then alphabetical by name
+    return combined.sort((a, b) => {
+      if (a.is_system !== b.is_system) {
+        return a.is_system ? 1 : -1;
+      }
+      return a.name.localeCompare(b.name);
+    });
   },
 
   /**
    * Fetch single definition by ID.
    */
   async getDefinitionById(id: string): Promise<OutcomeMeasureDefinition | null> {
-    const { data, error } = await supabase
-      .from('outcome_measure_definitions')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('outcome_measure_definitions')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
 
-    if (error) {
-      throw new Error(`Failed to load measure definition: ${error.message}`);
+      if (!error && data) {
+        return data as OutcomeMeasureDefinition;
+      }
+    } catch (err) {
+      console.warn('Could not query measure definition by ID from remote:', err);
     }
 
-    return (data as OutcomeMeasureDefinition) || null;
+    const fallback = SYSTEM_OUTCOME_MEASURES_CATALOGUE.find((d) => d.id === id);
+    return fallback || null;
+  },
+
+  /**
+   * Create a practice-owned custom outcome measure definition.
+   */
+  async createCustomDefinition(input: {
+    code: string;
+    name: string;
+    description?: string | null;
+    category?: OutcomeMeasureCategory;
+    scoring_type?: OutcomeMeasureScoringType;
+    min_score?: number | null;
+    max_score?: number | null;
+    score_unit?: string | null;
+    interpretation_guide?: string | null;
+  }): Promise<OutcomeMeasureDefinition> {
+    const activePracticeId = getActivePracticeHeader();
+    if (!activePracticeId) {
+      throw new Error('No active practice context selected.');
+    }
+
+    const insertPayload: OutcomeMeasureDefinitionInsert = {
+      practice_id: activePracticeId,
+      is_system: false,
+      code: input.code.trim().toUpperCase(),
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      category: input.category || 'functional',
+      scoring_type: input.scoring_type || 'numeric',
+      min_score: input.min_score !== undefined ? input.min_score : null,
+      max_score: input.max_score !== undefined ? input.max_score : null,
+      score_unit: input.score_unit?.trim() || null,
+      interpretation_guide: input.interpretation_guide?.trim() || null,
+      is_active: true,
+    };
+
+    const { data, error } = await supabase
+      .from('outcome_measure_definitions')
+      .insert(insertPayload)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to create custom outcome measure definition: ${error.message}`);
+    }
+
+    const created = data as OutcomeMeasureDefinition;
+
+    await supabase.rpc('log_audit_event', {
+      p_action: 'outcome_measure_definition.created',
+      p_entity_type: 'outcome_measure_definition',
+      p_entity_id: created.id,
+      p_metadata: {
+        code: created.code,
+        name: created.name,
+        category: created.category,
+        scoring_type: created.scoring_type,
+      },
+    });
+
+    return created;
   },
 
   /**

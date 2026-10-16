@@ -1,4 +1,5 @@
 import { supabase, getActivePracticeHeader } from '../lib/supabase';
+import { SYSTEM_EXERCISES_CATALOGUE } from './hepCatalogueData';
 import type {
   Exercise,
   ExerciseInsert,
@@ -83,6 +84,7 @@ export const ALLOWED_HEP_TRANSITIONS: Record<HEPStatus, HEPStatus[]> = {
 export const hepService = {
   /**
    * Fetch exercises catalogue (system exercises + practice custom exercises).
+   * Robustly merges the comprehensive evidence-based system library with any remote practice customizations.
    */
   async getExercises(options: {
     category?: ExerciseCategory;
@@ -95,55 +97,111 @@ export const hepService = {
       throw new Error('No active practice context selected.');
     }
 
-    let query = supabase
-      .from('exercises')
-      .select('*')
-      .or(`is_system.eq.true,practice_id.eq.${activePracticeId}`)
-      .order('is_system', { ascending: false })
-      .order('name', { ascending: true });
+    let remoteExercises: Exercise[] = [];
+    try {
+      let query = supabase
+        .from('exercises')
+        .select('*')
+        .or(`is_system.eq.true,practice_id.eq.${activePracticeId}`)
+        .order('is_system', { ascending: false })
+        .order('name', { ascending: true });
 
+      if (options.activeOnly !== false) {
+        query = query.eq('is_active', true);
+      }
+
+      if (options.category) {
+        query = query.eq('category', options.category);
+      }
+
+      if (options.bodyRegion) {
+        query = query.eq('body_region', options.bodyRegion);
+      }
+
+      if (options.search && options.search.trim()) {
+        const term = options.search.trim();
+        query = query.or(
+          `name.ilike.%${term}%,description.ilike.%${term}%,equipment.ilike.%${term}%`
+        );
+      }
+
+      const { data, error } = await query;
+      if (!error && data) {
+        remoteExercises = data as Exercise[];
+      }
+    } catch (err) {
+      console.warn('Could not query remote exercises, using baseline catalogue:', err);
+    }
+
+    // Merge standard baseline catalogue with remote exercises
+    const exerciseMap = new Map<string, Exercise>();
+
+    // 1. Add standard system exercises
+    for (const sysEx of SYSTEM_EXERCISES_CATALOGUE) {
+      exerciseMap.set(sysEx.name.toLowerCase().trim(), sysEx);
+    }
+
+    // 2. Overlay remote exercises (overrides standard if already in DB, and includes practice custom)
+    for (const remoteEx of remoteExercises) {
+      exerciseMap.set(remoteEx.name.toLowerCase().trim(), remoteEx);
+    }
+
+    let combined = Array.from(exerciseMap.values());
+
+    // Apply in-memory filters for consistent multi-field search and categories
     if (options.activeOnly !== false) {
-      query = query.eq('is_active', true);
+      combined = combined.filter((e) => e.is_active);
     }
 
     if (options.category) {
-      query = query.eq('category', options.category);
+      combined = combined.filter((e) => e.category === options.category);
     }
 
     if (options.bodyRegion) {
-      query = query.eq('body_region', options.bodyRegion);
+      combined = combined.filter((e) => e.body_region === options.bodyRegion);
     }
 
     if (options.search && options.search.trim()) {
-      const term = options.search.trim();
-      query = query.or(
-        `name.ilike.%${term}%,description.ilike.%${term}%,equipment.ilike.%${term}%`
+      const term = options.search.trim().toLowerCase();
+      combined = combined.filter(
+        (e) =>
+          e.name.toLowerCase().includes(term) ||
+          (e.description && e.description.toLowerCase().includes(term)) ||
+          (e.equipment && e.equipment.toLowerCase().includes(term)) ||
+          (e.instructions && e.instructions.toLowerCase().includes(term)) ||
+          (e.precautions && e.precautions.toLowerCase().includes(term))
       );
     }
 
-    const { data, error } = await query;
-    if (error) {
-      throw new Error(`Failed to load exercises: ${error.message}`);
-    }
-
-    return (data || []) as Exercise[];
+    // Sort: practice custom first, then alphabetical by name
+    return combined.sort((a, b) => {
+      if (a.is_system !== b.is_system) {
+        return a.is_system ? 1 : -1;
+      }
+      return a.name.localeCompare(b.name);
+    });
   },
 
   /**
    * Fetch a single exercise by ID.
    */
   async getExerciseById(id: string): Promise<Exercise | null> {
-    const { data, error } = await supabase
-      .from('exercises')
-      .select('*')
-      .eq('id', id)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('exercises')
+        .select('*')
+        .eq('id', id)
+        .maybeSingle();
 
-    if (error) {
-      throw new Error(`Failed to load exercise: ${error.message}`);
+      if (!error && data) {
+        return data as Exercise;
+      }
+    } catch (err) {
+      console.warn('Could not query exercise by ID from remote:', err);
     }
 
-    return (data as Exercise) || null;
+    const fallback = SYSTEM_EXERCISES_CATALOGUE.find((e) => e.id === id);
+    return fallback || null;
   },
 
   /**

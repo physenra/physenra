@@ -264,10 +264,14 @@ export const CreateHEPPage: React.FC = () => {
 
   // Filter catalogue exercises in modal
   const filteredExercises = exercisesCatalogue.filter((ex) => {
+    const term = exerciseSearchTerm.toLowerCase().trim();
     const matchesSearch =
-      !exerciseSearchTerm ||
-      ex.name.toLowerCase().includes(exerciseSearchTerm.toLowerCase()) ||
-      (ex.description && ex.description.toLowerCase().includes(exerciseSearchTerm.toLowerCase()));
+      !term ||
+      ex.name.toLowerCase().includes(term) ||
+      (ex.description && ex.description.toLowerCase().includes(term)) ||
+      (ex.equipment && ex.equipment.toLowerCase().includes(term)) ||
+      (ex.instructions && ex.instructions.toLowerCase().includes(term)) ||
+      (ex.precautions && ex.precautions.toLowerCase().includes(term));
 
     const matchesCategory = exerciseCategoryFilter === 'all' || ex.category === exerciseCategoryFilter;
     const matchesRegion = exerciseRegionFilter === 'all' || ex.body_region === exerciseRegionFilter;
@@ -1050,6 +1054,7 @@ export const CreateHEPPage: React.FC = () => {
                   fontSize: '0.8125rem',
                   border: '1px solid #cbd5e1',
                   borderRadius: '6px',
+                  backgroundColor: '#ffffff',
                 }}
               >
                 <option value="all">All Categories</option>
@@ -1059,6 +1064,8 @@ export const CreateHEPPage: React.FC = () => {
                 <option value="balance">Balance</option>
                 <option value="aerobic">Aerobic</option>
                 <option value="neuromuscular">Neuromuscular</option>
+                <option value="functional">Functional</option>
+                <option value="other">Other</option>
               </select>
 
               <select
@@ -1069,17 +1076,21 @@ export const CreateHEPPage: React.FC = () => {
                   fontSize: '0.8125rem',
                   border: '1px solid #cbd5e1',
                   borderRadius: '6px',
+                  backgroundColor: '#ffffff',
                 }}
               >
-                <option value="all">All Regions</option>
-                <option value="cervical_spine">Cervical Spine</option>
-                <option value="thoracic_spine">Thoracic Spine</option>
-                <option value="lumbar_spine">Lumbar Spine</option>
+                <option value="all">All Anatomical Regions</option>
+                <option value="cervical">Cervical Spine</option>
+                <option value="thoracic">Thoracic Spine</option>
+                <option value="lumbar">Lumbar Spine / Core</option>
                 <option value="shoulder">Shoulder</option>
+                <option value="elbow">Elbow</option>
+                <option value="wrist_hand">Wrist / Hand</option>
+                <option value="hip">Hip</option>
                 <option value="knee">Knee</option>
                 <option value="ankle_foot">Ankle / Foot</option>
-                <option value="hip">Hip</option>
                 <option value="full_body">Full Body</option>
+                <option value="other">Other / Pelvic</option>
               </select>
             </div>
 
@@ -1102,10 +1113,11 @@ export const CreateHEPPage: React.FC = () => {
                       alignItems: 'center',
                       gap: '1rem',
                       transition: 'border-color 0.15s ease',
+                      backgroundColor: '#ffffff',
                     }}
                   >
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
                         <strong style={{ fontSize: '0.9375rem', color: '#0f172a' }}>{ex.name}</strong>
                         <span
                           style={{
@@ -1133,17 +1145,50 @@ export const CreateHEPPage: React.FC = () => {
                         >
                           {ex.body_region.replace('_', ' ')}
                         </span>
+                        {ex.equipment && (
+                          <span
+                            style={{
+                              fontSize: '0.6875rem',
+                              fontWeight: 500,
+                              padding: '0.15rem 0.4rem',
+                              borderRadius: '4px',
+                              backgroundColor: '#fef3c7',
+                              color: '#92400e',
+                            }}
+                          >
+                            Equip: {ex.equipment}
+                          </span>
+                        )}
+                        {!ex.is_system && (
+                          <span
+                            style={{
+                              fontSize: '0.6875rem',
+                              fontWeight: 600,
+                              padding: '0.15rem 0.4rem',
+                              borderRadius: '4px',
+                              backgroundColor: '#ecfdf5',
+                              color: '#047857',
+                            }}
+                          >
+                            Practice Custom
+                          </span>
+                        )}
                       </div>
-                      <p style={{ margin: 0, fontSize: '0.8125rem', color: '#64748b' }}>
-                        {ex.description || ex.instructions || 'Evidence-based exercise routine.'}
+                      <p style={{ margin: '0 0 0.25rem 0', fontSize: '0.8125rem', color: '#475569', lineHeight: 1.4 }}>
+                        {ex.description || 'Evidence-based exercise routine.'}
                       </p>
+                      {ex.precautions && (
+                        <p style={{ margin: 0, fontSize: '0.75rem', color: '#b45309', fontStyle: 'italic' }}>
+                          Caution: {ex.precautions}
+                        </p>
+                      )}
                     </div>
 
                     <button
                       type="button"
                       onClick={() => handleAddExercise(ex)}
                       style={{
-                        padding: '0.4rem 0.875rem',
+                        padding: '0.45rem 0.875rem',
                         backgroundColor: '#0284c7',
                         color: '#ffffff',
                         border: 'none',

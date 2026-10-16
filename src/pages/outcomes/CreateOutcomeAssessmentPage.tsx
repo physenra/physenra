@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { Search } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { outcomeMeasureService } from '../../services/outcomeMeasureService';
 import { patientService } from '../../services/patientService';
@@ -67,6 +68,25 @@ export const CreateOutcomeAssessmentPage: React.FC = () => {
   const selectedDefinitionId = draftData.selectedDefinitionId;
   const setSelectedDefinitionId = (v: string) => updateField('selectedDefinitionId', v);
   const [selectedDefinition, setSelectedDefinition] = useState<OutcomeMeasureDefinition | null>(null);
+
+  // Search and Category Filter for Instrument Selection
+  const [definitionSearch, setDefinitionSearch] = useState('');
+  const [definitionCategoryFilter, setDefinitionCategoryFilter] = useState<string>('all');
+
+  const filteredDefinitions = definitions.filter((def) => {
+    const term = definitionSearch.trim().toLowerCase();
+    const matchesSearch =
+      !term ||
+      def.code.toLowerCase().includes(term) ||
+      def.name.toLowerCase().includes(term) ||
+      (def.description && def.description.toLowerCase().includes(term)) ||
+      (def.interpretation_guide && def.interpretation_guide.toLowerCase().includes(term));
+
+    const matchesCategory =
+      definitionCategoryFilter === 'all' || def.category === definitionCategoryFilter;
+
+    return matchesSearch && matchesCategory;
+  });
 
   // Entities
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -365,24 +385,160 @@ export const CreateOutcomeAssessmentPage: React.FC = () => {
 
           {/* 2. Measure Definition Selection */}
           <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', padding: '1.5rem' }}>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 600, marginTop: 0, marginBottom: '1rem', color: '#0f172a' }}>
-              2. Outcome Measure Instrument
-            </h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <h2 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0, color: '#0f172a' }}>
+                2. Standardized Outcome Measure Instrument *
+              </h2>
+              <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                {filteredDefinitions.length} of {definitions.length} measures available
+              </span>
+            </div>
 
+            {/* Category Filter Pills & Search Bar */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem', backgroundColor: '#f8fafc', padding: '0.875rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              {/* Category Filter Tabs */}
+              <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginRight: '0.25rem' }}>Domain:</span>
+                {[
+                  { id: 'all', label: 'All Domains' },
+                  { id: 'functional', label: 'Functional' },
+                  { id: 'mobility', label: 'Mobility & Gait' },
+                  { id: 'pain', label: 'Pain' },
+                  { id: 'quality_of_life', label: 'Quality of Life' },
+                  { id: 'other', label: 'Other' },
+                ].map((cat) => {
+                  const isActive = definitionCategoryFilter === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setDefinitionCategoryFilter(cat.id)}
+                      style={{
+                        padding: '0.25rem 0.625rem',
+                        borderRadius: '9999px',
+                        border: '1px solid',
+                        borderColor: isActive ? '#0284c7' : '#cbd5e1',
+                        backgroundColor: isActive ? '#0284c7' : '#ffffff',
+                        color: isActive ? '#ffffff' : '#475569',
+                        fontSize: '0.75rem',
+                        fontWeight: isActive ? 600 : 500,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {cat.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Search Input */}
+              <div style={{ position: 'relative', width: '100%' }}>
+                <Search
+                  size={16}
+                  style={{
+                    position: 'absolute',
+                    left: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#94a3b8',
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Search by code (e.g. 10MWT, BBS, ODI, 6MWT, MAS) or clinical tool name..."
+                  value={definitionSearch}
+                  onChange={(e) => setDefinitionSearch(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.45rem 0.75rem 0.45rem 2rem',
+                    fontSize: '0.8125rem',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '6px',
+                    backgroundColor: '#ffffff',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Quick-Select Cards (Scrollable) */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                gap: '0.625rem',
+                maxHeight: '220px',
+                overflowY: 'auto',
+                marginBottom: '1rem',
+                padding: '0.25rem',
+              }}
+            >
+              {filteredDefinitions.length === 0 ? (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '1.5rem', color: '#64748b', fontSize: '0.8125rem' }}>
+                  No outcome measures match your search filter.
+                </div>
+              ) : (
+                filteredDefinitions.map((def) => {
+                  const isSelected = selectedDefinitionId === def.id;
+                  return (
+                    <button
+                      key={def.id}
+                      type="button"
+                      onClick={() => handleDefinitionChange(def.id)}
+                      style={{
+                        textAlign: 'left',
+                        padding: '0.625rem 0.75rem',
+                        borderRadius: '6px',
+                        border: '1px solid',
+                        borderColor: isSelected ? '#0284c7' : '#e2e8f0',
+                        backgroundColor: isSelected ? '#f0f9ff' : '#ffffff',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        boxShadow: isSelected ? '0 0 0 1px #0284c7' : 'none',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
+                        <strong style={{ fontSize: '0.8125rem', color: isSelected ? '#0369a1' : '#0f172a' }}>
+                          {def.code}
+                        </strong>
+                        <span
+                          style={{
+                            fontSize: '0.65rem',
+                            fontWeight: 600,
+                            padding: '0.1rem 0.35rem',
+                            borderRadius: '3px',
+                            backgroundColor: isSelected ? '#bae6fd' : '#f1f5f9',
+                            color: isSelected ? '#0369a1' : '#64748b',
+                            textTransform: 'capitalize',
+                          }}
+                        >
+                          {def.category}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {def.name}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Standardized Dropdown Selector (Accessible Fallback / Direct Select) */}
             <div style={{ marginBottom: '1rem' }}>
               <label
                 htmlFor="measure-select"
-                style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#334155', marginBottom: '0.375rem' }}
+                style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#64748b', marginBottom: '0.25rem' }}
               >
-                Standardized Measure *
+                Selected Measure Dropdown
               </label>
               <select
                 id="measure-select"
                 value={selectedDefinitionId}
                 onChange={(e) => handleDefinitionChange(e.target.value)}
-                style={{ width: '100%', padding: '0.625rem 0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem', backgroundColor: '#fff' }}
+                style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.875rem', backgroundColor: '#fff' }}
               >
-                {definitions.map((def) => (
+                {filteredDefinitions.map((def) => (
                   <option key={def.id} value={def.id}>
                     {def.code} — {def.name} ({def.category})
                   </option>
@@ -390,6 +546,7 @@ export const CreateOutcomeAssessmentPage: React.FC = () => {
               </select>
             </div>
 
+            {/* Active Definition Details Preview */}
             {selectedDefinition && (
               <div
                 style={{
@@ -398,23 +555,34 @@ export const CreateOutcomeAssessmentPage: React.FC = () => {
                   padding: '1rem',
                   fontSize: '0.8125rem',
                   color: '#334155',
+                  border: '1px solid #e2e8f0',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                   <strong style={{ color: '#0f172a', fontSize: '0.875rem' }}>
                     {selectedDefinition.code}: {selectedDefinition.name}
                   </strong>
-                  <span style={{ textTransform: 'capitalize', color: '#64748b' }}>
-                    {selectedDefinition.category} • Scoring: {selectedDefinition.scoring_type}
-                  </span>
+                  <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: '#e0f2fe', color: '#0369a1', textTransform: 'capitalize' }}>
+                      {selectedDefinition.category}
+                    </span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: '#f1f5f9', color: '#475569', textTransform: 'capitalize' }}>
+                      Scoring: {selectedDefinition.scoring_type.replace('_', ' ')}
+                    </span>
+                    {selectedDefinition.score_unit && (
+                      <span style={{ fontSize: '0.7rem', fontWeight: 600, padding: '0.15rem 0.4rem', borderRadius: '4px', backgroundColor: '#fef3c7', color: '#92400e' }}>
+                        Unit: {selectedDefinition.score_unit}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <p style={{ margin: '0 0 0.5rem 0', color: '#475569', lineHeight: 1.5 }}>
                   {selectedDefinition.description}
                 </p>
                 {selectedDefinition.interpretation_guide && (
-                  <div style={{ backgroundColor: '#ffffff', padding: '0.5rem 0.75rem', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                    <strong style={{ color: '#0369a1', display: 'block' }}>Interpretation Guide:</strong>
-                    <span>{selectedDefinition.interpretation_guide}</span>
+                  <div style={{ backgroundColor: '#ffffff', padding: '0.625rem 0.75rem', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                    <strong style={{ color: '#0369a1', display: 'block', marginBottom: '0.2rem' }}>Clinical Interpretation Guide:</strong>
+                    <span style={{ lineHeight: 1.45 }}>{selectedDefinition.interpretation_guide}</span>
                   </div>
                 )}
               </div>
