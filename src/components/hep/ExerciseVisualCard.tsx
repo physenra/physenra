@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
-import { Dumbbell, ShieldCheck, Clock, Camera, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Camera } from 'lucide-react';
 import {
   getExerciseVisual,
   getExercisePhotoDemonstration,
-  ExerciseVisualMetadata,
 } from '../../services/exerciseVisualRegistry';
 import type { ExerciseBodyRegion, ExerciseCategory } from '../../types/models';
 
@@ -16,7 +15,9 @@ interface ExerciseVisualCardProps {
   showPhases?: boolean;
   showApprovalBadge?: boolean;
   isPrintView?: boolean;
+  /** @deprecated Vector illustrations have been retired; photo demonstrations are standard */
   allowPhotoToggle?: boolean;
+  /** Clinician review preview mode (optional flag, still subject to clinical review status in production) */
   showPhotoReviewPreview?: boolean;
   style?: React.CSSProperties;
 }
@@ -30,13 +31,11 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
   showPhases = false,
   showApprovalBadge = false,
   isPrintView = false,
-  allowPhotoToggle = false,
-  showPhotoReviewPreview = false,
   style = {},
 }) => {
   const [imageError, setImageError] = useState(false);
-  const visual: ExerciseVisualMetadata | null = getExerciseVisual(exerciseId);
   const photo = getExercisePhotoDemonstration(exerciseId);
+  const visual = getExerciseVisual(exerciseId);
   const isPhotoApproved = photo?.photoClinicalReviewStatus === 'approved';
 
   // Sizing definitions
@@ -47,20 +46,11 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
     lg: { width: '100%', maxWidth: '340px', height: 'auto', borderRadius: '8px' },
   }[size];
 
-  // Default to approved photo if available, or respect showPhotoReviewPreview, otherwise illustration
-  const [activeView, setActiveView] = useState<'illustration' | 'photo'>(
-    isPhotoApproved ? 'photo' : (showPhotoReviewPreview ? 'photo' : 'illustration')
-  );
+  // Strictly enforce human physiotherapist clinical sign-off:
+  // Only approved photos are rendered to patients and clinicians.
+  const hasApprovedPhoto = photo !== null && isPhotoApproved && !imageError;
 
-  const canShowPhoto = photo !== null && (isPhotoApproved || allowPhotoToggle || showPhotoReviewPreview);
-  const isShowingPhoto = activeView === 'photo' && canShowPhoto;
-  const currentAssetPath = isShowingPhoto ? photo.photoAssetPath : visual?.assetPath;
-  const currentAltText = isShowingPhoto
-    ? photo.photoAltText
-    : visual?.altText || `${exerciseName} technique illustration`;
-
-  // If a valid visual asset exists (approved vector or approved/preview photo)
-  if (currentAssetPath && !imageError) {
+  if (hasApprovedPhoto && photo) {
     return (
       <div
         className="exercise-visual-container"
@@ -76,27 +66,27 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
             position: 'relative',
             overflow: 'hidden',
             backgroundColor: '#f8fafc',
-            border: isShowingPhoto && !isPhotoApproved ? '1px solid #fed7aa' : '1px solid #e2e8f0',
+            border: '1px solid #e2e8f0',
             borderRadius: dimensions.borderRadius,
             width: dimensions.width,
             maxWidth: '100%',
           }}
         >
           <img
-            src={currentAssetPath}
-            alt={currentAltText}
+            src={photo.photoAssetPath}
+            alt={photo.photoAltText || `${exerciseName} photographic demonstration`}
             loading="lazy"
             onError={() => setImageError(true)}
             style={{
               width: '100%',
               height: size === 'thumbnail' ? '60px' : 'auto',
               display: 'block',
-              objectFit: isShowingPhoto ? 'cover' : 'contain',
+              objectFit: 'cover',
               aspectRatio: '320 / 220',
             }}
           />
 
-          {/* Badges */}
+          {/* Clinically Verified Photo Badge */}
           {showApprovalBadge && !isPrintView && size !== 'thumbnail' && (
             <div
               style={{
@@ -106,89 +96,24 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '0.25rem',
-                backgroundColor: isShowingPhoto && !isPhotoApproved ? 'rgba(255, 251, 235, 0.95)' : 'rgba(255, 255, 255, 0.92)',
+                backgroundColor: 'rgba(255, 255, 255, 0.94)',
                 backdropFilter: 'blur(4px)',
-                padding: '0.15rem 0.4rem',
+                padding: '0.15rem 0.45rem',
                 borderRadius: '4px',
                 fontSize: '0.625rem',
                 fontWeight: 600,
-                color: isShowingPhoto && !isPhotoApproved ? '#b45309' : '#0d9488',
+                color: '#0d9488',
                 boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-                border: isShowingPhoto && !isPhotoApproved ? '1px solid #fde68a' : '1px solid #ccfbf1',
+                border: '1px solid #ccfbf1',
               }}
             >
-              {isShowingPhoto ? (
-                isPhotoApproved ? (
-                  <>
-                    <ShieldCheck size={11} />
-                    <span>Clinically Verified Photo</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle size={11} />
-                    <span>AI Generated • Pending PT Review</span>
-                  </>
-                )
-              ) : (
-                <>
-                  <ShieldCheck size={11} />
-                  <span>Clinically Reviewed</span>
-                </>
-              )}
+              <ShieldCheck size={11} />
+              <span>Clinically Verified Photo</span>
             </div>
           )}
         </div>
 
-        {/* View Toggle Bar (enabled for approved photos or clinician review) */}
-        {(allowPhotoToggle || isPhotoApproved) && photo && visual && visual.assetPath && size !== 'thumbnail' && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              marginTop: '0.15rem',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setActiveView('illustration')}
-              style={{
-                fontSize: '0.6875rem',
-                padding: '0.15rem 0.45rem',
-                borderRadius: '4px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: activeView === 'illustration' ? '#0284c7' : '#ffffff',
-                color: activeView === 'illustration' ? '#ffffff' : '#475569',
-                cursor: 'pointer',
-                fontWeight: activeView === 'illustration' ? 600 : 400,
-              }}
-            >
-              Illustration
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveView('photo')}
-              style={{
-                fontSize: '0.6875rem',
-                padding: '0.15rem 0.45rem',
-                borderRadius: '4px',
-                border: '1px solid #cbd5e1',
-                backgroundColor: activeView === 'photo' ? (isPhotoApproved ? '#0d9488' : '#b45309') : '#ffffff',
-                color: activeView === 'photo' ? '#ffffff' : '#475569',
-                cursor: 'pointer',
-                fontWeight: activeView === 'photo' ? 600 : 400,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.2rem',
-              }}
-            >
-              <Camera size={11} />
-              {isPhotoApproved ? 'Photo Demo' : 'Photo Demo (In Review)'}
-            </button>
-          </div>
-        )}
-
-        {/* Movement phases breakdown */}
+        {/* Movement phases / Technique guidance breakdown */}
         {showPhases && visual?.movementPhases && (
           <div
             style={{
@@ -198,10 +123,10 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
               backgroundColor: '#f1f5f9',
               padding: '0.35rem 0.5rem',
               borderRadius: '4px',
-              borderLeft: '2px solid #0284c7',
+              borderLeft: '2px solid #0d9488',
             }}
           >
-            <strong style={{ color: '#0369a1', display: 'block', marginBottom: '0.1rem' }}>
+            <strong style={{ color: '#0f766e', display: 'block', marginBottom: '0.1rem' }}>
               Technique Movement Arc:
             </strong>
             {visual.movementPhases}
@@ -211,54 +136,86 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
     );
   }
 
-  // Graceful, dignified fallback card for unreviewed, custom, or pending exercises
+  // Clean, neutral, patient-safe placeholder for exercises pending photo sign-off
   return (
     <div
-      className="exercise-visual-placeholder"
+      className="exercise-visual-container"
       style={{
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f8fafc',
-        border: '1px dashed #cbd5e1',
-        borderRadius: dimensions.borderRadius,
-        padding: size === 'thumbnail' ? '0.25rem' : '0.75rem',
-        width: dimensions.width,
-        height: size === 'thumbnail' ? '60px' : size === 'sm' ? '100px' : '150px',
-        textAlign: 'center',
-        color: '#64748b',
-        boxSizing: 'border-box',
+        gap: '0.375rem',
         ...style,
       }}
     >
-      <Dumbbell size={size === 'thumbnail' ? 16 : 22} style={{ color: '#94a3b8', marginBottom: '0.25rem' }} />
-      {size !== 'thumbnail' && (
-        <>
-          <span
-            style={{
-              fontSize: '0.6875rem',
-              fontWeight: 600,
-              color: '#475569',
-              textTransform: 'capitalize',
-            }}
-          >
-            {category ? `${category.replace('_', ' ')} • ` : ''}{bodyRegion.replace('_', ' ')}
-          </span>
-          <span
-            style={{
-              fontSize: '0.625rem',
-              color: '#94a3b8',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.2rem',
-              marginTop: '0.15rem',
-            }}
-          >
-            <Clock size={10} />
-            Visual in review
-          </span>
-        </>
+      <div
+        className="exercise-visual-placeholder"
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#f8fafc',
+          border: '1px solid #e2e8f0',
+          borderRadius: dimensions.borderRadius,
+          padding: size === 'thumbnail' ? '0.25rem' : '0.75rem',
+          width: dimensions.width,
+          maxWidth: '100%',
+          height: size === 'thumbnail' ? '60px' : size === 'sm' ? '100px' : size === 'md' ? '150px' : '180px',
+          textAlign: 'center',
+          color: '#64748b',
+          boxSizing: 'border-box',
+        }}
+      >
+        <Camera
+          size={size === 'thumbnail' ? 14 : 20}
+          style={{ color: '#94a3b8', marginBottom: '0.25rem' }}
+          aria-hidden="true"
+        />
+        {size !== 'thumbnail' && (
+          <>
+            <span
+              style={{
+                fontSize: '0.6875rem',
+                fontWeight: 600,
+                color: '#475569',
+                textTransform: 'capitalize',
+                lineHeight: 1.2,
+              }}
+            >
+              {category ? `${category.replace('_', ' ')} • ` : ''}{bodyRegion.replace('_', ' ')}
+            </span>
+            <span
+              style={{
+                fontSize: '0.6875rem',
+                color: '#64748b',
+                marginTop: '0.25rem',
+                fontWeight: 500,
+              }}
+            >
+              Photo demonstration coming soon
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Movement phases / Technique guidance breakdown if requested */}
+      {showPhases && visual?.movementPhases && (
+        <div
+          style={{
+            fontSize: '0.75rem',
+            color: '#475569',
+            lineHeight: 1.4,
+            backgroundColor: '#f1f5f9',
+            padding: '0.35rem 0.5rem',
+            borderRadius: '4px',
+            borderLeft: '2px solid #94a3b8',
+          }}
+        >
+          <strong style={{ color: '#475569', display: 'block', marginBottom: '0.1rem' }}>
+            Technique Movement Arc:
+          </strong>
+          {visual.movementPhases}
+        </div>
       )}
     </div>
   );

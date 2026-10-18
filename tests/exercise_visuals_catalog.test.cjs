@@ -226,4 +226,54 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       assert.ok(demo.photoReviewedAt !== null);
     }
   });
+
+  test('UI Invariants: Vector illustration toggles and "Visual in review" are retired from ExerciseVisualCard', () => {
+    const cardComponentPath = path.resolve(__dirname, '../src/components/hep/ExerciseVisualCard.tsx');
+    const cardSource = fs.readFileSync(cardComponentPath, 'utf8');
+
+    // Retired elements must NOT exist in the component source
+    assert.ok(!cardSource.includes('setActiveView'), 'activeView state must be removed from ExerciseVisualCard');
+    assert.ok(!cardSource.includes('>Illustration<'), 'Illustration toggle button must be removed');
+    assert.ok(!cardSource.includes('Photo Demo'), 'Photo Demo toggle button must be removed');
+    assert.ok(!cardSource.includes('Visual in review'), '"Visual in review" placeholder text must be removed');
+    assert.ok(!cardSource.includes('Dumbbell'), 'Generic Dumbbell icon placeholder must be removed');
+    assert.ok(!cardSource.includes('AlertCircle'), 'AlertCircle warning icon must be removed');
+    assert.ok(!cardSource.includes('visual?.assetPath'), 'Vector illustration assetPath fallback must be removed');
+
+    // Standardized photo demonstration elements MUST exist
+    assert.ok(cardSource.includes('Clinically Verified Photo'), 'Card must render "Clinically Verified Photo" badge for approved photos');
+    assert.ok(cardSource.includes('Photo demonstration coming soon'), 'Card must render "Photo demonstration coming soon" for pending exercises');
+    assert.ok(cardSource.includes("objectFit: 'cover'"), 'Photographs must render with clean objectFit: cover framing');
+  });
+
+  test('Catalogue Photo Coverage: Exactly 6 approved photos, 1 pending review, and 52 clean coming-soon fallbacks', () => {
+    const approvedExercises = [];
+    const pendingExercises = [];
+    const comingSoonExercises = [];
+
+    for (const exercise of SYSTEM_EXERCISES_CATALOGUE) {
+      const photo = getExercisePhotoDemonstration(exercise.id);
+      if (photo && photo.photoClinicalReviewStatus === 'approved') {
+        approvedExercises.push(exercise);
+      } else if (photo && photo.photoClinicalReviewStatus === 'pending_physiotherapist_review') {
+        pendingExercises.push(exercise);
+      } else {
+        comingSoonExercises.push(exercise);
+      }
+    }
+
+    assert.equal(approvedExercises.length, 6, 'Exactly 6 exercises must have clinically approved photos');
+    assert.equal(pendingExercises.length, 1, 'Exactly 1 exercise (standing calf stretch) must be pending review');
+    assert.equal(comingSoonExercises.length, 52, 'Exactly 52 exercises must cleanly display "Photo demonstration coming soon"');
+    assert.equal(approvedExercises.length + pendingExercises.length + comingSoonExercises.length, 59, 'Total must equal 59');
+
+    // Verify all 6 approved photos map to valid JPEG files
+    for (const ex of approvedExercises) {
+      const demo = getExercisePhotoDemonstration(ex.id);
+      assert.ok(demo.photoAssetPath.endsWith('.jpg'), `Photo for ${ex.name} must be a .jpg`);
+      const fullPath = path.resolve(__dirname, '..', 'public', demo.photoAssetPath.replace(/^\//, ''));
+      assert.ok(fs.existsSync(fullPath), `Physical photo file must exist: ${fullPath}`);
+    }
+  });
 });
+
