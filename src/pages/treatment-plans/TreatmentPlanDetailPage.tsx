@@ -14,6 +14,9 @@ import {
   ExternalLink,
   ClipboardCheck,
 } from 'lucide-react';
+import { Printer } from 'lucide-react';
+import { ClinicalDocumentPrintHeader } from '../../components/clinical/ClinicalDocumentPrintHeader';
+import { ClinicalDocumentPrintFooter } from '../../components/clinical/ClinicalDocumentPrintFooter';
 import { treatmentPlanService } from '../../services/treatmentPlanService';
 import type {
   TreatmentPlanWithRelations,
@@ -317,7 +320,8 @@ export const TreatmentPlanDetailPage: React.FC = () => {
   return (
     <div style={{ padding: '2rem', maxWidth: '1120px', margin: '0 auto' }}>
       {/* Back Link */}
-      <div style={{ marginBottom: '1rem' }}>
+      {/* Back Link and Print Toolbar */}
+      <div className="print:hidden" style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
         <Link
           to="/app/treatment-plans"
           style={{
@@ -333,11 +337,33 @@ export const TreatmentPlanDetailPage: React.FC = () => {
           <ArrowLeft size={16} />
           Back to Treatment Plans
         </Link>
+
+        <button
+          type="button"
+          onClick={() => window.print()}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.375rem',
+            padding: '0.45rem 0.875rem',
+            backgroundColor: '#ffffff',
+            border: '1px solid #cbd5e1',
+            borderRadius: '6px',
+            fontSize: '0.8125rem',
+            color: '#334155',
+            fontWeight: 500,
+            cursor: 'pointer',
+          }}
+        >
+          <Printer size={15} />
+          Print / Export Treatment Plan
+        </button>
       </div>
 
       {/* Notifications */}
       {error && (
         <div
+          className="print:hidden"
           style={{
             backgroundColor: '#fef2f2',
             border: '1px solid #fecaca',
@@ -357,6 +383,7 @@ export const TreatmentPlanDetailPage: React.FC = () => {
 
       {actionSuccess && (
         <div
+          className="print:hidden"
           style={{
             backgroundColor: '#ecfdf5',
             border: '1px solid #a7f3d0',
@@ -373,6 +400,26 @@ export const TreatmentPlanDetailPage: React.FC = () => {
           <span>{actionSuccess}</span>
         </div>
       )}
+
+      {/* Active Tenant Practice Branded Clinical Document Header */}
+      <ClinicalDocumentPrintHeader
+        documentTitle="Treatment Plan & Clinical Protocol"
+        documentSubtitle="Goal Attainment & Outcome Progression Framework"
+        documentReference={plan.plan_identifier}
+        documentStatus={plan.status}
+        issueDate={formatDate(plan.start_date)}
+        reviewDate={formatDate(plan.target_review_date)}
+        patientName={patientName}
+        patientIdentifier={plan.patient?.patient_identifier}
+        patientPhone={plan.patient?.phone}
+        patientEmail={plan.patient?.email}
+        clinicianName={clinicianName}
+        clinicianRole="Prescribing Physiotherapist"
+        secondaryClinicianName={finalizerName}
+        secondaryClinicianRole="Authorized & Finalized by"
+        episodeTitle={plan.episode?.title}
+        episodeIdentifier={plan.episode?.episode_identifier}
+      />
 
       {/* Header Card */}
       <div
@@ -447,7 +494,7 @@ export const TreatmentPlanDetailPage: React.FC = () => {
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="print:hidden" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {plan.status === 'draft' && (
               <>
                 <button
@@ -1052,9 +1099,16 @@ export const TreatmentPlanDetailPage: React.FC = () => {
         )}
       </div>
 
+      {/* Official Issuing Practice Clinical Document Footer */}
+      <ClinicalDocumentPrintFooter
+        documentReference={plan.plan_identifier}
+        signOffClinicianName={finalizerName || clinicianName}
+        customAttribution="Powered by Physenra • Physiotherapy EMR & Rehabilitation Protocol Management"
+      />
+
       {/* Activate Plan Confirmation Modal */}
       {showActivateModal && (
-        <div
+        <div className="print:hidden"
           style={{
             position: 'fixed',
             top: 0,
@@ -1126,7 +1180,7 @@ export const TreatmentPlanDetailPage: React.FC = () => {
 
       {/* Pause Modal */}
       {showPauseModal && (
-        <div
+        <div className="print:hidden"
           style={{
             position: 'fixed',
             top: 0,
@@ -1215,7 +1269,7 @@ export const TreatmentPlanDetailPage: React.FC = () => {
 
       {/* Complete Modal */}
       {showCompleteModal && (
-        <div
+        <div className="print:hidden"
           style={{
             position: 'fixed',
             top: 0,
@@ -1304,7 +1358,7 @@ export const TreatmentPlanDetailPage: React.FC = () => {
 
       {/* Discontinue Modal */}
       {showDiscontinueModal && (
-        <div
+        <div className="print:hidden"
           style={{
             position: 'fixed',
             top: 0,
@@ -1393,7 +1447,7 @@ export const TreatmentPlanDetailPage: React.FC = () => {
 
       {/* Add Goal Modal */}
       {showAddGoalModal && (
-        <div
+        <div className="print:hidden"
           style={{
             position: 'fixed',
             top: 0,
@@ -1611,7 +1665,7 @@ export const TreatmentPlanDetailPage: React.FC = () => {
 
       {/* Goal Evaluation Modal */}
       {evaluatingGoal && (
-        <div
+        <div className="print:hidden"
           style={{
             position: 'fixed',
             top: 0,

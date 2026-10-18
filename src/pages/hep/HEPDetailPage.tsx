@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { hepService } from '../../services/hepService';
 import { ExerciseVisualCard } from '../../components/hep/ExerciseVisualCard';
+import { ClinicalDocumentPrintHeader } from '../../components/clinical/ClinicalDocumentPrintHeader';
+import { ClinicalDocumentPrintFooter } from '../../components/clinical/ClinicalDocumentPrintFooter';
 import type {
   HomeExerciseProgramWithRelations,
   HEPStatus,
@@ -251,7 +253,7 @@ export const HEPDetailPage: React.FC = () => {
   return (
     <div style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
       {/* Top Navigation */}
-      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="print:hidden" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Link
           to="/app/hep"
           style={{
@@ -292,7 +294,7 @@ export const HEPDetailPage: React.FC = () => {
 
       {/* Success Notification */}
       {successMessage && (
-        <div
+        <div className="print:hidden"
           style={{
             backgroundColor: '#f0fdf4',
             border: '1px solid #bbf7d0',
@@ -314,6 +316,7 @@ export const HEPDetailPage: React.FC = () => {
       {/* Error alert */}
       {error && (
         <div
+          className="print:hidden"
           style={{
             backgroundColor: '#fef2f2',
             border: '1px solid #fecaca',
@@ -331,6 +334,30 @@ export const HEPDetailPage: React.FC = () => {
           <span>{error}</span>
         </div>
       )}
+
+      {/* Active Tenant Practice Branded Clinical Document Header */}
+      <ClinicalDocumentPrintHeader
+        documentTitle="Home Exercise Program"
+        documentSubtitle="Rehabilitation Prescription and Clinical Exercise Regimen"
+        documentReference={program.program_identifier}
+        documentStatus={program.status}
+        issueDate={formatDate(program.start_date)}
+        reviewDate={formatDate(program.review_date)}
+        patientName={
+          program.patient
+            ? `${program.patient.first_name} ${program.patient.last_name}`
+            : 'Unassigned Patient'
+        }
+        patientIdentifier={program.patient?.patient_identifier}
+        patientPhone={program.patient?.phone}
+        patientEmail={program.patient?.email}
+        clinicianName={clinicianName}
+        clinicianRole="Prescribing Physiotherapist"
+        secondaryClinicianName={finalizerName}
+        secondaryClinicianRole="Authorized and Finalized by"
+        episodeTitle={program.episode?.title}
+        episodeIdentifier={program.episode?.episode_identifier}
+      />
 
       {/* Program Header Card */}
       <div
@@ -391,7 +418,7 @@ export const HEPDetailPage: React.FC = () => {
           </div>
 
           {/* Action Buttons Toolbar */}
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="print:hidden" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {/* Draft Actions */}
             {program.status === 'draft' && (
               <>
@@ -974,9 +1001,15 @@ export const HEPDetailPage: React.FC = () => {
         <div>Last Updated: {formatTimestamp(program.updated_at || program.created_at)}</div>
       </div>
 
+      {/* Official Issuing Practice Clinical Document Footer */}
+      <ClinicalDocumentPrintFooter
+        documentReference={program.program_identifier}
+        signOffClinicianName={finalizerName || clinicianName}
+      />
+
       {/* Modal: Activate */}
       {showActivateModal && (
-        <div
+        <div className="print:hidden"
           style={{
             position: 'fixed',
             top: 0,
@@ -1050,7 +1083,7 @@ export const HEPDetailPage: React.FC = () => {
 
       {/* Modal: Pause */}
       {showPauseModal && (
-        <div
+        <div className="print:hidden"
           style={{
             position: 'fixed',
             top: 0,
@@ -1142,7 +1175,7 @@ export const HEPDetailPage: React.FC = () => {
 
       {/* Modal: Complete */}
       {showCompleteModal && (
-        <div
+        <div className="print:hidden"
           style={{
             position: 'fixed',
             top: 0,
@@ -1216,7 +1249,7 @@ export const HEPDetailPage: React.FC = () => {
 
       {/* Modal: Discontinue */}
       {showDiscontinueModal && (
-        <div
+        <div className="print:hidden"
           style={{
             position: 'fixed',
             top: 0,

@@ -17,6 +17,8 @@ import {
   UpdateDraftDischargeSummaryInput,
   AmendDischargeSummaryInput,
 } from '../../services/dischargeSummaryService';
+import { ClinicalDocumentPrintHeader } from '../../components/clinical/ClinicalDocumentPrintHeader';
+import { ClinicalDocumentPrintFooter } from '../../components/clinical/ClinicalDocumentPrintFooter';
 import type {
   DischargeSummaryWithRelations,
   DischargeSummaryStatus,
@@ -296,6 +298,7 @@ export const DischargeSummaryDetailPage: React.FC = () => {
     <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '24px 16px' }}>
       {/* Top Bar with Print & Actions */}
       <div
+        className="print:hidden"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -426,6 +429,39 @@ export const DischargeSummaryDetailPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Active Tenant Practice Branded Clinical Document Header */}
+      <ClinicalDocumentPrintHeader
+        documentTitle="Discharge Summary & Clinical Record"
+        documentSubtitle="Episode of Care Formal Discharge & Clinical Continuity Record"
+        documentReference={summary.summary_identifier}
+        documentStatus={summary.status}
+        issueDate={summary.discharge_date}
+        patientName={
+          summary.patient
+            ? `${summary.patient.first_name} ${summary.patient.last_name}`
+            : 'Unassigned Patient'
+        }
+        patientIdentifier={summary.patient?.patient_identifier}
+        patientPhone={summary.patient?.phone}
+        patientEmail={summary.patient?.email}
+        clinicianName={
+          summary.discharging_clinician?.display_name ||
+          (summary.discharging_clinician
+            ? `${summary.discharging_clinician.first_name} ${summary.discharging_clinician.last_name}`
+            : 'Discharging Physiotherapist')
+        }
+        clinicianRole="Discharging Physiotherapist"
+        secondaryClinicianName={
+          summary.finalizer?.display_name ||
+          (summary.finalizer
+            ? `${summary.finalizer.first_name} ${summary.finalizer.last_name}`
+            : null)
+        }
+        secondaryClinicianRole="Authorized & Finalized by"
+        episodeTitle={summary.episode?.title}
+        episodeIdentifier={summary.episode?.episode_identifier}
+      />
 
       {/* Main Clinical Document Header Card */}
       <div
@@ -1061,9 +1097,19 @@ export const DischargeSummaryDetailPage: React.FC = () => {
         </div>
       )}
 
+      {/* Official Issuing Practice Clinical Document Footer */}
+      <ClinicalDocumentPrintFooter
+        documentReference={summary.summary_identifier}
+        signOffClinicianName={
+          summary.finalizer?.display_name ||
+          summary.discharging_clinician?.display_name ||
+          'Attending Physiotherapist'
+        }
+      />
+
       {/* Finalize Confirmation Modal */}
       {showFinalizeModal && (
-        <div
+        <div className="print:hidden"
           style={{
             position: 'fixed',
             inset: 0,
@@ -1136,7 +1182,7 @@ export const DischargeSummaryDetailPage: React.FC = () => {
 
       {/* Delete Draft Confirmation Modal */}
       {showDeleteModal && (
-        <div
+        <div className="print:hidden"
           style={{
             position: 'fixed',
             inset: 0,
@@ -1209,7 +1255,7 @@ export const DischargeSummaryDetailPage: React.FC = () => {
 
       {/* Amend Modal */}
       {showAmendModal && (
-        <div
+        <div className="print:hidden"
           style={{
             position: 'fixed',
             inset: 0,

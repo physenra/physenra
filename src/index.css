@@ -2256,8 +2256,33 @@ input, select {
     border-radius: 4px !important;
   }
 
-    @page {
-    margin: 1.5cm;
+  /* Clinical Document Print Branding & Multi-Page Layout */
+  .clinical-document-header,
+  .clinical-document-footer,
+  .printable-clinical-document {
+    display: block !important;
+    visibility: visible !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+  }
+
+  .clinical-document-header {
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+    margin-bottom: 16px !important;
+    padding: 16px 20px !important;
+  }
+
+  .clinical-document-footer {
+    margin-top: 24px !important;
+    padding-top: 14px !important;
+    border-top: 1px solid #cbd5e1 !important;
+  }
+
+  @page {
+    margin: 1.2cm 1.5cm;
     size: auto;
   }
 }

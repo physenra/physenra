@@ -4,20 +4,19 @@ import {
   ArrowLeft,
   Lock,
   FileEdit,
-  CheckCircle2,
-  Clock,
   Ban,
   AlertCircle,
   Plus,
   Trash2,
   Send,
   Printer,
-  Building2,
   FolderKanban,
   Activity,
   Coins,
   Wallet,
 } from 'lucide-react';
+import { ClinicalDocumentPrintHeader } from '../../components/clinical/ClinicalDocumentPrintHeader';
+import { ClinicalDocumentPrintFooter } from '../../components/clinical/ClinicalDocumentPrintFooter';
 import { billingService } from '../../services/billingService';
 import { serviceCatalogService } from '../../services/serviceCatalogService';
 import { walletService } from '../../services/walletService';
@@ -25,7 +24,6 @@ import { usePractice } from '../../hooks/usePractice';
 import { useRole } from '../../hooks/useRole';
 import type {
   InvoiceWithRelations,
-  InvoiceStatus,
   Service,
   PatientWalletWithBalance,
 } from '../../types/models';
@@ -265,42 +263,6 @@ export const InvoiceDetailPage: React.FC = () => {
     }
   };
 
-  const getStatusBadge = (status: InvoiceStatus) => {
-    switch (status) {
-      case 'issued':
-        return (
-          <span className="badge badge-primary flex items-center gap-1">
-            <Lock size={12} /> Issued
-          </span>
-        );
-      case 'draft':
-        return (
-          <span className="badge badge-warning flex items-center gap-1">
-            <FileEdit size={12} /> Draft
-          </span>
-        );
-      case 'paid':
-        return (
-          <span className="badge badge-success flex items-center gap-1">
-            <CheckCircle2 size={12} /> Paid
-          </span>
-        );
-      case 'partially_paid':
-        return (
-          <span className="badge badge-info flex items-center gap-1">
-            <Clock size={12} /> Partial
-          </span>
-        );
-      case 'void':
-        return (
-          <span className="badge badge-danger flex items-center gap-1">
-            <Ban size={12} /> Void
-          </span>
-        );
-      default:
-        return <span className="badge">{status}</span>;
-    }
-  };
 
   const formatCurrency = (amount: number, curr: string = 'NGN') => {
     return `${curr} ${amount.toLocaleString(undefined, {
@@ -442,32 +404,24 @@ export const InvoiceDetailPage: React.FC = () => {
 
       {/* Main Invoice Card (Print-friendly) */}
       <div className="card p-8 shadow-sm">
-        {/* Invoice Header: Clinic Info & Invoice Identity */}
-        <div className="flex flex-col md:flex-row justify-between items-start border-b pb-6 mb-6 gap-6">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <Building2 className="text-primary-600" size={24} />
-              <h2 className="text-xl font-bold text-gray-900">{activePractice?.name || 'Physenra Clinic'}</h2>
-            </div>
-            <p className="text-sm text-gray-500">Official Physiotherapy Invoice</p>
-            <div className="mt-3 text-xs text-gray-400">Practice ID: {activePractice?.id}</div>
-          </div>
+        {/* Official Active Tenant Practice Branded Invoice Header */}
+        <ClinicalDocumentPrintHeader
+          documentTitle="Official Physiotherapy Invoice"
+          documentReference={invoice.invoice_number}
+          documentStatus={invoice.status}
+          issueDate={invoice.issue_date}
+          reviewDate={invoice.due_date ? `Due: ${invoice.due_date}` : null}
+          patientName={
+            invoice.patient
+              ? `${invoice.patient.first_name} ${invoice.patient.last_name}`
+              : null
+          }
+          patientIdentifier={invoice.patient?.patient_identifier}
+          hideMetadataGrid={true}
+          className="p-0 border-0 shadow-none mb-6 pb-6 border-b border-gray-200"
+        />
 
-          <div className="text-right">
-            <div className="text-3xl font-extrabold text-gray-900 mb-1">{invoice.invoice_number}</div>
-            <div className="flex justify-end mb-2">{getStatusBadge(invoice.status)}</div>
-            <div className="text-sm text-gray-600">
-              <span className="text-gray-400 mr-2">Issue Date:</span>
-              <strong className="text-gray-900">{invoice.issue_date}</strong>
-            </div>
-            {invoice.due_date && (
-              <div className="text-sm text-gray-600 mt-1">
-                <span className="text-gray-400 mr-2">Due Date:</span>
-                <strong className="text-gray-900">{invoice.due_date}</strong>
-              </div>
-            )}
-          </div>
-        </div>
+          
 
         {/* Debtor & Clinical Provenance Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 mb-6 border-b text-sm">
@@ -680,6 +634,12 @@ export const InvoiceDetailPage: React.FC = () => {
           {invoice.issued_at && <span>Issued: {new Date(invoice.issued_at).toLocaleString()}</span>}
           {invoice.voided_at && <span>Voided: {new Date(invoice.voided_at).toLocaleString()}</span>}
         </div>
+
+        {/* Official Issuing Practice Legal Settlement Footer */}
+        <ClinicalDocumentPrintFooter
+          documentReference={invoice.invoice_number}
+          customAttribution="Powered by Physenra • Physiotherapy EMR & Accounts Receivable System"
+        />
       </div>
 
       {/* Void Confirmation Modal */}
