@@ -40,6 +40,22 @@ const SERVICE_PATH = path.join(
   'services',
   'hepService.ts'
 );
+const CREATE_PAGE_PATH = path.join(
+  __dirname,
+  '..',
+  'src',
+  'pages',
+  'hep',
+  'CreateHEPPage.tsx'
+);
+const DETAIL_PAGE_PATH = path.join(
+  __dirname,
+  '..',
+  'src',
+  'pages',
+  'hep',
+  'HEPDetailPage.tsx'
+);
 const TYPES_PATH = path.join(
   __dirname,
   '..',
@@ -50,6 +66,8 @@ const TYPES_PATH = path.join(
 
 const migrationSql = fs.readFileSync(MIGRATION_PATH, 'utf8');
 const serviceCode = fs.readFileSync(SERVICE_PATH, 'utf8');
+const createPageCode = fs.readFileSync(CREATE_PAGE_PATH, 'utf8');
+const detailPageCode = fs.readFileSync(DETAIL_PAGE_PATH, 'utf8');
 const typesCode = fs.readFileSync(TYPES_PATH, 'utf8');
 
 const SUPABASE_URL = 'https://xxknmdgneamtoahqayvl.supabase.co';
@@ -344,8 +362,53 @@ test('PHYSENRA HOME EXERCISE PROGRAM FOUNDATION V1 VERIFICATION', async (t) => {
         'hepService must export and use CANONICAL_TO_DB_EXERCISE_ID map'
       );
       assert(
+        serviceCode.includes('resolveAndEnsureExerciseId'),
+        'hepService must implement resolveAndEnsureExerciseId helper'
+      );
+      assert(
         serviceCode.includes('.delete()') && serviceCode.includes('Draft program was safely rolled back'),
         'hepService must execute compensation rollback deleting orphan draft program if item insert fails'
+      );
+    });
+
+    await st.test('hepService strictly prohibits activating zero-item prescriptions', () => {
+      assert(
+        serviceCode.includes('Cannot activate an empty exercise program'),
+        'activateProgram must throw clinical safety violation if items is empty'
+      );
+      assert(
+        serviceCode.includes('Cannot create an active exercise program with zero prescribed exercises'),
+        'createProgram must throw clinical safety violation if created active with zero items'
+      );
+    });
+
+    await st.test('HEPDetailPage features Incomplete Finalized Prescription banner and corrective replacement workflow', () => {
+      assert(
+        detailPageCode.includes('Prescription Incomplete (0 Exercises Prescribed)'),
+        'HEPDetailPage must render warning banner for finalized programs with 0 items'
+      );
+      assert(
+        detailPageCode.includes('Discontinue & Prescribe Replacement Regimen'),
+        'HEPDetailPage must provide authorized Discontinue & Prescribe Replacement action'
+      );
+      assert(
+        detailPageCode.includes('replacementFor'),
+        'HEPDetailPage must route to create page with replacementFor query param'
+      );
+    });
+
+    await st.test('CreateHEPPage handles corrective replacement flow with banner and context', () => {
+      assert(
+        createPageCode.includes('replacementFor'),
+        'CreateHEPPage must read replacementFor query parameter'
+      );
+      assert(
+        createPageCode.includes('Corrective Replacement:'),
+        'CreateHEPPage must render Corrective Replacement banner'
+      );
+      assert(
+        createPageCode.includes('An active exercise program must contain at least one prescribed exercise item'),
+        'CreateHEPPage must block immediate activation if prescribed items is 0'
       );
     });
 

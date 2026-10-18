@@ -646,6 +646,119 @@ export const hepService = {
   },
 
   /**
+   * Resolves a prescribed exercise ID to an authoritative database UUID in public.exercises.
+   * If the exercise does not yet exist in public.exercises, safely provisions it into the practice's
+   * exercise catalogue using evidence-based system library metadata, ensuring fk_hep_items_exercise
+   * can never fail.
+   */
+  async resolveAndEnsureExerciseId(
+    item: CreateProgramItemInput,
+    activePracticeId: string
+  ): Promise<string> {
+    const rawId = item.exercise_id;
+
+    // 1. Check in-memory resolution cache
+    if (CANONICAL_TO_DB_EXERCISE_ID.has(rawId)) {
+      return CANONICAL_TO_DB_EXERCISE_ID.get(rawId)!;
+    }
+
+    // 2. Query remote database by ID
+    try {
+      const { data: existingById } = await supabase
+        .from('exercises')
+        .select('id')
+        .eq('id', rawId)
+        .maybeSingle();
+
+      if (existingById && existingById.id) {
+        CANONICAL_TO_DB_EXERCISE_ID.set(rawId, existingById.id);
+        return existingById.id;
+      }
+    } catch {
+      // Continue to name-based lookup
+    }
+
+    // 3. Find matching exercise in standard system library
+    const sysEx = SYSTEM_EXERCISES_CATALOGUE.find(
+      (s) =>
+        s.id === rawId ||
+        s.name.toLowerCase().trim() === (item.exercise_name || '').toLowerCase().trim() ||
+        normalizeExerciseLookupKey(s.name) === normalizeExerciseLookupKey(item.exercise_name || '')
+    );
+
+    const lookupName = sysEx ? sysEx.name : (item.exercise_name || '').trim();
+
+    // 4. Query remote database by name (case-insensitive)
+    if (lookupName) {
+      try {
+        const { data: existingByName } = await supabase
+          .from('exercises')
+          .select('id, name')
+          .or(`is_system.eq.true,practice_id.eq.${activePracticeId}`)
+          .ilike('name', lookupName)
+          .limit(1);
+
+        if (existingByName && existingByName.length > 0) {
+          const dbId = existingByName[0].id;
+          CANONICAL_TO_DB_EXERCISE_ID.set(rawId, dbId);
+          return dbId;
+        }
+
+        // Try prefix if name has parentheses
+        if (lookupName.includes('(')) {
+          const prefix = lookupName.split('(')[0].trim();
+          const { data: existingByPrefix } = await supabase
+            .from('exercises')
+            .select('id, name')
+            .or(`is_system.eq.true,practice_id.eq.${activePracticeId}`)
+            .ilike('name', `${prefix}%`)
+            .limit(1);
+
+          if (existingByPrefix && existingByPrefix.length > 0) {
+            const dbId = existingByPrefix[0].id;
+            CANONICAL_TO_DB_EXERCISE_ID.set(rawId, dbId);
+            return dbId;
+          }
+        }
+      } catch {
+        // Continue to auto-provisioning
+      }
+    }
+
+    // 5. If not found in remote database, auto-provision into public.exercises
+    // Authenticated clinicians have RLS permission to insert practice exercises (is_system = false, practice_id = activePracticeId)
+    const exerciseToInsert: ExerciseInsert = {
+      practice_id: activePracticeId,
+      is_system: false,
+      name: lookupName || 'Prescribed Exercise',
+      category: sysEx?.category || 'other',
+      body_region: sysEx?.body_region || 'other',
+      default_laterality: sysEx?.default_laterality || item.laterality || 'na',
+      equipment: sysEx?.equipment || null,
+      description: sysEx?.description || null,
+      instructions: sysEx?.instructions || item.instructions || null,
+      precautions: sysEx?.precautions || item.precautions || null,
+      is_active: true,
+    };
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('exercises')
+      .insert(exerciseToInsert)
+      .select('id')
+      .single();
+
+    if (insertError) {
+      throw new Error(
+        `Failed to register exercise "${exerciseToInsert.name}" in catalogue: ${insertError.message}`
+      );
+    }
+
+    const createdId = (inserted as { id: string }).id;
+    CANONICAL_TO_DB_EXERCISE_ID.set(rawId, createdId);
+    return createdId;
+  },
+
+  /**
    * Create a new Home Exercise Program (default draft status).
    */
   async createProgram(input: CreateProgramInput): Promise<HomeExerciseProgram> {
@@ -658,17 +771,22 @@ export const hepService = {
       throw new Error('Program title is required.');
     }
 
-    // Resolve exercise IDs to valid database foreign keys
-    const itemsWithResolvedExercises: CreateProgramItemInput[] = (input.items || []).map((item) => {
-      let resolvedId = item.exercise_id;
-      if (CANONICAL_TO_DB_EXERCISE_ID.has(item.exercise_id)) {
-        resolvedId = CANONICAL_TO_DB_EXERCISE_ID.get(item.exercise_id)!;
-      }
-      return {
+    // Clinical safety guard: Never create an active prescription without items
+    if (input.status === 'active' && (!input.items || input.items.length === 0)) {
+      throw new Error(
+        'Clinical safety violation: Cannot create an active exercise program with zero prescribed exercises. At least one prescribed exercise item is required.'
+      );
+    }
+
+    // Pre-flight resolution: Ensure EVERY exercise ID is a verified row in public.exercises
+    const itemsWithResolvedExercises: CreateProgramItemInput[] = [];
+    for (const item of input.items || []) {
+      const resolvedId = await this.resolveAndEnsureExerciseId(item, activePracticeId);
+      itemsWithResolvedExercises.push({
         ...item,
         exercise_id: resolvedId,
-      };
-    });
+      });
+    }
 
     // 1. Primary Strategy: Atomic database transaction via RPC
     try {
@@ -877,7 +995,16 @@ export const hepService = {
         .eq('practice_id', activePracticeId);
 
       if (input.items.length > 0) {
-        const itemsPayload = input.items.map((item, idx) => ({
+        const resolvedItems: CreateProgramItemInput[] = [];
+        for (const item of input.items) {
+          const resolvedId = await this.resolveAndEnsureExerciseId(item, activePracticeId);
+          resolvedItems.push({
+            ...item,
+            exercise_id: resolvedId,
+          });
+        }
+
+        const itemsPayload = resolvedItems.map((item, idx) => ({
           practice_id: activePracticeId,
           program_id: programId,
           exercise_id: item.exercise_id,
@@ -937,6 +1064,12 @@ export const hepService = {
 
     if (existing.status !== 'draft') {
       throw new Error(`Cannot activate program from status '${existing.status}'.`);
+    }
+
+    if (!existing.items || existing.items.length === 0) {
+      throw new Error(
+        'Clinical safety violation: Cannot activate an empty exercise program. A valid clinical prescription requires at least one prescribed exercise item.'
+      );
     }
 
     const { data: authData } = await supabase.auth.getUser();

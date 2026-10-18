@@ -165,10 +165,10 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
 
   test('Nigerian Photographic Demonstrations: Registry integrity and asset existence', () => {
     const photoSummary = getPhotoDemonstrationSummary();
-    assert.equal(photoSummary.totalPhotos, 9, 'Must have 9 photographic demonstrations registered');
-    assert.equal(photoSummary.approvedPhotos, 8, 'Exactly 8 verified photos must be approved by physiotherapist');
+    assert.equal(photoSummary.totalPhotos, 13, 'Must have 13 photographic demonstrations registered');
+    assert.equal(photoSummary.approvedPhotos, 12, 'Exactly 12 verified photos must be approved by physiotherapist');
     assert.equal(photoSummary.pendingReviewPhotos, 1, 'Calf stretch photo must remain pending_physiotherapist_review');
-    assert.equal(photoSummary.aiGeneratedCount, 9, 'All 9 photos must declare aiGenerated: true');
+    assert.equal(photoSummary.aiGeneratedCount, 13, 'All 13 photos must declare aiGenerated: true');
 
     const photosDir = path.resolve(__dirname, '../public/images/exercises/photographs');
     assert.ok(fs.existsSync(photosDir), 'Photographs directory must exist');
@@ -208,15 +208,19 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
     assert.equal(calfStretchPhoto.photoClinicalReviewStatus, 'pending_physiotherapist_review');
     assert.ok(calfStretchPhoto.photoClinicalObservationNotes.includes('rear heel is slightly elevated'));
 
-    // Approved photos (8 total)
+    // Approved photos (12 total)
     const approvedIds = [
       '00000000-0000-0000-0000-000000000001', // Quad Sets
       '00000000-0000-0000-0000-000000000002', // Straight Leg Raise
       '00000000-0000-0000-0000-000000000003', // Glute Bridge
+      '00000000-0000-0000-0000-000000000004', // Heel Slides
+      '00000000-0000-0000-0000-000000000005', // Scapular Retraction
       '00000000-0000-0000-0000-000000000007', // Seated Chin Tucks
       '00000000-0000-0000-0000-000000000008', // Ankle Pumps
+      '00000000-0000-0000-0000-000000000010', // Cat-Camel
       '00000000-0000-0000-0000-000000000016', // McKenzie Prone Extension
       '00000000-0000-0000-0000-000000000050', // 30-Second Chair Stand
+      '00000000-0000-0000-0000-000000000053', // Diaphragmatic Breathing
       '00000000-0000-0000-0000-000000000055', // Active Cycle of Breathing Technique (ACBT)
     ];
 
@@ -274,7 +278,7 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
     assert.ok(cardSource.includes("objectFit: 'cover'"), 'Photographs must render with clean objectFit: cover framing');
   });
 
-  test('Catalogue Photo Coverage: Exactly 8 approved photos, 1 pending review, and 50 clean coming-soon fallbacks', () => {
+  test('Catalogue Photo Coverage: Exactly 12 approved photos, 1 pending review, and 46 clean coming-soon fallbacks', () => {
     const approvedExercises = [];
     const pendingExercises = [];
     const comingSoonExercises = [];
@@ -290,12 +294,12 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       }
     }
 
-    assert.equal(approvedExercises.length, 8, 'Exactly 8 exercises must have clinically approved photos');
+    assert.equal(approvedExercises.length, 12, 'Exactly 12 exercises must have clinically approved photos');
     assert.equal(pendingExercises.length, 1, 'Exactly 1 exercise (standing calf stretch) must be pending review');
-    assert.equal(comingSoonExercises.length, 50, 'Exactly 50 exercises must cleanly display "Photo demonstration coming soon"');
+    assert.equal(comingSoonExercises.length, 46, 'Exactly 46 exercises must cleanly display "Photo demonstration coming soon"');
     assert.equal(approvedExercises.length + pendingExercises.length + comingSoonExercises.length, 59, 'Total must equal 59');
 
-    // Verify all 8 approved photos map to valid JPEG files
+    // Verify all 12 approved photos map to valid JPEG files
     for (const ex of approvedExercises) {
       const demo = getExercisePhotoDemonstration(ex.id);
       assert.ok(demo.photoAssetPath.endsWith('.jpg'), `Photo for ${ex.name} must be a .jpg`);

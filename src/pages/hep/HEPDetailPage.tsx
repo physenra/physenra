@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   CheckCircle2,
@@ -22,6 +22,7 @@ import type {
 } from '../../types/models';
 
 export const HEPDetailPage: React.FC = () => {
+  const navigate = useNavigate();
   const { programId } = useParams<{ programId: string }>();
 
   const [program, setProgram] = useState<HomeExerciseProgramWithRelations | null>(null);
@@ -36,6 +37,7 @@ export const HEPDetailPage: React.FC = () => {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showDiscontinueModal, setShowDiscontinueModal] = useState(false);
   const [discontinueReason, setDiscontinueReason] = useState('');
+  const [isPrescribingReplacement, setIsPrescribingReplacement] = useState(false);
   const [isActionSubmitting, setIsActionSubmitting] = useState(false);
 
   const loadProgram = async () => {
@@ -63,6 +65,14 @@ export const HEPDetailPage: React.FC = () => {
   // Lifecycle Action Handlers
   const handleActivate = async () => {
     if (!program) return;
+    if (!program.items || program.items.length === 0) {
+      setError(
+        'Clinical safety violation: Cannot activate an empty exercise program. A valid prescription requires at least one prescribed exercise.'
+      );
+      setShowActivateModal(false);
+      return;
+    }
+
     setIsActionSubmitting(true);
     setError(null);
     try {
@@ -141,7 +151,17 @@ export const HEPDetailPage: React.FC = () => {
     try {
       await hepService.discontinueProgram(program.id, discontinueReason.trim());
       setShowDiscontinueModal(false);
+      const isReplacement = isPrescribingReplacement;
+      setIsPrescribingReplacement(false);
       setDiscontinueReason('');
+
+      if (isReplacement) {
+        navigate(
+          `/app/hep/create?patientId=${program.patient_id}&episodeId=${program.episode_id || ''}&visitId=${program.clinical_visit_id || ''}&replacementFor=${encodeURIComponent(program.program_identifier)}`
+        );
+        return;
+      }
+
       setSuccessMessage('Home Exercise Program discontinued.');
       setTimeout(() => setSuccessMessage(null), 4000);
       await loadProgram();
@@ -424,20 +444,27 @@ export const HEPDetailPage: React.FC = () => {
               <>
                 <button
                   type="button"
-                  onClick={() => setShowActivateModal(true)}
+                  onClick={() => {
+                    if (!program.items || program.items.length === 0) {
+                      setError('Cannot activate an empty exercise program. A valid prescription requires at least one prescribed exercise.');
+                      return;
+                    }
+                    setShowActivateModal(true);
+                  }}
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '0.375rem',
                     padding: '0.5rem 1rem',
-                    backgroundColor: '#0284c7',
+                    backgroundColor: (!program.items || program.items.length === 0) ? '#94a3b8' : '#0284c7',
                     color: '#ffffff',
                     border: 'none',
                     borderRadius: '6px',
                     fontSize: '0.8125rem',
                     fontWeight: 600,
-                    cursor: 'pointer',
+                    cursor: (!program.items || program.items.length === 0) ? 'not-allowed' : 'pointer',
                   }}
+                  title={(!program.items || program.items.length === 0) ? 'Prescription must contain at least one exercise before activation' : undefined}
                 >
                   <CheckCircle2 size={16} />
                   Activate Prescription
@@ -634,6 +661,58 @@ export const HEPDetailPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Incomplete Finalized Prescription Banner with Corrective Workflow */}
+      {(program.status === 'active' || program.status === 'paused') && (!program.items || program.items.length === 0) && (
+        <div
+          className="print:hidden"
+          style={{
+            backgroundColor: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: '8px',
+            padding: '1.25rem 1.5rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#b45309' }}>
+            <AlertCircle size={20} />
+            <strong style={{ fontSize: '1rem' }}>Prescription Incomplete (0 Exercises Prescribed)</strong>
+          </div>
+          <p style={{ margin: 0, fontSize: '0.875rem', color: '#92400e', lineHeight: 1.5 }}>
+            This exercise program is finalized and locked into the clinical record, but contains zero exercise items due to an earlier synchronization error.
+            Under clinical audit and database integrity rules, finalized medical records are immutable and cannot be modified directly.
+            To ensure patient safety and continuity of care, you can discontinue this record with an auditable clinical note and prescribe a replacement regimen.
+          </p>
+          <div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsPrescribingReplacement(true);
+                setDiscontinueReason('Prescription superseded: correcting zero-item prescription with complete replacement regimen.');
+                setShowDiscontinueModal(true);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.375rem',
+                padding: '0.55rem 1.1rem',
+                backgroundColor: '#d97706',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Discontinue & Prescribe Replacement Regimen
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Grid of Clinical Relationships */}
       <div
@@ -1274,11 +1353,13 @@ export const HEPDetailPage: React.FC = () => {
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
             }}
           >
-            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.125rem', fontWeight: 600, color: '#dc2626' }}>
-              Discontinue Exercise Program
+            <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.125rem', fontWeight: 600, color: isPrescribingReplacement ? '#d97706' : '#dc2626' }}>
+              {isPrescribingReplacement ? 'Discontinue & Prescribe Replacement Regimen' : 'Discontinue Exercise Program'}
             </h3>
             <p style={{ fontSize: '0.875rem', color: '#475569', lineHeight: 1.5, marginBottom: '1rem' }}>
-              Discontinuing ends this prescription permanently. A clinical justification reason is strictly required.
+              {isPrescribingReplacement
+                ? 'This will discontinue the empty prescription record with an auditable justification note, and immediately open the prescription form pre-populated with this patient and episode of care to formulate the replacement regimen.'
+                : 'Discontinuing ends this prescription permanently. A clinical justification reason is strictly required.'}
             </p>
 
             <div style={{ marginBottom: '1.25rem' }}>
@@ -1305,7 +1386,10 @@ export const HEPDetailPage: React.FC = () => {
               <button
                 type="button"
                 disabled={isActionSubmitting}
-                onClick={() => setShowDiscontinueModal(false)}
+                onClick={() => {
+                  setShowDiscontinueModal(false);
+                  setIsPrescribingReplacement(false);
+                }}
                 style={{
                   padding: '0.5rem 1rem',
                   border: '1px solid #cbd5e1',
@@ -1325,7 +1409,7 @@ export const HEPDetailPage: React.FC = () => {
                 style={{
                   padding: '0.5rem 1rem',
                   border: 'none',
-                  backgroundColor: '#dc2626',
+                  backgroundColor: isPrescribingReplacement ? '#d97706' : '#dc2626',
                   color: '#ffffff',
                   borderRadius: '6px',
                   fontSize: '0.8125rem',
@@ -1333,7 +1417,11 @@ export const HEPDetailPage: React.FC = () => {
                   cursor: isActionSubmitting || !discontinueReason.trim() ? 'not-allowed' : 'pointer',
                 }}
               >
-                {isActionSubmitting ? 'Discontinuing...' : 'Confirm Discontinuation'}
+                {isActionSubmitting
+                  ? 'Discontinuing...'
+                  : isPrescribingReplacement
+                  ? 'Confirm & Prescribe Replacement'
+                  : 'Confirm Discontinuation'}
               </button>
             </div>
           </div>

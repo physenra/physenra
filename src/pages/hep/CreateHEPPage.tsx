@@ -46,6 +46,7 @@ export const CreateHEPPage: React.FC = () => {
   const initialPatientId = searchParams.get('patientId') || '';
   const initialEpisodeId = searchParams.get('episodeId') || '';
   const initialVisitId = searchParams.get('visitId') || '';
+  const replacementFor = searchParams.get('replacementFor') || '';
 
   // Platform-wide draft preservation
   const {
@@ -64,8 +65,8 @@ export const CreateHEPPage: React.FC = () => {
       selectedEpisodeId: initialEpisodeId,
       selectedVisitId: initialVisitId,
       selectedClinicianId: '',
-      title: '',
-      generalInstructions: '',
+      title: replacementFor ? `Corrected Prescription (Superseding ${replacementFor})` : '',
+      generalInstructions: replacementFor ? `Replacement exercise regimen superseding discontinued record ${replacementFor}.` : '',
       startDate: new Date().toISOString().split('T')[0],
       reviewDate: '',
       prescribedItems: [],
@@ -377,6 +378,30 @@ export const CreateHEPPage: React.FC = () => {
           Formulate an individualized rehabilitation regimen with precise dosage, frequency, and safety precautions.
         </p>
       </div>
+
+      {/* Corrective Replacement Banner */}
+      {replacementFor && (
+        <div
+          style={{
+            backgroundColor: '#fef3c7',
+            border: '1px solid #fde68a',
+            borderRadius: '8px',
+            padding: '0.875rem 1rem',
+            marginBottom: '1.5rem',
+            fontSize: '0.875rem',
+            color: '#92400e',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.625rem',
+          }}
+        >
+          <Info size={18} style={{ flexShrink: 0 }} />
+          <div>
+            <strong>Corrective Replacement:</strong> Formulating an updated exercise regimen to supersede discontinued prescription{' '}
+            <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{replacementFor}</span>.
+          </div>
+        </div>
+      )}
 
       {/* Draft Restoration & Status Banner */}
       <DraftBanner

@@ -123,6 +123,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/heel-slides.jpg',
+    photoAltText: 'Photograph of fictional Nigerian female patient in athletic wear lying supine on physiotherapy plinth demonstrating controlled knee flexion heel slide.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian female, early 30s, warm rich brown skin',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Supine positioning confirmed; contralateral leg resting flat on plinth; target right knee in active flexion with heel gliding smoothly along plinth; absence of extraneous movement.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-18T17:45:00Z',
   },
 
   // 5. Scapular Retraction (Pinch)
@@ -139,6 +147,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/scapular-retraction.jpg',
+    photoAltText: 'Photograph of fictional Nigerian male patient seated upright on stool demonstrating active scapular retraction pinch from rear three-quarter view.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian male, late 20s, deep brown skin',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Seated upright posture on backless stool; bilateral scapulae actively retracted and depressed toward thoracic spine without shoulder shrugging; 90-degree elbow flexion at sides verified.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-18T17:45:00Z',
   },
 
   // 6. Pendulum (Codman) Exercise
@@ -241,6 +257,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/cat-camel.jpg',
+    photoAltText: 'Photograph of fictional Nigerian male patient in quadruped position on blue mat demonstrating the active Cat upward spinal flexion phase.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian male, mid-30s, warm dark brown skin',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Quadruped alignment confirmed; hands directly beneath glenohumeral joints, knees under hips; segmental thoracic and lumbar flexion arc with relaxed cervical spine demonstrates correct Cat mobility phase.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-18T17:45:00Z',
   },
 
   // 11. Cervical Isometric Lateral Flexion & Rotation
@@ -1153,6 +1177,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/diaphragmatic-breathing.jpg',
+    photoAltText: 'Photograph of fictional Nigerian female patient reclined in semi-Fowler position on clinic plinth demonstrating diaphragmatic breathing with hand placements.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian female, late 20s, warm brown skin',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Semi-Fowler recline with head pillow and sub-knee bolster; proper diagnostic hand placement (sternal hand stationary, epigastric hand palpating abdominal excursion); relaxed facial and accessory breathing musculature.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-18T17:45:00Z',
   },
 
   // 54. Pursed-Lip Breathing Drill
