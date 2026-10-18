@@ -165,10 +165,10 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
 
   test('Nigerian Photographic Demonstrations: Registry integrity and asset existence', () => {
     const photoSummary = getPhotoDemonstrationSummary();
-    assert.equal(photoSummary.totalPhotos, 13, 'Must have 13 photographic demonstrations registered');
-    assert.equal(photoSummary.approvedPhotos, 12, 'Exactly 12 verified photos must be approved by physiotherapist');
-    assert.equal(photoSummary.pendingReviewPhotos, 1, 'Calf stretch photo must remain pending_physiotherapist_review');
-    assert.equal(photoSummary.aiGeneratedCount, 13, 'All 13 photos must declare aiGenerated: true');
+    assert.equal(photoSummary.totalPhotos, 19, 'Must have 19 photographic demonstrations registered');
+    assert.equal(photoSummary.approvedPhotos, 17, 'Exactly 17 verified photos must be approved by physiotherapist');
+    assert.equal(photoSummary.pendingReviewPhotos, 2, 'Bird-Dog and Clamshells photos must remain pending_physiotherapist_review');
+    assert.equal(photoSummary.aiGeneratedCount, 19, 'All 19 photos must declare aiGenerated: true');
 
     const photosDir = path.resolve(__dirname, '../public/images/exercises/photographs');
     assert.ok(fs.existsSync(photosDir), 'Photographs directory must exist');
@@ -188,7 +188,10 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
           assert.ok(!isNaN(Date.parse(visual.photoReviewedAt)), `photoReviewedAt must be valid ISO date for ${visual.title}`);
         } else {
           assert.equal(visual.photoClinicalReviewStatus, 'pending_physiotherapist_review');
-          assert.equal(visual.slug, 'standing-calf-stretch', 'Only the calf stretch photo should be pending review');
+          assert.ok(
+            ['bird-dog', 'clamshells'].includes(visual.slug),
+            `Only bird-dog or clamshells should be pending review (found: ${visual.slug})`
+          );
         }
 
         const relativePath = visual.photoAssetPath.replace(/^\//, '');
@@ -202,23 +205,34 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
     }
   });
 
-  test('Clinical Review Safety Guard: Calf stretch with heel discrepancy remains pending review', () => {
-    const calfStretchPhoto = getExercisePhotoDemonstration('00000000-0000-0000-0000-000000000009');
-    assert.ok(calfStretchPhoto !== null);
-    assert.equal(calfStretchPhoto.photoClinicalReviewStatus, 'pending_physiotherapist_review');
-    assert.ok(calfStretchPhoto.photoClinicalObservationNotes.includes('rear heel is slightly elevated'));
+  test('Clinical Review Safety Guard: Pending assets remain quarantined and approved assets verified', () => {
+    // 1. Pending Assets with discrepancies
+    const birdDogPhoto = getExercisePhotoDemonstration('00000000-0000-0000-0000-000000000014');
+    assert.ok(birdDogPhoto !== null);
+    assert.equal(birdDogPhoto.photoClinicalReviewStatus, 'pending_physiotherapist_review');
+    assert.ok(birdDogPhoto.photoClinicalObservationNotes.includes('ipsilateral plane'));
 
-    // Approved photos (12 total)
+    const clamshellsPhoto = getExercisePhotoDemonstration('00000000-0000-0000-0000-000000000026');
+    assert.ok(clamshellsPhoto !== null);
+    assert.equal(clamshellsPhoto.photoClinicalReviewStatus, 'pending_physiotherapist_review');
+    assert.ok(clamshellsPhoto.photoClinicalObservationNotes.includes('bottom leg rendered in full extension'));
+
+    // 2. Approved photos (17 total)
     const approvedIds = [
       '00000000-0000-0000-0000-000000000001', // Quad Sets
       '00000000-0000-0000-0000-000000000002', // Straight Leg Raise
       '00000000-0000-0000-0000-000000000003', // Glute Bridge
       '00000000-0000-0000-0000-000000000004', // Heel Slides
       '00000000-0000-0000-0000-000000000005', // Scapular Retraction
+      '00000000-0000-0000-0000-000000000006', // Pendulum Codman
       '00000000-0000-0000-0000-000000000007', // Seated Chin Tucks
       '00000000-0000-0000-0000-000000000008', // Ankle Pumps
+      '00000000-0000-0000-0000-000000000009', // Standing Calf Stretch (Remediated)
       '00000000-0000-0000-0000-000000000010', // Cat-Camel
+      '00000000-0000-0000-0000-000000000015', // Dead Bug
       '00000000-0000-0000-0000-000000000016', // McKenzie Prone Extension
+      '00000000-0000-0000-0000-000000000017', // Side Plank
+      '00000000-0000-0000-0000-000000000028', // Half-Kneeling Hip Flexor Stretch
       '00000000-0000-0000-0000-000000000050', // 30-Second Chair Stand
       '00000000-0000-0000-0000-000000000053', // Diaphragmatic Breathing
       '00000000-0000-0000-0000-000000000055', // Active Cycle of Breathing Technique (ACBT)
@@ -278,7 +292,7 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
     assert.ok(cardSource.includes("objectFit: 'cover'"), 'Photographs must render with clean objectFit: cover framing');
   });
 
-  test('Catalogue Photo Coverage: Exactly 12 approved photos, 1 pending review, and 46 clean coming-soon fallbacks', () => {
+  test('Catalogue Photo Coverage: Exactly 17 approved photos, 2 pending review, and 40 clean coming-soon fallbacks', () => {
     const approvedExercises = [];
     const pendingExercises = [];
     const comingSoonExercises = [];
@@ -294,12 +308,12 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       }
     }
 
-    assert.equal(approvedExercises.length, 12, 'Exactly 12 exercises must have clinically approved photos');
-    assert.equal(pendingExercises.length, 1, 'Exactly 1 exercise (standing calf stretch) must be pending review');
-    assert.equal(comingSoonExercises.length, 46, 'Exactly 46 exercises must cleanly display "Photo demonstration coming soon"');
+    assert.equal(approvedExercises.length, 17, 'Exactly 17 exercises must have clinically approved photos');
+    assert.equal(pendingExercises.length, 2, 'Exactly 2 exercises (bird-dog and clamshells) must be pending review');
+    assert.equal(comingSoonExercises.length, 40, 'Exactly 40 exercises must cleanly display "Photo demonstration coming soon"');
     assert.equal(approvedExercises.length + pendingExercises.length + comingSoonExercises.length, 59, 'Total must equal 59');
 
-    // Verify all 12 approved photos map to valid JPEG files
+    // Verify all 17 approved photos map to valid JPEG files
     for (const ex of approvedExercises) {
       const demo = getExercisePhotoDemonstration(ex.id);
       assert.ok(demo.photoAssetPath.endsWith('.jpg'), `Photo for ${ex.name} must be a .jpg`);

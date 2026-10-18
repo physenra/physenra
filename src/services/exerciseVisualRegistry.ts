@@ -171,6 +171,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/pendulum-codman.jpg',
+    photoAltText: 'Photograph of fictional Nigerian male patient bent forward at waist supporting torso with forearm on plinth, allowing affected arm to hang limp and dangle under gravity.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian male, late 30s/early 40s, deep warm brown skin',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Hip-hinge trunk support on examination plinth verified; non-involved forearm bearing upper body weight; target arm hangs completely limp and vertical under gravity without active muscular contraction; cervical spine neutral.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-18T18:25:00Z',
   },
 
   // 7. Seated Chin Tucks (Cervical Retraction)
@@ -236,11 +244,13 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
     photoAssetPath: '/images/exercises/photographs/standing-calf-stretch.jpg',
-    photoAltText: 'Photograph of fictional Nigerian female patient performing standing calf stretch with hands against wall and rear straight leg.',
+    photoAltText: 'Photograph of fictional Nigerian female patient performing standing calf stretch with hands against wall and rear heel pressed completely flat onto floor.',
     photoAiGenerated: true,
     photoDemographic: 'Nigerian female, mid-30s, rich brown skin',
-    photoClinicalReviewStatus: 'pending_physiotherapist_review',
-    photoClinicalObservationNotes: 'Discrepancy noted during clinical safety audit: rear heel is slightly elevated off floor rather than pressed completely flat. Requires physiotherapist remediation before live patient-facing approval.',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Remediated clinical demonstration verified. Staggered stance against wall confirmed; rear left knee locked straight with rear left heel pressed completely flat onto clinic floor (zero elevation); front knee flexed 90 degrees; neutral spine alignment.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-18T18:25:00Z',
   },
 
   // 10. Cat-Camel (Spinal Mobility)
@@ -329,6 +339,12 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/bird-dog.jpg',
+    photoAltText: 'Photograph of fictional Nigerian female patient demonstrating quadruped core stabilization on blue mat.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian female, late 20s, warm rich brown skin',
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: 'Discrepancy noted during clinical safety audit: 2D lateral projection renders limbs in ipsilateral plane with subtle cervical hyperextension. Requires physiotherapist remediation before live patient-facing approval.',
   },
 
   // 15. Dead Bug (Anterior Core Motor Control)
@@ -345,6 +361,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/dead-bug.jpg',
+    photoAltText: 'Photograph of fictional Nigerian male athlete lying supine on blue mat performing contralateral reach phase of Dead Bug with lumbar spine flat against mat.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian male, late 20s, dark brown skin tone',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Supine core stabilization confirmed; lumbar spine pressed completely flat flush against blue mat (anterior pelvic tilt with active transverse abdominis engagement); contralateral reach with straight hovering opposite limbs and 90-degree tabletop flexion verified.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-18T18:25:00Z',
   },
 
   // 16. McKenzie Prone Press-Up (Lumbar Extension)
@@ -385,6 +409,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/side-plank.jpg',
+    photoAltText: 'Photograph of fictional Nigerian female patient performing forearm side plank on blue mat with elevated pelvis and straight diagonal alignment from ankles to shoulders.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian female, early 30s, warm rich brown skin',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Lateral forearm support confirmed with right elbow positioned directly under glenohumeral joint; pelvis elevated into straight diagonal alignment from ankles through knees and hips to shoulders; neutral cervical spine.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-18T18:25:00Z',
   },
 
   // 18. Side-Lying Shoulder External Rotation
@@ -593,6 +625,12 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/clamshells.jpg',
+    photoAltText: 'Photograph of fictional Nigerian female patient side-lying on blue mat with resistance band around thighs.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian female, mid-30s, warm brown skin',
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: 'Discrepancy noted during clinical safety audit: bottom leg rendered in full extension rather than 45-degree knee flexion with stacked feet. Requires physiotherapist remediation before live patient-facing approval.',
   },
 
   // 27. Standing Banded Hip Abduction
@@ -625,6 +663,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/half-kneeling-hip-flexor-stretch.jpg',
+    photoAltText: 'Photograph of fictional Nigerian male patient in 90-90 half-kneeling position on blue mat with knee cushion, demonstrating posterior pelvic tilt hip flexor stretch.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian male, late 20s, warm dark brown skin',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: 90-90 half-kneeling alignment verified with supportive pad beneath rear left knee; upright neutral spine with active posterior pelvic tilt isolating anterior hip flexors; bilateral upper extremity support on anterior thigh.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-18T18:28:00Z',
   },
 
   // 29. Terminal Knee Extension (TKE) with Band
