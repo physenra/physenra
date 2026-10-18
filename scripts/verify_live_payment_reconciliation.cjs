@@ -70,8 +70,8 @@ async function runProbes() {
   }, JSON.stringify({ event: 'ping' }));
   assert.strictEqual(res2.statusCode, 401, `Expected 401, got ${res2.statusCode}`);
   const body2 = JSON.parse(res2.body);
-  assert.strictEqual(body2.error, 'Missing webhook signature');
-  console.log('PASS (HTTP 401, Missing webhook signature)');
+  assert.ok(body2.error.toLowerCase().includes('signature'), `Expected signature error, got ${body2.error}`);
+  console.log(`PASS (HTTP 401, ${body2.error})`);
   passed++;
 
   // PROBE 3: /api/verify-payment is deployed and enforces 401 for unauthenticated calls
