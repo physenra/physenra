@@ -26,6 +26,9 @@ const approvedAssets = [
   '/images/exercises/photographs/side-lying-external-rotation.jpg',
   '/images/exercises/photographs/prone-y-to-t-raises.jpg',
   '/images/exercises/photographs/wall-slides.jpg',
+  '/images/exercises/photographs/tyler-twist.jpg',
+  '/images/exercises/photographs/standing-banded-hip-abduction.jpg',
+  '/images/exercises/photographs/terminal-knee-extension.jpg',
 ];
 
 function checkUrl(urlPath) {
@@ -67,7 +70,7 @@ async function run() {
   console.log(`\n✔ [HTTP ${homeRes.statusCode}] Homepage live on ${baseUrl}`);
 
   if (allPassed) {
-    console.log('\nAll 17 approved live photographic assets verified successfully on production.');
+    console.log(`\nAll ${approvedAssets.length} approved live photographic assets verified successfully on production.`);
   } else {
     process.exit(1);
   }
