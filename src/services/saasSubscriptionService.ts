@@ -1177,6 +1177,40 @@ export const saasSubscriptionService = {
     return result;
   },
 
+  /**
+   * Safely reconciles an uncompleted or stalled Paystack payment with server-side validation.
+   */
+  async reconcilePaystackPayment(practiceId: string, invoiceId?: string): Promise<{
+    status: string;
+    reconciled_count: number;
+    reconciled: any[];
+    errors: any[];
+  }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('Authentication required to reconcile payment');
+    }
+
+    const response = await fetch('/api/reconcile-payment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        practice_id: practiceId,
+        invoice_id: invoiceId,
+      }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to reconcile payment');
+    }
+
+    return result;
+  },
+
   // ----------------------------------------------------------------------------
   // 7. MANUAL BANK TRANSFER & ADMIN PAYMENT CONFIRMATION (V1)
   // ----------------------------------------------------------------------------

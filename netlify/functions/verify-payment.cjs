@@ -20,6 +20,7 @@ const {
   getSupabaseAdmin,
   authenticateUser,
   verifyPracticeOwner,
+  settleSubscriptionPayment,
 } = require('./lib/paystack.cjs');
 
 /**
@@ -274,28 +275,21 @@ async function handler(event, context, deps = {}) {
     };
   }
 
-  // 13. Settle via Database RPC
+  // 13. Settle via Authoritative Settlement (RPC with direct service-role fallback)
   const paymentMethod = mapPaystackChannelToPaymentMethod(verified.channel);
   const gatewayFeeCents = verified.fees || 0;
   const authToken = verified.authorization?.authorization_code || null;
 
   try {
-    const { data: settlementData, error: settlementErr } = await supabaseAdmin.rpc(
-      'process_subscription_payment_settlement',
-      {
-        p_invoice_id: invoice.id,
-        p_gateway: 'paystack',
-        p_gateway_reference: reference,
-        p_amount_cents: verified.amount,
-        p_payment_method: paymentMethod,
-        p_gateway_fee_cents: gatewayFeeCents,
-        p_auth_token: authToken,
-      }
-    );
-
-    if (settlementErr) {
-      throw settlementErr;
-    }
+    const settlementData = await settleSubscriptionPayment({
+      supabaseAdmin,
+      invoice,
+      reference,
+      verifiedAmount: verified.amount,
+      paymentMethod,
+      gatewayFeeCents,
+      authToken,
+    });
 
     return {
       statusCode: 200,
@@ -305,12 +299,12 @@ async function handler(event, context, deps = {}) {
         settlement: settlementData,
       }),
     };
-  } catch (rpcErr) {
-    console.error('[Verify Payment] Settlement RPC failure:', rpcErr.message);
+  } catch (settleErr) {
+    console.error('[Verify Payment] Settlement failure:', settleErr.message);
     return {
       statusCode: 500,
       headers: jsonHeaders,
-      body: JSON.stringify({ error: `Settlement execution failed: ${rpcErr.message}` }),
+      body: JSON.stringify({ error: `Settlement execution failed: ${settleErr.message}` }),
     };
   }
 }

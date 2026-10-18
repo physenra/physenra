@@ -28,6 +28,7 @@ import {
   Phone,
   Copy,
   Check,
+  RefreshCw,
 } from 'lucide-react';
 import { usePractice } from '../../hooks/usePractice';
 import { useRole } from '../../hooks/useRole';
@@ -191,6 +192,35 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
     } catch (err: any) {
       console.error('Payment checkout initiation failed:', err);
       setErrorMessage(err.message || 'Payment initiation failed.');
+      setActionLoading(false);
+    }
+  };
+
+  const handleCheckPaymentStatus = async () => {
+    if (!invoice || !activePractice?.id || actionLoading) return;
+
+    try {
+      setActionLoading(true);
+      setErrorMessage(null);
+      setActionSuccess(null);
+
+      const result = await saasSubscriptionService.reconcilePaystackPayment(
+        activePractice.id,
+        invoice.id
+      );
+
+      if (result.reconciled_count > 0 || result.status === 'complete') {
+        setActionSuccess('Payment verified! Your invoice has been settled and subscription activated.');
+        await loadInvoiceData();
+      } else {
+        setErrorMessage(
+          'No confirmed payment was found for this invoice yet. If you were recently debited, please wait a moment and try again.'
+        );
+      }
+    } catch (err: any) {
+      console.error('Payment reconciliation check failed:', err);
+      setErrorMessage(err.message || 'Payment reconciliation check failed.');
+    } finally {
       setActionLoading(false);
     }
   };
@@ -403,14 +433,25 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
 
           {/* Pay Now Button (Open Invoice Only, Owner Only) */}
           {invoice.status === 'open' && !isReadOnly && (
-            <button
-              onClick={handlePayNow}
-              disabled={actionLoading}
-              className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition shadow-sm"
-            >
-              <CreditCard size={14} />
-              <span>{actionLoading ? 'Initializing Checkout...' : 'Pay with Paystack'}</span>
-            </button>
+            <>
+              <button
+                onClick={handlePayNow}
+                disabled={actionLoading}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition shadow-sm"
+              >
+                <CreditCard size={14} />
+                <span>{actionLoading ? 'Initializing Checkout...' : 'Pay with Paystack'}</span>
+              </button>
+              <button
+                onClick={handleCheckPaymentStatus}
+                disabled={actionLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg text-xs font-semibold transition shadow-sm"
+                title="If you were already debited by Paystack, click here to verify and settle"
+              >
+                <RefreshCw size={13} className={actionLoading ? 'animate-spin' : ''} />
+                <span>Already Paid? Check Status</span>
+              </button>
+            </>
           )}
         </div>
       </div>

@@ -33,6 +33,7 @@ import {
   Building2,
   Copy,
   Check,
+  RefreshCw,
 } from 'lucide-react';
 import { usePractice } from '../../hooks/usePractice';
 import { useRole } from '../../hooks/useRole';
@@ -666,7 +667,37 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
     }
   };
 
-  // C2. Initiate Bank Transfer for an Open Invoice
+  // C2. Reconcile Stalled Payment for Open Invoice
+  const handleReconcileOpenInvoices = async () => {
+    if (!activePractice?.id || actionLoading) return;
+    try {
+      setActionLoading(true);
+      setErrorMessage(null);
+      setSuccessMessage(null);
+
+      const openInv = invoices.find((i) => i.status === 'open');
+      const result = await saasSubscriptionService.reconcilePaystackPayment(
+        activePractice.id,
+        openInv?.id
+      );
+
+      if (result.reconciled_count > 0) {
+        setSuccessMessage('Payment verified and settled! Your subscription is now active.');
+        await loadBillingData();
+      } else {
+        setErrorMessage(
+          'No confirmed payment was found on Paystack for this invoice yet. If your account was debited, please wait a minute and try again.'
+        );
+      }
+    } catch (err: any) {
+      console.error('Payment reconciliation failed:', err);
+      setErrorMessage(err.message || 'Payment reconciliation failed.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // C3. Initiate Bank Transfer for an Open Invoice
   const handleCreateBankTransferForInvoice = async (invoiceId: string) => {
     if (!activePractice?.id || isReadOnly) return;
     if (!bankConfig?.is_available) {
@@ -1144,19 +1175,30 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                     <ArrowUpRight size={16} />
                   </button>
 
-                  {/* Open invoice pay button */}
+                  {/* Open invoice pay & reconcile buttons */}
                   {invoices.some((i) => i.status === 'open') && (
-                    <button
-                      onClick={() => {
-                        const openInv = invoices.find((i) => i.status === 'open');
-                        if (openInv) handlePayInvoice(openInv.id);
-                      }}
-                      disabled={actionLoading}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition shadow-sm"
-                    >
-                      <CreditCard size={16} />
-                      <span>Pay Outstanding Invoice</span>
-                    </button>
+                    <>
+                      <button
+                        onClick={() => {
+                          const openInv = invoices.find((i) => i.status === 'open');
+                          if (openInv) handlePayInvoice(openInv.id);
+                        }}
+                        disabled={actionLoading}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition shadow-sm"
+                      >
+                        <CreditCard size={16} />
+                        <span>Pay Outstanding Invoice</span>
+                      </button>
+                      <button
+                        onClick={handleReconcileOpenInvoices}
+                        disabled={actionLoading}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-lg text-sm font-semibold transition"
+                        title="If your payment was already debited by Paystack, click here to confirm settlement"
+                      >
+                        <RefreshCw size={15} className={actionLoading ? 'animate-spin' : ''} />
+                        <span>Already Paid? Check Status</span>
+                      </button>
+                    </>
                   )}
 
                   {/* Cancellation toggle */}

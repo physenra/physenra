@@ -18,6 +18,7 @@ const {
   verifyPaystackTransaction,
   getPaystackEnvironment,
   getSupabaseAdmin,
+  settleSubscriptionPayment,
 } = require('./lib/paystack.cjs');
 
 /**
@@ -75,7 +76,8 @@ async function handler(event, context, deps = {}) {
 
   // 4. Cryptographic HMAC-SHA512 verification against EXACT raw request body
   const rawBody = event.body || '';
-  const isSignatureValid = verifyPaystackSignature(rawBody, signature, paystackSecretKey);
+  const verifySig = deps.verifyPaystackSignature || verifyPaystackSignature;
+  const isSignatureValid = verifySig(rawBody, signature, paystackSecretKey);
 
   if (!isSignatureValid) {
     console.warn('[Paystack Webhook] Invalid webhook signature rejected');
@@ -132,23 +134,42 @@ async function handler(event, context, deps = {}) {
       .single();
 
     if (insertErr) {
-      // Check for uniqueness constraint violation (duplicate webhook delivery)
+      // Check for uniqueness constraint violation (duplicate or retried webhook delivery)
       if (insertErr.code === '23505' || insertErr.message?.includes('duplicate key') || insertErr.message?.includes('uq_gateway_event')) {
-        console.log(`[Paystack Webhook] Duplicate event ignored (idempotent): ${externalEventId}`);
-        return {
-          statusCode: 200,
-          headers: jsonHeaders,
-          body: JSON.stringify({
-            status: 'already_processed',
-            message: 'Webhook event already recorded and acknowledged',
-            external_event_id: externalEventId,
-          }),
-        };
-      }
-      throw insertErr;
-    }
+        const { data: existingEvent, error: fetchErr } = await supabaseAdmin
+          .from('saas_webhook_events')
+          .select('id, processed, processed_at, error_message')
+          .eq('gateway', 'paystack')
+          .eq('external_event_id', externalEventId)
+          .maybeSingle();
 
-    webhookRecordId = insertData.id;
+        if (existingEvent && existingEvent.processed) {
+          console.log(`[Paystack Webhook] Duplicate event ignored (already successfully processed): ${externalEventId}`);
+          return {
+            statusCode: 200,
+            headers: jsonHeaders,
+            body: JSON.stringify({
+              status: 'already_processed',
+              message: 'Webhook event already recorded and processed',
+              external_event_id: externalEventId,
+            }),
+          };
+        }
+
+        if (existingEvent && !existingEvent.processed) {
+          console.log(`[Paystack Webhook] Retrying previously uncompleted webhook event: ${externalEventId}`);
+          webhookRecordId = existingEvent.id;
+        } else {
+          // If query returned null or error, throw to return 500 so gateway retries later
+          console.error(`[Paystack Webhook] Uniqueness conflict but failed to inspect existing event ${externalEventId}:`, fetchErr?.message);
+          throw insertErr;
+        }
+      } else {
+        throw insertErr;
+      }
+    } else {
+      webhookRecordId = insertData.id;
+    }
   } catch (dbErr) {
     console.error('[Paystack Webhook] Error recording webhook event:', dbErr.message);
     return {
@@ -369,28 +390,21 @@ async function handler(event, context, deps = {}) {
     };
   }
 
-  // 15. Invoke Authoritative Database Settlement RPC
+  // 15. Invoke Authoritative Settlement (RPC with direct service-role fallback)
   const paymentMethod = mapPaystackChannelToPaymentMethod(verified.channel);
   const gatewayFeeCents = verified.fees || 0;
   const authToken = verified.authorization?.authorization_code || null;
 
   try {
-    const { data: settlementData, error: settlementErr } = await supabaseAdmin.rpc(
-      'process_subscription_payment_settlement',
-      {
-        p_invoice_id: invoice.id,
-        p_gateway: 'paystack',
-        p_gateway_reference: reference,
-        p_amount_cents: verified.amount,
-        p_payment_method: paymentMethod,
-        p_gateway_fee_cents: gatewayFeeCents,
-        p_auth_token: authToken,
-      }
-    );
-
-    if (settlementErr) {
-      throw settlementErr;
-    }
+    const settlementData = await settleSubscriptionPayment({
+      supabaseAdmin,
+      invoice,
+      reference,
+      verifiedAmount: verified.amount,
+      paymentMethod,
+      gatewayFeeCents,
+      authToken,
+    });
 
     // 16. Mark webhook event as successfully processed
     if (webhookRecordId) {
@@ -412,20 +426,20 @@ async function handler(event, context, deps = {}) {
         settlement: settlementData,
       }),
     };
-  } catch (rpcErr) {
-    console.error('[Paystack Webhook] Settlement RPC failure:', rpcErr.message);
+  } catch (settleErr) {
+    console.error('[Paystack Webhook] Settlement failure:', settleErr.message);
     if (webhookRecordId) {
       await supabaseAdmin
         .from('saas_webhook_events')
         .update({
-          error_message: `Settlement RPC error: ${rpcErr.message}`,
+          error_message: `Settlement error: ${settleErr.message}`,
         })
         .eq('id', webhookRecordId);
     }
     return {
       statusCode: 500,
       headers: jsonHeaders,
-      body: JSON.stringify({ error: `Settlement execution failed: ${rpcErr.message}` }),
+      body: JSON.stringify({ error: `Settlement execution failed: ${settleErr.message}` }),
     };
   }
 }
