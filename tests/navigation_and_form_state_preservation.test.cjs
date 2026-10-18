@@ -375,6 +375,27 @@ test('PHYSENRA — Navigation, Page State & Unsaved Data Preservation Test Suite
         hasBanner: true,
         hasMarkSaved: true,
       },
+      {
+        path: 'pages/hep/CreateHEPPage.tsx',
+        name: 'CreateHEPPage',
+        hasFormDraft: true,
+        hasBanner: true,
+        hasMarkSaved: true,
+      },
+      {
+        path: 'pages/discharge-summaries/CreateDischargeSummaryPage.tsx',
+        name: 'CreateDischargeSummaryPage',
+        hasFormDraft: true,
+        hasBanner: true,
+        hasMarkSaved: true,
+      },
+      {
+        path: 'pages/progress-reviews/CreateProgressReviewPage.tsx',
+        name: 'CreateProgressReviewPage',
+        hasFormDraft: true,
+        hasBanner: true,
+        hasMarkSaved: true,
+      },
     ];
 
     for (const page of pagesToCheck) {
@@ -471,4 +492,34 @@ test('PHYSENRA — Navigation, Page State & Unsaved Data Preservation Test Suite
       });
     }
   });
+
+  // ============================================================================
+  // SUITE 8: Patient Health Information (PHI) Protection & Server Drafts
+  // ============================================================================
+  await t.test('--- SUITE 8: PHI Protection & Server Drafts Infrastructure ---', async (st) => {
+    await st.test('1. formDraftService completely avoids browser localStorage for clinical drafts', () => {
+      const serviceCode = fs.readFileSync(path.join(SRC_DIR, 'services', 'formDraftService.ts'), 'utf8');
+      assert.doesNotMatch(serviceCode, /localStorage\.setItem/, 'Must never save clinical drafts in localStorage');
+      assert.doesNotMatch(serviceCode, /window\.localStorage/, 'Must never access window.localStorage for clinical drafts');
+    });
+
+    await st.test('2. Serverless endpoint netlify/functions/form-drafts.cjs exists and enforces security', () => {
+      const funcPath = path.join(ROOT_DIR, 'netlify', 'functions', 'form-drafts.cjs');
+      assert.ok(fs.existsSync(funcPath), 'Server drafts Netlify function must exist');
+      const funcCode = fs.readFileSync(funcPath, 'utf8');
+      assert.match(funcCode, /authorization/i, 'Must check Authorization header');
+      assert.match(funcCode, /Bearer/i, 'Must check Bearer token');
+      assert.match(funcCode, /clinical_form_drafts/, 'Must interact with clinical_form_drafts table');
+    });
+
+    await st.test('3. Migration 20261018170000_clinical_form_drafts_foundation.sql defines table and RLS', () => {
+      const migPath = path.join(ROOT_DIR, 'supabase', 'migrations', '20261018170000_clinical_form_drafts_foundation.sql');
+      assert.ok(fs.existsSync(migPath), 'Migration file must exist');
+      const migCode = fs.readFileSync(migPath, 'utf8');
+      assert.match(migCode, /CREATE TABLE IF NOT EXISTS public\.clinical_form_drafts/);
+      assert.match(migCode, /ALTER TABLE public\.clinical_form_drafts ENABLE ROW LEVEL SECURITY/);
+      assert.match(migCode, /current_practice_id\(\)/);
+    });
+  });
 });
+

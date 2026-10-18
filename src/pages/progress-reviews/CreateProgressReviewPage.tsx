@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { ClipboardCheck, ArrowLeft, AlertCircle, Save, CheckCircle2, Target } from 'lucide-react';
 import { progressReviewService, ProgressReviewGoalInput } from '../../services/progressReviewService';
 import { patientService } from '../../services/patientService';
+import { useFormDraft } from '../../hooks/useFormDraft';
+import { DraftBanner } from '../../components/ui/DraftBanner';
 import type {
   Patient,
   EpisodeOfCare,
@@ -15,6 +17,24 @@ import type {
   GoalProgressStatus,
 } from '../../types/models';
 
+interface ProgressReviewDraftData {
+  selectedPatientId: string;
+  selectedEpisodeId: string;
+  selectedPlanId: string;
+  selectedVisitId: string;
+  selectedClinicianId: string;
+  reviewDate: string;
+  periodStartDate: string;
+  periodEndDate: string;
+  nextReviewDueDate: string;
+  overallProgressAssessment: OverallProgressRating;
+  planRecommendation: ProgressReviewPlanRecommendation;
+  clinicalSummary: string;
+  barriersIdentified: string;
+  treatmentModifications: string;
+  goalEvaluations: ProgressReviewGoalInput[];
+}
+
 export const CreateProgressReviewPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -23,6 +43,37 @@ export const CreateProgressReviewPage: React.FC = () => {
   const preselectedEpisodeId = searchParams.get('episodeId') || '';
   const preselectedPlanId = searchParams.get('treatmentPlanId') || '';
   const preselectedVisitId = searchParams.get('visitId') || '';
+
+  // Form draft preservation across navigation, modal flows, and reloads
+  const {
+    data: draftData,
+    updateField,
+    isDirty,
+    isRestored,
+    restoredAt,
+    saveStatus,
+    discardDraft,
+    markSaved,
+  } = useFormDraft<ProgressReviewDraftData>({
+    formId: `create_progress_review_${preselectedPatientId || 'default'}_${preselectedEpisodeId || 'default'}`,
+    initialData: {
+      selectedPatientId: preselectedPatientId,
+      selectedEpisodeId: preselectedEpisodeId,
+      selectedPlanId: preselectedPlanId,
+      selectedVisitId: preselectedVisitId,
+      selectedClinicianId: '',
+      reviewDate: new Date().toISOString().split('T')[0],
+      periodStartDate: '',
+      periodEndDate: '',
+      nextReviewDueDate: '',
+      overallProgressAssessment: 'progressing',
+      planRecommendation: 'continue_current_plan',
+      clinicalSummary: '',
+      barriersIdentified: '',
+      treatmentModifications: '',
+      goalEvaluations: [],
+    },
+  });
 
   // Data sources
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -38,29 +89,52 @@ export const CreateProgressReviewPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Form Fields
-  const [selectedPatientId, setSelectedPatientId] = useState(preselectedPatientId);
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState(preselectedEpisodeId);
-  const [selectedPlanId, setSelectedPlanId] = useState(preselectedPlanId);
-  const [selectedVisitId, setSelectedVisitId] = useState(preselectedVisitId);
-  const [selectedClinicianId, setSelectedClinicianId] = useState('');
+  // Form Fields bound to draftData
+  const selectedPatientId = draftData.selectedPatientId;
+  const setSelectedPatientId = (val: string) => updateField('selectedPatientId', val);
+  const selectedEpisodeId = draftData.selectedEpisodeId;
+  const setSelectedEpisodeId = (val: string) => updateField('selectedEpisodeId', val);
+  const selectedPlanId = draftData.selectedPlanId;
+  const setSelectedPlanId = (val: string) => updateField('selectedPlanId', val);
+  const selectedVisitId = draftData.selectedVisitId;
+  const setSelectedVisitId = (val: string) => updateField('selectedVisitId', val);
+  const selectedClinicianId = draftData.selectedClinicianId;
+  const setSelectedClinicianId = (val: string) => updateField('selectedClinicianId', val);
 
-  const [reviewDate, setReviewDate] = useState(new Date().toISOString().split('T')[0]);
-  const [periodStartDate, setPeriodStartDate] = useState('');
-  const [periodEndDate, setPeriodEndDate] = useState('');
-  const [nextReviewDueDate, setNextReviewDueDate] = useState('');
+  const reviewDate = draftData.reviewDate;
+  const setReviewDate = (val: string) => updateField('reviewDate', val);
+  const periodStartDate = draftData.periodStartDate;
+  const setPeriodStartDate = (val: string) => updateField('periodStartDate', val);
+  const periodEndDate = draftData.periodEndDate;
+  const setPeriodEndDate = (val: string) => updateField('periodEndDate', val);
+  const nextReviewDueDate = draftData.nextReviewDueDate;
+  const setNextReviewDueDate = (val: string) => updateField('nextReviewDueDate', val);
 
-  const [overallProgressAssessment, setOverallProgressAssessment] =
-    useState<OverallProgressRating>('progressing');
-  const [planRecommendation, setPlanRecommendation] =
-    useState<ProgressReviewPlanRecommendation>('continue_current_plan');
+  const overallProgressAssessment = draftData.overallProgressAssessment;
+  const setOverallProgressAssessment = (val: OverallProgressRating) =>
+    updateField('overallProgressAssessment', val);
+  const planRecommendation = draftData.planRecommendation;
+  const setPlanRecommendation = (val: ProgressReviewPlanRecommendation) =>
+    updateField('planRecommendation', val);
 
-  const [clinicalSummary, setClinicalSummary] = useState('');
-  const [barriersIdentified, setBarriersIdentified] = useState('');
-  const [treatmentModifications, setTreatmentModifications] = useState('');
+  const clinicalSummary = draftData.clinicalSummary;
+  const setClinicalSummary = (val: string) => updateField('clinicalSummary', val);
+  const barriersIdentified = draftData.barriersIdentified;
+  const setBarriersIdentified = (val: string) => updateField('barriersIdentified', val);
+  const treatmentModifications = draftData.treatmentModifications;
+  const setTreatmentModifications = (val: string) => updateField('treatmentModifications', val);
 
   // Structured Goal Progress Evaluations
-  const [goalEvaluations, setGoalEvaluations] = useState<ProgressReviewGoalInput[]>([]);
+  const goalEvaluations = draftData.goalEvaluations;
+  const setGoalEvaluations = (
+    updater: ProgressReviewGoalInput[] | ((prev: ProgressReviewGoalInput[]) => ProgressReviewGoalInput[])
+  ) => {
+    if (typeof updater === 'function') {
+      updateField('goalEvaluations', updater(draftData.goalEvaluations));
+    } else {
+      updateField('goalEvaluations', updater);
+    }
+  };
 
   // Initial load: patients & clinicians
   useEffect(() => {
@@ -116,8 +190,10 @@ export const CreateProgressReviewPage: React.FC = () => {
         setVisits(visRes);
         setOutcomeAssessments(oaRes);
 
-        // Preselect episode if matched or default to first
-        if (preselectedEpisodeId && epRes.some((e) => e.id === preselectedEpisodeId)) {
+        // Preselect episode if matched, or keep restored selection, or default to first
+        if (selectedEpisodeId && epRes.some((e) => e.id === selectedEpisodeId)) {
+          // Keep current restored selection
+        } else if (preselectedEpisodeId && epRes.some((e) => e.id === preselectedEpisodeId)) {
           setSelectedEpisodeId(preselectedEpisodeId);
         } else if (epRes.length > 0) {
           setSelectedEpisodeId(epRes[0].id);
@@ -125,8 +201,10 @@ export const CreateProgressReviewPage: React.FC = () => {
           setSelectedEpisodeId('');
         }
 
-        // Preselect treatment plan if matched or default to first
-        if (preselectedPlanId && tpRes.some((p) => p.id === preselectedPlanId)) {
+        // Preselect treatment plan if matched, or keep restored selection, or default to first
+        if (selectedPlanId && tpRes.some((p) => p.id === selectedPlanId)) {
+          // Keep current restored selection
+        } else if (preselectedPlanId && tpRes.some((p) => p.id === preselectedPlanId)) {
           setSelectedPlanId(preselectedPlanId);
         } else if (tpRes.length > 0) {
           setSelectedPlanId(tpRes[0].id);
@@ -152,16 +230,22 @@ export const CreateProgressReviewPage: React.FC = () => {
 
     const plan = treatmentPlans.find((p) => p.id === selectedPlanId);
     if (plan && plan.goals && plan.goals.length > 0) {
-      const initialEvaluations: ProgressReviewGoalInput[] = plan.goals.map((g) => ({
-        treatment_plan_goal_id: g.id,
-        status_at_review: 'in_progress',
-        current_value: '',
-        measurement_method: g.measurement_method || '',
-        clinician_assessment: '',
-        progress_notes: '',
-        linked_outcome_assessment_id: null,
-      }));
-      setGoalEvaluations(initialEvaluations);
+      // If goal evaluations are already loaded/restored for this plan, keep them
+      const alreadyHasGoals =
+        goalEvaluations.length > 0 &&
+        goalEvaluations.some((g) => plan.goals?.some((pg) => pg.id === g.treatment_plan_goal_id));
+      if (!alreadyHasGoals) {
+        const initialEvaluations: ProgressReviewGoalInput[] = plan.goals.map((g) => ({
+          treatment_plan_goal_id: g.id,
+          status_at_review: 'in_progress',
+          current_value: '',
+          measurement_method: g.measurement_method || '',
+          clinician_assessment: '',
+          progress_notes: '',
+          linked_outcome_assessment_id: null,
+        }));
+        setGoalEvaluations(initialEvaluations);
+      }
     } else {
       setGoalEvaluations([]);
     }
@@ -231,6 +315,7 @@ export const CreateProgressReviewPage: React.FC = () => {
         await progressReviewService.finalizeReview(createdReview.id);
       }
 
+      markSaved();
       navigate(`/app/progress-reviews/${createdReview.id}`);
     } catch (err: any) {
       setError(err.message || 'Failed to save progress review.');
@@ -285,6 +370,16 @@ export const CreateProgressReviewPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Draft Restoration & Status Banner */}
+      <DraftBanner
+        isRestored={isRestored}
+        restoredAt={restoredAt}
+        isDirty={isDirty}
+        saveStatus={saveStatus}
+        onDiscard={discardDraft}
+        entityName="progress review"
+      />
 
       {/* Error Alert */}
       {error && (

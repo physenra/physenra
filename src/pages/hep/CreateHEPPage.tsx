@@ -8,6 +8,8 @@ import { episodeService } from '../../services/episodeService';
 import { clinicalVisitService } from '../../services/clinicalVisitService';
 import { appointmentService } from '../../services/appointmentService';
 import { ExerciseVisualCard } from '../../components/hep/ExerciseVisualCard';
+import { useFormDraft } from '../../hooks/useFormDraft';
+import { DraftBanner } from '../../components/ui/DraftBanner';
 import type {
   Exercise,
   Patient,
@@ -25,6 +27,18 @@ interface PrescribedItemState extends CreateProgramItemInput {
   exercise_body_region: ExerciseBodyRegion;
 }
 
+interface HEPDraftData {
+  selectedPatientId: string;
+  selectedEpisodeId: string;
+  selectedVisitId: string;
+  selectedClinicianId: string;
+  title: string;
+  generalInstructions: string;
+  startDate: string;
+  reviewDate: string;
+  prescribedItems: PrescribedItemState[];
+}
+
 export const CreateHEPPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -33,6 +47,31 @@ export const CreateHEPPage: React.FC = () => {
   const initialEpisodeId = searchParams.get('episodeId') || '';
   const initialVisitId = searchParams.get('visitId') || '';
 
+  // Platform-wide draft preservation
+  const {
+    data: draftData,
+    updateField,
+    isDirty,
+    isRestored,
+    restoredAt,
+    saveStatus,
+    discardDraft,
+    markSaved,
+  } = useFormDraft<HEPDraftData>({
+    formId: `create_hep_${initialPatientId || 'default'}`,
+    initialData: {
+      selectedPatientId: initialPatientId,
+      selectedEpisodeId: initialEpisodeId,
+      selectedVisitId: initialVisitId,
+      selectedClinicianId: '',
+      title: '',
+      generalInstructions: '',
+      startDate: new Date().toISOString().split('T')[0],
+      reviewDate: '',
+      prescribedItems: [],
+    },
+  });
+
   // Reference Data
   const [patients, setPatients] = useState<Patient[]>([]);
   const [episodes, setEpisodes] = useState<EpisodeOfCare[]>([]);
@@ -40,20 +79,27 @@ export const CreateHEPPage: React.FC = () => {
   const [clinicians, setClinicians] = useState<Array<{ id: string; name: string }>>([]);
   const [exercisesCatalogue, setExercisesCatalogue] = useState<Exercise[]>([]);
 
-  // Selected Entities
-  const [selectedPatientId, setSelectedPatientId] = useState(initialPatientId);
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState(initialEpisodeId);
-  const [selectedVisitId, setSelectedVisitId] = useState(initialVisitId);
-  const [selectedClinicianId, setSelectedClinicianId] = useState('');
+  // Selected Entities & Program Details (bound to draftData)
+  const selectedPatientId = draftData.selectedPatientId;
+  const setSelectedPatientId = (val: string) => updateField('selectedPatientId', val);
+  const selectedEpisodeId = draftData.selectedEpisodeId;
+  const setSelectedEpisodeId = (val: string) => updateField('selectedEpisodeId', val);
+  const selectedVisitId = draftData.selectedVisitId;
+  const setSelectedVisitId = (val: string) => updateField('selectedVisitId', val);
+  const selectedClinicianId = draftData.selectedClinicianId;
+  const setSelectedClinicianId = (val: string) => updateField('selectedClinicianId', val);
 
-  // Program Details
-  const [title, setTitle] = useState('');
-  const [generalInstructions, setGeneralInstructions] = useState('');
-  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
-  const [reviewDate, setReviewDate] = useState('');
+  const title = draftData.title;
+  const setTitle = (val: string) => updateField('title', val);
+  const generalInstructions = draftData.generalInstructions;
+  const setGeneralInstructions = (val: string) => updateField('generalInstructions', val);
+  const startDate = draftData.startDate;
+  const setStartDate = (val: string) => updateField('startDate', val);
+  const reviewDate = draftData.reviewDate;
+  const setReviewDate = (val: string) => updateField('reviewDate', val);
 
-  // Prescribed Exercises
-  const [prescribedItems, setPrescribedItems] = useState<PrescribedItemState[]>([]);
+  const prescribedItems = draftData.prescribedItems;
+  const setPrescribedItems = (items: PrescribedItemState[]) => updateField('prescribedItems', items);
 
   // Exercise Picker Modal
   const [showExerciseModal, setShowExerciseModal] = useState(false);
@@ -120,6 +166,21 @@ export const CreateHEPPage: React.FC = () => {
 
     loadInitialData();
   }, [initialPatientId, initialEpisodeId]);
+
+  // When draft is restored, if it contains selectedPatientId, fetch their episodes & visits
+  useEffect(() => {
+    if (selectedPatientId && episodes.length === 0) {
+      Promise.all([
+        episodeService.getEpisodes({ patientId: selectedPatientId, limit: 50 }),
+        clinicalVisitService.getClinicalVisits({ patientId: selectedPatientId, limit: 50 }),
+      ])
+        .then(([epRes, visitRes]) => {
+          setEpisodes(epRes.episodes);
+          setVisits(visitRes.visits);
+        })
+        .catch(() => {});
+    }
+  }, [selectedPatientId, episodes.length]);
 
   // Handle patient selection change
   const handlePatientChange = async (patientId: string) => {
@@ -255,6 +316,7 @@ export const CreateHEPPage: React.FC = () => {
         await hepService.activateProgram(created.id);
       }
 
+      markSaved();
       navigate(`/app/hep/${created.id}`);
     } catch (err: any) {
       setError(err.message || 'Failed to save Home Exercise Program.');
@@ -314,6 +376,16 @@ export const CreateHEPPage: React.FC = () => {
           Formulate an individualized rehabilitation regimen with precise dosage, frequency, and safety precautions.
         </p>
       </div>
+
+      {/* Draft Restoration & Status Banner */}
+      <DraftBanner
+        isRestored={isRestored}
+        restoredAt={restoredAt}
+        isDirty={isDirty}
+        saveStatus={saveStatus}
+        onDiscard={discardDraft}
+        entityName="exercise program"
+      />
 
       {/* Domain Invariant Banner */}
       <div
@@ -905,21 +977,30 @@ export const CreateHEPPage: React.FC = () => {
           padding: '1.25rem 0',
         }}
       >
-        <Link
-          to="/app/hep"
+        <button
+          type="button"
+          onClick={() => {
+            if (isDirty) {
+              if (window.confirm('You have unsaved changes in your exercise program draft. Your work is safely preserved. Return to exercise programs list?')) {
+                navigate('/app/hep');
+              }
+            } else {
+              navigate('/app/hep');
+            }
+          }}
           style={{
             padding: '0.625rem 1.25rem',
             borderRadius: '6px',
             border: '1px solid #cbd5e1',
             backgroundColor: '#ffffff',
             color: '#475569',
-            textDecoration: 'none',
             fontSize: '0.875rem',
             fontWeight: 500,
+            cursor: 'pointer',
           }}
         >
           Cancel
-        </Link>
+        </button>
 
         <button
           type="button"

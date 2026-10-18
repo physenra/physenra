@@ -16,35 +16,92 @@ import {
   CreateDischargeSummaryInput,
   DischargeEvidenceData,
 } from '../../services/dischargeSummaryService';
+import { useFormDraft } from '../../hooks/useFormDraft';
+import { DraftBanner } from '../../components/ui/DraftBanner';
 import type {
   DischargeReason,
   DischargeDisposition,
   Profile,
 } from '../../types/models';
 
+interface DischargeSummaryDraftData {
+  selectedEpisodeId: string;
+  dischargingClinicianId: string;
+  dischargeDate: string;
+  dischargeReason: DischargeReason;
+  dischargeDisposition: DischargeDisposition;
+  clinicalSummary: string;
+  functionalStatusAtDischarge: string;
+  goalAttainmentSummary: string;
+  outcomeMeasureSummary: string;
+  treatmentSummary: string;
+  hepTransitionSummary: string;
+  recommendations: string;
+  followUpRecommendations: string;
+}
+
 export const CreateDischargeSummaryPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedEpisodeId = searchParams.get('episodeId');
 
-  // Form states
-  const [selectedEpisodeId, setSelectedEpisodeId] = useState<string>(preselectedEpisodeId || '');
-  const [dischargingClinicianId, setDischargingClinicianId] = useState<string>('');
-  const [dischargeDate, setDischargeDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
-  const [dischargeReason, setDischargeReason] = useState<DischargeReason>('goals_achieved');
-  const [dischargeDisposition, setDischargeDisposition] =
-    useState<DischargeDisposition>('discharged_to_self_management');
+  // Platform-wide draft preservation
+  const {
+    data: draftData,
+    updateField,
+    isDirty,
+    isRestored,
+    restoredAt,
+    saveStatus,
+    discardDraft,
+    markSaved,
+  } = useFormDraft<DischargeSummaryDraftData>({
+    formId: `create_discharge_summary_${preselectedEpisodeId || 'default'}`,
+    initialData: {
+      selectedEpisodeId: preselectedEpisodeId || '',
+      dischargingClinicianId: '',
+      dischargeDate: new Date().toISOString().split('T')[0],
+      dischargeReason: 'goals_achieved',
+      dischargeDisposition: 'discharged_to_self_management',
+      clinicalSummary: '',
+      functionalStatusAtDischarge: '',
+      goalAttainmentSummary: '',
+      outcomeMeasureSummary: '',
+      treatmentSummary: '',
+      hepTransitionSummary: '',
+      recommendations: '',
+      followUpRecommendations: '',
+    },
+  });
 
-  const [clinicalSummary, setClinicalSummary] = useState<string>('');
-  const [functionalStatusAtDischarge, setFunctionalStatusAtDischarge] = useState<string>('');
-  const [goalAttainmentSummary, setGoalAttainmentSummary] = useState<string>('');
-  const [outcomeMeasureSummary, setOutcomeMeasureSummary] = useState<string>('');
-  const [treatmentSummary, setTreatmentSummary] = useState<string>('');
-  const [hepTransitionSummary, setHepTransitionSummary] = useState<string>('');
-  const [recommendations, setRecommendations] = useState<string>('');
-  const [followUpRecommendations, setFollowUpRecommendations] = useState<string>('');
+  // Form states bound to draftData
+  const selectedEpisodeId = draftData.selectedEpisodeId;
+  const setSelectedEpisodeId = (val: string) => updateField('selectedEpisodeId', val);
+  const dischargingClinicianId = draftData.dischargingClinicianId;
+  const setDischargingClinicianId = (val: string) => updateField('dischargingClinicianId', val);
+  const dischargeDate = draftData.dischargeDate;
+  const setDischargeDate = (val: string) => updateField('dischargeDate', val);
+  const dischargeReason = draftData.dischargeReason;
+  const setDischargeReason = (val: DischargeReason) => updateField('dischargeReason', val);
+  const dischargeDisposition = draftData.dischargeDisposition;
+  const setDischargeDisposition = (val: DischargeDisposition) => updateField('dischargeDisposition', val);
+
+  const clinicalSummary = draftData.clinicalSummary;
+  const setClinicalSummary = (val: string) => updateField('clinicalSummary', val);
+  const functionalStatusAtDischarge = draftData.functionalStatusAtDischarge;
+  const setFunctionalStatusAtDischarge = (val: string) => updateField('functionalStatusAtDischarge', val);
+  const goalAttainmentSummary = draftData.goalAttainmentSummary;
+  const setGoalAttainmentSummary = (val: string) => updateField('goalAttainmentSummary', val);
+  const outcomeMeasureSummary = draftData.outcomeMeasureSummary;
+  const setOutcomeMeasureSummary = (val: string) => updateField('outcomeMeasureSummary', val);
+  const treatmentSummary = draftData.treatmentSummary;
+  const setTreatmentSummary = (val: string) => updateField('treatmentSummary', val);
+  const hepTransitionSummary = draftData.hepTransitionSummary;
+  const setHepTransitionSummary = (val: string) => updateField('hepTransitionSummary', val);
+  const recommendations = draftData.recommendations;
+  const setRecommendations = (val: string) => updateField('recommendations', val);
+  const followUpRecommendations = draftData.followUpRecommendations;
+  const setFollowUpRecommendations = (val: string) => updateField('followUpRecommendations', val);
 
   // Dropdown & evidence data
   const [eligibleEpisodes, setEligibleEpisodes] = useState<any[]>([]);
@@ -182,6 +239,7 @@ export const CreateDischargeSummaryPage: React.FC = () => {
       };
 
       const created = await dischargeSummaryService.createSummary(payload);
+      markSaved();
       navigate(`/app/discharge-summaries/${created.id}`);
     } catch (err: any) {
       setError(err.message || 'Failed to create discharge summary.');
@@ -219,6 +277,16 @@ export const CreateDischargeSummaryPage: React.FC = () => {
           Synthesize clinical outcomes, document functional status, and close the Episode of Care.
         </p>
       </div>
+
+      {/* Draft Restoration & Status Banner */}
+      <DraftBanner
+        isRestored={isRestored}
+        restoredAt={restoredAt}
+        isDirty={isDirty}
+        saveStatus={saveStatus}
+        onDiscard={discardDraft}
+        entityName="discharge summary"
+      />
 
       {/* Error Banner */}
       {error && (

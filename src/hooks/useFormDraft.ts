@@ -8,12 +8,13 @@
 // 3. Multi-tenant practice and user isolation.
 // 4. Dirty tracking, beforeunload protection, and explicit discard.
 // 5. Background re-fetch protection: prevents server loads from clobbering local edits.
+// 6. Visible save status tracking: 'idle' | 'saving' | 'saved' | 'error'.
 // ==============================================================================
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { usePractice } from './usePractice';
-import { formDraftService } from '../services/formDraftService';
+import { formDraftService, DraftSaveStatus } from '../services/formDraftService';
 
 export interface UseFormDraftOptions<T extends Record<string, any>> {
   formId: string;
@@ -30,6 +31,7 @@ export interface UseFormDraftReturn<T extends Record<string, any>> {
   isDirty: boolean;
   isRestored: boolean;
   restoredAt: string | null;
+  saveStatus: DraftSaveStatus;
   saveDraftNow: () => void;
   discardDraft: () => void;
   markSaved: () => void;
@@ -54,6 +56,7 @@ export function useFormDraft<T extends Record<string, any>>({
   const [isRestored, setIsRestored] = useState<boolean>(false);
   const [restoredAt, setRestoredAt] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState<boolean>(false);
+  const [saveStatus, setSaveStatus] = useState<DraftSaveStatus>('idle');
 
   const dataRef = useRef<T>(data);
   dataRef.current = data;
@@ -69,18 +72,34 @@ export function useFormDraft<T extends Record<string, any>>({
     if (!practiceId || !userId || !formId || initializedRef.current) return;
 
     initializedRef.current = true;
-    const existingDraft = formDraftService.loadDraft<T>(practiceId, userId, formId);
 
-    if (existingDraft && existingDraft.data) {
-      setData(existingDraft.data);
+    // 1. Check synchronous session memory first
+    const memoryDraft = formDraftService.loadDraft<T>(practiceId, userId, formId);
+
+    if (memoryDraft && memoryDraft.data) {
+      setData(memoryDraft.data);
       setIsRestored(true);
-      setRestoredAt(existingDraft.updatedAt);
+      setRestoredAt(memoryDraft.updatedAt);
       setIsDirty(true);
-      onRestore?.(existingDraft.data);
-    } else if (serverData) {
-      baselineRef.current = serverData;
-      setData(serverData);
+      setSaveStatus('saved');
+      onRestore?.(memoryDraft.data);
+      return;
     }
+
+    // 2. If no memory draft, asynchronously inspect server-side draft storage
+    formDraftService.loadDraftAsync<T>(practiceId, userId, formId).then((serverDraft) => {
+      if (serverDraft && serverDraft.data) {
+        setData(serverDraft.data);
+        setIsRestored(true);
+        setRestoredAt(serverDraft.updatedAt);
+        setIsDirty(true);
+        setSaveStatus('saved');
+        onRestore?.(serverDraft.data);
+      } else if (serverData) {
+        baselineRef.current = serverData;
+        setData(serverData);
+      }
+    });
   }, [practiceId, userId, formId, serverData, onRestore]);
 
   // Protect against background server re-fetch clobbering uncommitted edits
@@ -108,6 +127,9 @@ export function useFormDraft<T extends Record<string, any>>({
       const next = { ...prev, [field]: value };
       const dirty = checkIfDirty(next);
       setIsDirty(dirty);
+      if (dirty) {
+        setSaveStatus('saving');
+      }
       return next;
     });
   }, [checkIfDirty]);
@@ -116,15 +138,33 @@ export function useFormDraft<T extends Record<string, any>>({
   const saveDraftNow = useCallback(() => {
     if (!practiceId || !userId || !formId) return;
     if (!isDirtyRef.current) return;
+    setSaveStatus('saving');
     formDraftService.saveDraft<T>(practiceId, userId, formId, dataRef.current);
+    formDraftService
+      .syncDraftToServer(practiceId, userId, formId, dataRef.current)
+      .then((ok) => {
+        setSaveStatus(ok ? 'saved' : 'error');
+      })
+      .catch(() => {
+        setSaveStatus('error');
+      });
   }, [practiceId, userId, formId]);
 
   // Debounced auto-save as user types
   useEffect(() => {
     if (!practiceId || !userId || !formId || !isDirty) return;
 
+    setSaveStatus('saving');
     const timer = setTimeout(() => {
       formDraftService.saveDraft<T>(practiceId, userId, formId, dataRef.current);
+      formDraftService
+        .syncDraftToServer(practiceId, userId, formId, dataRef.current)
+        .then((ok) => {
+          setSaveStatus(ok ? 'saved' : 'error');
+        })
+        .catch(() => {
+          setSaveStatus('error');
+        });
     }, debounceMs);
 
     return () => clearTimeout(timer);
@@ -162,6 +202,7 @@ export function useFormDraft<T extends Record<string, any>>({
     setIsDirty(false);
     setIsRestored(false);
     setRestoredAt(null);
+    setSaveStatus('idle');
   }, [practiceId, userId, formId]);
 
   // Mark saved after successful backend submission
@@ -173,6 +214,7 @@ export function useFormDraft<T extends Record<string, any>>({
     setIsDirty(false);
     setIsRestored(false);
     setRestoredAt(null);
+    setSaveStatus('idle');
   }, [practiceId, userId, formId]);
 
   return {
@@ -182,6 +224,7 @@ export function useFormDraft<T extends Record<string, any>>({
     isDirty,
     isRestored,
     restoredAt,
+    saveStatus,
     saveDraftNow,
     discardDraft,
     markSaved,
