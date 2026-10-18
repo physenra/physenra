@@ -165,10 +165,10 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
 
   test('Nigerian Photographic Demonstrations: Registry integrity and asset existence', () => {
     const photoSummary = getPhotoDemonstrationSummary();
-    assert.equal(photoSummary.totalPhotos, 24, 'Must have 24 photographic demonstrations registered');
-    assert.equal(photoSummary.approvedPhotos, 22, 'Exactly 22 verified photos must be approved by physiotherapist');
+    assert.equal(photoSummary.totalPhotos, 25, 'Must have 25 photographic demonstrations registered');
+    assert.equal(photoSummary.approvedPhotos, 23, 'Exactly 23 verified photos must be approved by physiotherapist');
     assert.equal(photoSummary.pendingReviewPhotos, 2, 'Bird-Dog and Clamshells photos must remain pending_physiotherapist_review');
-    assert.equal(photoSummary.aiGeneratedCount, 24, 'All 24 photos must declare aiGenerated: true');
+    assert.equal(photoSummary.aiGeneratedCount, 25, 'All 25 photos must declare aiGenerated: true');
 
     const photosDir = path.resolve(__dirname, '../public/images/exercises/photographs');
     assert.ok(fs.existsSync(photosDir), 'Photographs directory must exist');
@@ -217,7 +217,7 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
     assert.equal(clamshellsPhoto.photoClinicalReviewStatus, 'pending_physiotherapist_review');
     assert.ok(clamshellsPhoto.photoClinicalObservationNotes.includes('bottom leg rendered in full extension'));
 
-    // 2. Approved photos (22 total)
+    // 2. Approved photos (23 total)
     const approvedIds = [
       '00000000-0000-0000-0000-000000000001', // Quad Sets
       '00000000-0000-0000-0000-000000000002', // Straight Leg Raise
@@ -237,6 +237,7 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       '00000000-0000-0000-0000-000000000017', // Side Plank
       '00000000-0000-0000-0000-000000000018', // Side-Lying Shoulder External Rotation
       '00000000-0000-0000-0000-000000000019', // Prone Y-to-T Raises
+      '00000000-0000-0000-0000-000000000021', // Wall Slides with Serratus Anterior Shrug
       '00000000-0000-0000-0000-000000000028', // Half-Kneeling Hip Flexor Stretch
       '00000000-0000-0000-0000-000000000050', // 30-Second Chair Stand
       '00000000-0000-0000-0000-000000000053', // Diaphragmatic Breathing
@@ -297,7 +298,7 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
     assert.ok(cardSource.includes("objectFit: 'cover'"), 'Photographs must render with clean objectFit: cover framing');
   });
 
-  test('Catalogue Photo Coverage: Exactly 22 approved photos, 2 pending review, and 35 clean coming-soon fallbacks', () => {
+  test('Catalogue Photo Coverage: Exactly 23 approved photos, 2 pending review, and 34 clean coming-soon fallbacks', () => {
     const approvedExercises = [];
     const pendingExercises = [];
     const comingSoonExercises = [];
@@ -313,12 +314,12 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       }
     }
 
-    assert.equal(approvedExercises.length, 22, 'Exactly 22 exercises must have clinically approved photos');
+    assert.equal(approvedExercises.length, 23, 'Exactly 23 exercises must have clinically approved photos');
     assert.equal(pendingExercises.length, 2, 'Exactly 2 exercises (bird-dog and clamshells) must be pending review');
-    assert.equal(comingSoonExercises.length, 35, 'Exactly 35 exercises must cleanly display "Photo demonstration coming soon"');
+    assert.equal(comingSoonExercises.length, 34, 'Exactly 34 exercises must cleanly display "Photo demonstration coming soon"');
     assert.equal(approvedExercises.length + pendingExercises.length + comingSoonExercises.length, 59, 'Total must equal 59');
 
-    // Verify all 22 approved photos map to valid JPEG files
+    // Verify all 23 approved photos map to valid JPEG files
     for (const ex of approvedExercises) {
       const demo = getExercisePhotoDemonstration(ex.id);
       assert.ok(demo.photoAssetPath.endsWith('.jpg'), `Photo for ${ex.name} must be a .jpg`);

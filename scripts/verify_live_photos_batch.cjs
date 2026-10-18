@@ -25,6 +25,7 @@ const approvedAssets = [
   '/images/exercises/photographs/prone-cobra.jpg',
   '/images/exercises/photographs/side-lying-external-rotation.jpg',
   '/images/exercises/photographs/prone-y-to-t-raises.jpg',
+  '/images/exercises/photographs/wall-slides.jpg',
 ];
 
 function checkUrl(urlPath) {
