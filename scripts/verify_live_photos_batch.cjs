@@ -29,6 +29,8 @@ const approvedAssets = [
   '/images/exercises/photographs/tyler-twist.jpg',
   '/images/exercises/photographs/standing-banded-hip-abduction.jpg',
   '/images/exercises/photographs/terminal-knee-extension.jpg',
+  '/images/exercises/photographs/romanian-deadlift.jpg',
+  '/images/exercises/photographs/alfredson-heel-drop.jpg',
 ];
 
 function checkUrl(urlPath) {
