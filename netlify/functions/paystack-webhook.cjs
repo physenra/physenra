@@ -76,8 +76,10 @@ async function handler(event, context, deps = {}) {
 
   // 4. Cryptographic HMAC-SHA512 verification against EXACT raw request body
   const rawBody = event.body || '';
-  const verifySig = deps.verifyPaystackSignature || verifyPaystackSignature;
-  const isSignatureValid = verifySig(rawBody, signature, paystackSecretKey);
+  const verifyFn = deps.verifyPaystackSignature || verifyPaystackSignature;
+  const isSignatureValid = verifyFn === verifyPaystackSignature
+    ? verifyPaystackSignature(rawBody, signature, paystackSecretKey)
+    : verifyFn(rawBody, signature, paystackSecretKey);
 
   if (!isSignatureValid) {
     console.warn('[Paystack Webhook] Invalid webhook signature rejected');

@@ -165,10 +165,10 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
 
   test('Nigerian Photographic Demonstrations: Registry integrity and asset existence', () => {
     const photoSummary = getPhotoDemonstrationSummary();
-    assert.equal(photoSummary.totalPhotos, 7, 'Must have 7 photographic demonstrations registered');
-    assert.equal(photoSummary.approvedPhotos, 6, 'Exactly 6 verified photos must be approved by physiotherapist');
+    assert.equal(photoSummary.totalPhotos, 9, 'Must have 9 photographic demonstrations registered');
+    assert.equal(photoSummary.approvedPhotos, 8, 'Exactly 8 verified photos must be approved by physiotherapist');
     assert.equal(photoSummary.pendingReviewPhotos, 1, 'Calf stretch photo must remain pending_physiotherapist_review');
-    assert.equal(photoSummary.aiGeneratedCount, 7, 'All 7 photos must declare aiGenerated: true');
+    assert.equal(photoSummary.aiGeneratedCount, 9, 'All 9 photos must declare aiGenerated: true');
 
     const photosDir = path.resolve(__dirname, '../public/images/exercises/photographs');
     assert.ok(fs.existsSync(photosDir), 'Photographs directory must exist');
@@ -208,23 +208,51 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
     assert.equal(calfStretchPhoto.photoClinicalReviewStatus, 'pending_physiotherapist_review');
     assert.ok(calfStretchPhoto.photoClinicalObservationNotes.includes('rear heel is slightly elevated'));
 
-    // Approved photos
+    // Approved photos (8 total)
     const approvedIds = [
       '00000000-0000-0000-0000-000000000001', // Quad Sets
       '00000000-0000-0000-0000-000000000002', // Straight Leg Raise
       '00000000-0000-0000-0000-000000000003', // Glute Bridge
       '00000000-0000-0000-0000-000000000007', // Seated Chin Tucks
+      '00000000-0000-0000-0000-000000000008', // Ankle Pumps
       '00000000-0000-0000-0000-000000000016', // McKenzie Prone Extension
       '00000000-0000-0000-0000-000000000050', // 30-Second Chair Stand
+      '00000000-0000-0000-0000-000000000055', // Active Cycle of Breathing Technique (ACBT)
     ];
 
     for (const id of approvedIds) {
       const demo = getExercisePhotoDemonstration(id);
-      assert.ok(demo !== null);
-      assert.equal(demo.photoClinicalReviewStatus, 'approved');
+      assert.ok(demo !== null, `Demo must exist for ID ${id}`);
+      assert.equal(demo.photoClinicalReviewStatus, 'approved', `Demo for ${id} must be approved`);
       assert.ok(demo.photoReviewedBy.includes('Dr. A. Adeleke, PT'));
       assert.ok(demo.photoReviewedAt !== null);
     }
+  });
+
+  test('Multi-Key Resolution: Photos resolve by canonical ID, slug, and exercise name', () => {
+    // 1. By slug
+    const acbtBySlug = getExercisePhotoDemonstration('active-cycle-of-breathing-technique-acbt');
+    assert.ok(acbtBySlug !== null);
+    assert.equal(acbtBySlug.photoAssetPath, '/images/exercises/photographs/acbt-breathing.jpg');
+
+    const ankleBySlug = getExercisePhotoDemonstration('ankle-pumps');
+    assert.ok(ankleBySlug !== null);
+    assert.equal(ankleBySlug.photoAssetPath, '/images/exercises/photographs/ankle-pumps.jpg');
+
+    // 2. By exercise title / name
+    const acbtByName = getExercisePhotoDemonstration('Active Cycle of Breathing Technique (ACBT)');
+    assert.ok(acbtByName !== null);
+    assert.equal(acbtByName.photoAssetPath, '/images/exercises/photographs/acbt-breathing.jpg');
+
+    // 3. By fallback name parameter (simulating unknown DB UUID + known exercise name)
+    const simulatedDbUuid = 'e8b0a9f1-7782-4c91-9dc5-8f4b6a123456';
+    const acbtWithFallback = getExercisePhotoDemonstration(simulatedDbUuid, 'Active Cycle of Breathing Technique (ACBT)');
+    assert.ok(acbtWithFallback !== null);
+    assert.equal(acbtWithFallback.photoAssetPath, '/images/exercises/photographs/acbt-breathing.jpg');
+
+    const ankleWithFallback = getExercisePhotoDemonstration(simulatedDbUuid, 'Ankle Pumps');
+    assert.ok(ankleWithFallback !== null);
+    assert.equal(ankleWithFallback.photoAssetPath, '/images/exercises/photographs/ankle-pumps.jpg');
   });
 
   test('UI Invariants: Vector illustration toggles and "Visual in review" are retired from ExerciseVisualCard', () => {
@@ -246,7 +274,7 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
     assert.ok(cardSource.includes("objectFit: 'cover'"), 'Photographs must render with clean objectFit: cover framing');
   });
 
-  test('Catalogue Photo Coverage: Exactly 6 approved photos, 1 pending review, and 52 clean coming-soon fallbacks', () => {
+  test('Catalogue Photo Coverage: Exactly 8 approved photos, 1 pending review, and 50 clean coming-soon fallbacks', () => {
     const approvedExercises = [];
     const pendingExercises = [];
     const comingSoonExercises = [];
@@ -262,12 +290,12 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       }
     }
 
-    assert.equal(approvedExercises.length, 6, 'Exactly 6 exercises must have clinically approved photos');
+    assert.equal(approvedExercises.length, 8, 'Exactly 8 exercises must have clinically approved photos');
     assert.equal(pendingExercises.length, 1, 'Exactly 1 exercise (standing calf stretch) must be pending review');
-    assert.equal(comingSoonExercises.length, 52, 'Exactly 52 exercises must cleanly display "Photo demonstration coming soon"');
+    assert.equal(comingSoonExercises.length, 50, 'Exactly 50 exercises must cleanly display "Photo demonstration coming soon"');
     assert.equal(approvedExercises.length + pendingExercises.length + comingSoonExercises.length, 59, 'Total must equal 59');
 
-    // Verify all 6 approved photos map to valid JPEG files
+    // Verify all 8 approved photos map to valid JPEG files
     for (const ex of approvedExercises) {
       const demo = getExercisePhotoDemonstration(ex.id);
       assert.ok(demo.photoAssetPath.endsWith('.jpg'), `Photo for ${ex.name} must be a .jpg`);

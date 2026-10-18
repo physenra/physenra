@@ -40,7 +40,9 @@ export const PracticeProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
     try {
-      setLoading(true);
+      if (memberships.length === 0 && !getActivePracticeHeader()) {
+        setLoading(true);
+      }
       setError(null);
 
       // Fetch active practice memberships for the user with practice metadata

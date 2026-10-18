@@ -4279,6 +4279,13 @@ export interface Database {
         };
         Returns: string;
       };
+      create_home_exercise_program_atomic: {
+        Args: {
+          p_program: Json;
+          p_items: Json;
+        };
+        Returns: Database['public']['Tables']['home_exercise_programs']['Row'];
+      };
       generate_next_outcome_measure_identifier: {
         Args: {
           p_practice_id: string;

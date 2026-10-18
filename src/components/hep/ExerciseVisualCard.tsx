@@ -34,8 +34,8 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
   style = {},
 }) => {
   const [imageError, setImageError] = useState(false);
-  const photo = getExercisePhotoDemonstration(exerciseId);
-  const visual = getExerciseVisual(exerciseId);
+  const photo = getExercisePhotoDemonstration(exerciseId, exerciseName);
+  const visual = getExerciseVisual(exerciseId, exerciseName);
   const isPhotoApproved = photo?.photoClinicalReviewStatus === 'approved';
 
   // Sizing definitions

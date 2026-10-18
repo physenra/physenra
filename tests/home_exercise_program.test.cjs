@@ -25,6 +25,14 @@ const MIGRATION_PATH = path.join(
   'migrations',
   '20260928031000_home_exercise_program_foundation.sql'
 );
+const CANONICAL_MIGRATION_PATH = path.join(
+  __dirname,
+  '..',
+  'supabase',
+  'migrations',
+  '20261018180000_canonical_system_exercises_and_atomic_hep.sql'
+);
+const canonicalMigrationSql = fs.readFileSync(CANONICAL_MIGRATION_PATH, 'utf8');
 const SERVICE_PATH = path.join(
   __dirname,
   '..',
@@ -323,6 +331,44 @@ test('PHYSENRA HOME EXERCISE PROGRAM FOUNDATION V1 VERIFICATION', async (t) => {
       assert(
         serviceCode.includes('clinical_visit:clinical_visits!fk_hep_visit_patient_practice'),
         'Must use !fk_hep_visit_patient_practice hint'
+      );
+    });
+
+    await st.test('hepService enforces atomic program creation, ID pre-resolution, and rollback on item failure', () => {
+      assert(
+        serviceCode.includes('create_home_exercise_program_atomic'),
+        'hepService must invoke create_home_exercise_program_atomic RPC'
+      );
+      assert(
+        serviceCode.includes('CANONICAL_TO_DB_EXERCISE_ID'),
+        'hepService must export and use CANONICAL_TO_DB_EXERCISE_ID map'
+      );
+      assert(
+        serviceCode.includes('.delete()') && serviceCode.includes('Draft program was safely rolled back'),
+        'hepService must execute compensation rollback deleting orphan draft program if item insert fails'
+      );
+    });
+
+    await st.test('Canonical migration defines all 59 system exercises and atomic HEP creation RPC', () => {
+      assert(
+        canonicalMigrationSql.includes('create_home_exercise_program_atomic'),
+        'Must define create_home_exercise_program_atomic'
+      );
+      assert(
+        canonicalMigrationSql.includes('SECURITY DEFINER'),
+        'create_home_exercise_program_atomic must be SECURITY DEFINER'
+      );
+      assert(
+        canonicalMigrationSql.includes('SET search_path = public, pg_temp'),
+        'Must fix search_path to public, pg_temp'
+      );
+      assert(
+        canonicalMigrationSql.includes('00000000-0000-0000-0000-000000000055'),
+        'Must seed canonical ACBT exercise UUID'
+      );
+      assert(
+        canonicalMigrationSql.includes('00000000-0000-0000-0000-000000000008'),
+        'Must seed canonical Ankle Pumps exercise UUID'
       );
     });
   });

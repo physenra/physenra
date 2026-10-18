@@ -283,6 +283,7 @@ export const CreateHEPPage: React.FC = () => {
     try {
       const itemsPayload: CreateProgramItemInput[] = prescribedItems.map((item, idx) => ({
         exercise_id: item.exercise_id,
+        exercise_name: item.exercise_name,
         order_index: idx + 1,
         sets: item.sets ? Number(item.sets) : null,
         repetitions: item.repetitions ? Number(item.repetitions) : null,

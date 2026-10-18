@@ -29,15 +29,15 @@ export interface ExerciseVisualMetadata {
 
 /**
  * Standard Physical Therapy Exercise Visual Registry.
- * Provides version-controlled, clinically validated vector medical illustrations
- * mapped 1-to-1 to Physenra system exercises.
+ * Provides version-controlled, clinically validated visual assets
+ * mapped 1-to-1 to all 59 Physenra system exercises.
  *
  * Strict Compliance Guard:
- * Only assets with clinicalReviewStatus === 'approved' and non-null assetPath
+ * Only assets with clinicalReviewStatus === 'approved' and non-null assetPath/photoAssetPath
  * are permitted to render in patient-facing UI and print/PDF documents.
  */
 export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> = {
-  // 1. Quad Sets
+  // 1. Quad Sets (Isometric Quadriceps Contraction)
   '00000000-0000-0000-0000-000000000001': {
     exerciseId: '00000000-0000-0000-0000-000000000001',
     slug: 'quad-sets',
@@ -61,7 +61,7 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     photoReviewedAt: '2026-10-17T00:35:00Z',
   },
 
-  // 2. Straight Leg Raise
+  // 2. Straight Leg Raise (Supine)
   '00000000-0000-0000-0000-000000000002': {
     exerciseId: '00000000-0000-0000-0000-000000000002',
     slug: 'straight-leg-raise',
@@ -85,7 +85,7 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     photoReviewedAt: '2026-10-17T00:35:00Z',
   },
 
-  // 3. Glute Bridge
+  // 3. Glute Bridge (Supine Double Leg)
   '00000000-0000-0000-0000-000000000003': {
     exerciseId: '00000000-0000-0000-0000-000000000003',
     slug: 'glute-bridge',
@@ -125,7 +125,7 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 5. Scapular Retraction
+  // 5. Scapular Retraction (Pinch)
   '00000000-0000-0000-0000-000000000005': {
     exerciseId: '00000000-0000-0000-0000-000000000005',
     slug: 'scapular-retraction',
@@ -141,7 +141,7 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 6. Pendulum
+  // 6. Pendulum (Codman) Exercise
   '00000000-0000-0000-0000-000000000006': {
     exerciseId: '00000000-0000-0000-0000-000000000006',
     slug: 'pendulum-codman',
@@ -157,7 +157,7 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 7. Seated Chin Tucks
+  // 7. Seated Chin Tucks (Cervical Retraction)
   '00000000-0000-0000-0000-000000000007': {
     exerciseId: '00000000-0000-0000-0000-000000000007',
     slug: 'seated-chin-tucks',
@@ -195,9 +195,17 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/ankle-pumps.jpg',
+    photoAltText: 'Photograph of fictional Nigerian male patient in long-sitting position on physiotherapy plinth performing active ankle dorsiflexion pumping exercise.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian male, early 30s, rich dark brown skin',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Long-sitting posture on plinth verified; both legs resting horizontal with straight knees; active ankle dorsiflexion movement excursion accurately demonstrates ankle pumps.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-18T16:52:00Z',
   },
 
-  // 9. Standing Calf Stretch
+  // 9. Standing Calf Stretch (Gastrocnemius)
   '00000000-0000-0000-0000-000000000009': {
     exerciseId: '00000000-0000-0000-0000-000000000009',
     slug: 'standing-calf-stretch',
@@ -219,7 +227,7 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     photoClinicalObservationNotes: 'Discrepancy noted during clinical safety audit: rear heel is slightly elevated off floor rather than pressed completely flat. Requires physiotherapist remediation before live patient-facing approval.',
   },
 
-  // 10. Cat-Camel
+  // 10. Cat-Camel (Spinal Mobility)
   '00000000-0000-0000-0000-000000000010': {
     exerciseId: '00000000-0000-0000-0000-000000000010',
     slug: 'cat-camel',
@@ -267,7 +275,7 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 13. Prone Cobra
+  // 13. Prone Cobra (Thoracic Postural Extension)
   '00000000-0000-0000-0000-000000000013': {
     exerciseId: '00000000-0000-0000-0000-000000000013',
     slug: 'prone-cobra',
@@ -283,7 +291,7 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 14. Bird-Dog
+  // 14. Bird-Dog (Contralateral Core Stabilization)
   '00000000-0000-0000-0000-000000000014': {
     exerciseId: '00000000-0000-0000-0000-000000000014',
     slug: 'bird-dog',
@@ -299,7 +307,7 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 15. Dead Bug
+  // 15. Dead Bug (Anterior Core Motor Control)
   '00000000-0000-0000-0000-000000000015': {
     exerciseId: '00000000-0000-0000-0000-000000000015',
     slug: 'dead-bug',
@@ -315,7 +323,7 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 16. McKenzie Prone Press-Up
+  // 16. McKenzie Prone Press-Up (Lumbar Extension)
   '00000000-0000-0000-0000-000000000016': {
     exerciseId: '00000000-0000-0000-0000-000000000016',
     slug: 'mckenzie-prone-pressup',
@@ -339,7 +347,7 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     photoReviewedAt: '2026-10-17T00:35:00Z',
   },
 
-  // 17. Side Plank
+  // 17. Side Plank (Quadratus Lumborum Stabilization)
   '00000000-0000-0000-0000-000000000017': {
     exerciseId: '00000000-0000-0000-0000-000000000017',
     slug: 'side-plank',
@@ -355,7 +363,199 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 26. Side-Lying Clamshells
+  // 18. Side-Lying Shoulder External Rotation
+  '00000000-0000-0000-0000-000000000018': {
+    exerciseId: '00000000-0000-0000-0000-000000000018',
+    slug: 'side-lying-shoulder-external-rotation',
+    title: 'Side-Lying Shoulder External Rotation',
+    assetPath: null,
+    altText: 'Side-Lying Shoulder External Rotation rehabilitation protocol.',
+    bodyRegion: 'shoulder',
+    movementPhases: 'Starting Position: Lie on unaffected side, target elbow bent 90 degrees with towel roll under arm. Action: Rotate forearm upward toward ceiling agains',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 19. Prone Y-to-T Raises (Scapular Stabilizers)
+  '00000000-0000-0000-0000-000000000019': {
+    exerciseId: '00000000-0000-0000-0000-000000000019',
+    slug: 'prone-y-to-t-raises-scapular-stabilizers',
+    title: 'Prone Y-to-T Raises (Scapular Stabilizers)',
+    assetPath: null,
+    altText: 'Prone Y-to-T Raises (Scapular Stabilizers) rehabilitation protocol.',
+    bodyRegion: 'shoulder',
+    movementPhases: 'Starting Position: Prone on mat with arms dangling, thumbs up. Action: Lift arms to sides (T) pinching shoulder blades together, or at 45 degrees forw',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 20. Sleeper Stretch (Posterior Capsule)
+  '00000000-0000-0000-0000-000000000020': {
+    exerciseId: '00000000-0000-0000-0000-000000000020',
+    slug: 'sleeper-stretch-posterior-capsule',
+    title: 'Sleeper Stretch (Posterior Capsule)',
+    assetPath: null,
+    altText: 'Sleeper Stretch (Posterior Capsule) rehabilitation protocol.',
+    bodyRegion: 'shoulder',
+    movementPhases: 'Starting Position: Side-lying on involved side with shoulder flexed 90 degrees, elbow 90 degrees. Action: With other hand, gently press wrist downward',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 21. Wall Slides with Serratus Anterior Shrug
+  '00000000-0000-0000-0000-000000000021': {
+    exerciseId: '00000000-0000-0000-0000-000000000021',
+    slug: 'wall-slides-with-serratus-anterior-shrug',
+    title: 'Wall Slides with Serratus Anterior Shrug',
+    assetPath: null,
+    altText: 'Wall Slides with Serratus Anterior Shrug rehabilitation protocol.',
+    bodyRegion: 'shoulder',
+    movementPhases: 'Starting Position: Stand facing wall with forearms vertical against wall. Action: Slide forearms up wall. At top, gently push upper back away from wal',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 22. Wrist Extensor Eccentric Loading (Tyler Twist)
+  '00000000-0000-0000-0000-000000000022': {
+    exerciseId: '00000000-0000-0000-0000-000000000022',
+    slug: 'wrist-extensor-eccentric-loading-tyler-twist',
+    title: 'Wrist Extensor Eccentric Loading (Tyler Twist)',
+    assetPath: null,
+    altText: 'Wrist Extensor Eccentric Loading (Tyler Twist) rehabilitation protocol.',
+    bodyRegion: 'elbow',
+    movementPhases: 'Starting Position: Forearm supported on table, wrist in full extension holding bar or 1-2 kg dumbbell. Action: Slowly lower wrist into full flexion ov',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 23. Wrist Flexor Eccentric Loading
+  '00000000-0000-0000-0000-000000000023': {
+    exerciseId: '00000000-0000-0000-0000-000000000023',
+    slug: 'wrist-flexor-eccentric-loading',
+    title: 'Wrist Flexor Eccentric Loading',
+    assetPath: null,
+    altText: 'Wrist Flexor Eccentric Loading rehabilitation protocol.',
+    bodyRegion: 'elbow',
+    movementPhases: 'Starting Position: Forearm palm-up on table, wrist in flexion holding dumbbell. Action: Slowly lower wrist backward into extension over 4-5 seconds. U',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 24. Finger Tendon Gliding Exercises
+  '00000000-0000-0000-0000-000000000024': {
+    exerciseId: '00000000-0000-0000-0000-000000000024',
+    slug: 'finger-tendon-gliding-exercises',
+    title: 'Finger Tendon Gliding Exercises',
+    assetPath: null,
+    altText: 'Finger Tendon Gliding Exercises rehabilitation protocol.',
+    bodyRegion: 'wrist_hand',
+    movementPhases: 'Starting Position: Hand upright with fingers straight. Action: Transition through 5 positions: (1) Straight hand, (2) Hook fist, (3) Full fist, (4) Fl',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 25. Forearm Pronation and Supination Drill
+  '00000000-0000-0000-0000-000000000025': {
+    exerciseId: '00000000-0000-0000-0000-000000000025',
+    slug: 'forearm-pronation-and-supination-drill',
+    title: 'Forearm Pronation and Supination Drill',
+    assetPath: null,
+    altText: 'Forearm Pronation and Supination Drill rehabilitation protocol.',
+    bodyRegion: 'elbow',
+    movementPhases: 'Starting Position: Elbow bent 90 degrees at side, holding base of light hammer upright. Action: Slowly rotate palm up (supination), pause 2s, then rot',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 26. Side-Lying Clamshells with Resistance Band
   '00000000-0000-0000-0000-000000000026': {
     exerciseId: '00000000-0000-0000-0000-000000000026',
     slug: 'clamshells',
@@ -403,7 +603,7 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 29. Terminal Knee Extension (TKE)
+  // 29. Terminal Knee Extension (TKE) with Band
   '00000000-0000-0000-0000-000000000029': {
     exerciseId: '00000000-0000-0000-0000-000000000029',
     slug: 'terminal-knee-extension',
@@ -419,7 +619,79 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 33. Eccentric Heel Drop
+  // 30. Eccentric Decline Board Squat
+  '00000000-0000-0000-0000-000000000030': {
+    exerciseId: '00000000-0000-0000-0000-000000000030',
+    slug: 'eccentric-decline-board-squat',
+    title: 'Eccentric Decline Board Squat',
+    assetPath: null,
+    altText: 'Eccentric Decline Board Squat rehabilitation protocol.',
+    bodyRegion: 'knee',
+    movementPhases: 'Starting Position: Stand on 25-degree decline wedge facing downhill. Action: Balance on target leg, slowly squat to 60-70 degrees knee flexion over 4 ',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 31. Romanian Deadlift (RDL) with Dumbbells
+  '00000000-0000-0000-0000-000000000031': {
+    exerciseId: '00000000-0000-0000-0000-000000000031',
+    slug: 'romanian-deadlift-rdl-with-dumbbells',
+    title: 'Romanian Deadlift (RDL) with Dumbbells',
+    assetPath: null,
+    altText: 'Romanian Deadlift (RDL) with Dumbbells rehabilitation protocol.',
+    bodyRegion: 'knee',
+    movementPhases: 'Starting Position: Feet hip-width apart holding dumbbells, knees slightly unlocked. Action: Hinge at hips pushing buttocks backward with flat back. Lo',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 32. Step-Down Drill (Eccentric Quadriceps)
+  '00000000-0000-0000-0000-000000000032': {
+    exerciseId: '00000000-0000-0000-0000-000000000032',
+    slug: 'step-down-drill-eccentric-quadriceps',
+    title: 'Step-Down Drill (Eccentric Quadriceps)',
+    assetPath: null,
+    altText: 'Step-Down Drill (Eccentric Quadriceps) rehabilitation protocol.',
+    bodyRegion: 'knee',
+    movementPhases: 'Starting Position: Stand on 4-6 inch step on target leg. Action: Bend knee to slowly lower opposite heel toward floor over 3s. Lightly tap floor witho',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 33. Eccentric Heel Drop on Step (Alfredson Protocol)
   '00000000-0000-0000-0000-000000000033': {
     exerciseId: '00000000-0000-0000-0000-000000000033',
     slug: 'alfredson-heel-drop',
@@ -435,7 +707,319 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 47. Copenhagen Adductor
+  // 34. Resisted Ankle Eversion with Resistance Band
+  '00000000-0000-0000-0000-000000000034': {
+    exerciseId: '00000000-0000-0000-0000-000000000034',
+    slug: 'resisted-ankle-eversion-with-resistance-band',
+    title: 'Resisted Ankle Eversion with Resistance Band',
+    assetPath: null,
+    altText: 'Resisted Ankle Eversion with Resistance Band rehabilitation protocol.',
+    bodyRegion: 'ankle_foot',
+    movementPhases: 'Starting Position: Seated with legs extended, band anchored around foot. Action: Turn target foot outward and slightly upward against band resistance ',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 35. Towel Scrunches and Marble Pick-ups
+  '00000000-0000-0000-0000-000000000035': {
+    exerciseId: '00000000-0000-0000-0000-000000000035',
+    slug: 'towel-scrunches-and-marble-pick-ups',
+    title: 'Towel Scrunches and Marble Pick-ups',
+    assetPath: null,
+    altText: 'Towel Scrunches and Marble Pick-ups rehabilitation protocol.',
+    bodyRegion: 'ankle_foot',
+    movementPhases: 'Starting Position: Seated barefoot on chair with towel flat on floor. Action: Keeping heel on floor, curl toes inward to gather towel toward you in sc',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 36. Weight-Shifting in Standing with Mirror Feedback
+  '00000000-0000-0000-0000-000000000036': {
+    exerciseId: '00000000-0000-0000-0000-000000000036',
+    slug: 'weight-shifting-in-standing-with-mirror-feedback',
+    title: 'Weight-Shifting in Standing with Mirror Feedback',
+    assetPath: null,
+    altText: 'Weight-Shifting in Standing with Mirror Feedback rehabilitation protocol.',
+    bodyRegion: 'full_body',
+    movementPhases: 'Starting Position: Stand facing mirror with hands on parallel bars/counter. Action: Slowly shift weight onto paretic leg until 60-70% loaded. Observe ',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 37. Bilateral Upper Extremity Table Slides with Towel
+  '00000000-0000-0000-0000-000000000037': {
+    exerciseId: '00000000-0000-0000-0000-000000000037',
+    slug: 'bilateral-upper-extremity-table-slides-with-towel',
+    title: 'Bilateral Upper Extremity Table Slides with Towel',
+    assetPath: null,
+    altText: 'Bilateral Upper Extremity Table Slides with Towel rehabilitation protocol.',
+    bodyRegion: 'shoulder',
+    movementPhases: 'Starting Position: Seated at smooth table, both hands on folded towel with sound hand guiding paretic hand. Action: Lean trunk forward while sliding t',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 38. Bridging with Affected Limb Weight Acceptance
+  '00000000-0000-0000-0000-000000000038': {
+    exerciseId: '00000000-0000-0000-0000-000000000038',
+    slug: 'bridging-with-affected-limb-weight-acceptance',
+    title: 'Bridging with Affected Limb Weight Acceptance',
+    assetPath: null,
+    altText: 'Bridging with Affected Limb Weight Acceptance rehabilitation protocol.',
+    bodyRegion: 'hip',
+    movementPhases: 'Starting Position: Supine with knees bent 90 degrees, feet flat. Action: Press down evenly through both heels, squeeze glutes, lift hips into bridge. ',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 39. LSVT BIG-Style High Amplitude Stepping Drill
+  '00000000-0000-0000-0000-000000000039': {
+    exerciseId: '00000000-0000-0000-0000-000000000039',
+    slug: 'lsvt-big-style-high-amplitude-stepping-drill',
+    title: 'LSVT BIG-Style High Amplitude Stepping Drill',
+    assetPath: null,
+    altText: 'LSVT BIG-Style High Amplitude Stepping Drill rehabilitation protocol.',
+    bodyRegion: 'full_body',
+    movementPhases: 'Starting Position: Stand tall with floor markers. Action: Take an exaggerated, large-amplitude step forward with right foot while swinging left arm fo',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 40. Dynamic Auditory-Cued Gait Training
+  '00000000-0000-0000-0000-000000000040': {
+    exerciseId: '00000000-0000-0000-0000-000000000040',
+    slug: 'dynamic-auditory-cued-gait-training',
+    title: 'Dynamic Auditory-Cued Gait Training',
+    assetPath: null,
+    altText: 'Dynamic Auditory-Cued Gait Training rehabilitation protocol.',
+    bodyRegion: 'full_body',
+    movementPhases: 'Starting Position: Stand at start of 20-meter hallway with metronome set to 100-110% baseline cadence. Action: Walk synchronizing heel strikes to rhyt',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 41. Frenkel Coordination Heel-to-Shin Exercises
+  '00000000-0000-0000-0000-000000000041': {
+    exerciseId: '00000000-0000-0000-0000-000000000041',
+    slug: 'frenkel-coordination-heel-to-shin-exercises',
+    title: 'Frenkel Coordination Heel-to-Shin Exercises',
+    assetPath: null,
+    altText: 'Frenkel Coordination Heel-to-Shin Exercises rehabilitation protocol.',
+    bodyRegion: 'knee',
+    movementPhases: 'Starting Position: Supine with head elevated on pillow to view legs. Action: Lift right heel and place cleanly on left knee. Slowly and smoothly slide',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 42. Vestibular VOR x1 Gaze Stabilization Drill
+  '00000000-0000-0000-0000-000000000042': {
+    exerciseId: '00000000-0000-0000-0000-000000000042',
+    slug: 'vestibular-vor-x1-gaze-stabilization-drill',
+    title: 'Vestibular VOR x1 Gaze Stabilization Drill',
+    assetPath: null,
+    altText: 'Vestibular VOR x1 Gaze Stabilization Drill rehabilitation protocol.',
+    bodyRegion: 'cervical',
+    movementPhases: 'Starting Position: Seated holding target letter at eye level. Action: Focus eyes on letter. While keeping letter in sharp focus, rotate head left and ',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 43. Brandt-Daroff Vestibular Habituation Drill
+  '00000000-0000-0000-0000-000000000043': {
+    exerciseId: '00000000-0000-0000-0000-000000000043',
+    slug: 'brandt-daroff-vestibular-habituation-drill',
+    title: 'Brandt-Daroff Vestibular Habituation Drill',
+    assetPath: null,
+    altText: 'Brandt-Daroff Vestibular Habituation Drill rehabilitation protocol.',
+    bodyRegion: 'cervical',
+    movementPhases: 'Starting Position: Sit upright on edge of bed. Action: Turn head 45 degrees left, lie onto right side for 30s. Sit upright for 30s. Turn head 45 degre',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 44. Prone Tummy Time with Chest Bolster Support
+  '00000000-0000-0000-0000-000000000044': {
+    exerciseId: '00000000-0000-0000-0000-000000000044',
+    slug: 'prone-tummy-time-with-chest-bolster-support',
+    title: 'Prone Tummy Time with Chest Bolster Support',
+    assetPath: null,
+    altText: 'Prone Tummy Time with Chest Bolster Support rehabilitation protocol.',
+    bodyRegion: 'cervical',
+    movementPhases: 'Starting Position: Infant/child prone over small rolled towel under chest. Action: Position toys/mirrors in sightline to encourage lifting head, exten',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 45. Tall-Kneeling to Half-Kneeling Transitional Stepping
+  '00000000-0000-0000-0000-000000000045': {
+    exerciseId: '00000000-0000-0000-0000-000000000045',
+    slug: 'tall-kneeling-to-half-kneeling-transitional-stepping',
+    title: 'Tall-Kneeling to Half-Kneeling Transitional Stepping',
+    assetPath: null,
+    altText: 'Tall-Kneeling to Half-Kneeling Transitional Stepping rehabilitation protocol.',
+    bodyRegion: 'hip',
+    movementPhases: 'Starting Position: Tall-kneeling on padded mat, hands on bench. Action: Shift weight to one knee, bring opposite foot forward flat on floor into half-',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 46. Bear Crawl Coordination Drill
+  '00000000-0000-0000-0000-000000000046': {
+    exerciseId: '00000000-0000-0000-0000-000000000046',
+    slug: 'bear-crawl-coordination-drill',
+    title: 'Bear Crawl Coordination Drill',
+    assetPath: null,
+    altText: 'Bear Crawl Coordination Drill rehabilitation protocol.',
+    bodyRegion: 'full_body',
+    movementPhases: 'Starting Position: On hands and feet with knees hovering 2-3 inches off floor. Action: Crawl forward in contralateral pattern (right hand + left foot,',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 47. Copenhagen Adductor Exercise (Groin Strain Protocol)
   '00000000-0000-0000-0000-000000000047': {
     exerciseId: '00000000-0000-0000-0000-000000000047',
     slug: 'copenhagen-adductor',
@@ -451,7 +1035,7 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 48. Nordic Hamstring Curl
+  // 48. Nordic Hamstring Curl (Eccentric Hamstring Protocol)
   '00000000-0000-0000-0000-000000000048': {
     exerciseId: '00000000-0000-0000-0000-000000000048',
     slug: 'nordic-hamstring',
@@ -467,7 +1051,31 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 50. 30-Second Chair Stand
+  // 49. Lateral Bound and Stick (Frontal Plane Deceleration)
+  '00000000-0000-0000-0000-000000000049': {
+    exerciseId: '00000000-0000-0000-0000-000000000049',
+    slug: 'lateral-bound-and-stick-frontal-plane-deceleration',
+    title: 'Lateral Bound and Stick (Frontal Plane Deceleration)',
+    assetPath: null,
+    altText: 'Lateral Bound and Stick (Frontal Plane Deceleration) rehabilitation protocol.',
+    bodyRegion: 'full_body',
+    movementPhases: 'Starting Position: Athletic stance on right leg. Action: Push off explosively to bound laterally 3-5 feet onto left leg. Land softly absorbing force b',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 50. 30-Second Chair Stand Functional Training Drill
   '00000000-0000-0000-0000-000000000050': {
     exerciseId: '00000000-0000-0000-0000-000000000050',
     slug: 'sit-to-stand',
@@ -491,7 +1099,31 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     photoReviewedAt: '2026-10-17T00:35:00Z',
   },
 
-  // 52. Tandem Stance
+  // 51. Multidirectional Stepping Clock Drill
+  '00000000-0000-0000-0000-000000000051': {
+    exerciseId: '00000000-0000-0000-0000-000000000051',
+    slug: 'multidirectional-stepping-clock-drill',
+    title: 'Multidirectional Stepping Clock Drill',
+    assetPath: null,
+    altText: 'Multidirectional Stepping Clock Drill rehabilitation protocol.',
+    bodyRegion: 'full_body',
+    movementPhases: 'Starting Position: Stand in center of clock face. Action: Step right foot to 12:00, return; step to 1:00, 2:00, 3:00, 4:00, 5:00, 6:00. Repeat with le',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 52. Tandem Stance with Dual-Task Cognitive Challenge
   '00000000-0000-0000-0000-000000000052': {
     exerciseId: '00000000-0000-0000-0000-000000000052',
     slug: 'tandem-stance',
@@ -507,7 +1139,7 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 53. Diaphragmatic Breathing
+  // 53. Diaphragmatic Breathing with Lower Rib Cage Expansion
   '00000000-0000-0000-0000-000000000053': {
     exerciseId: '00000000-0000-0000-0000-000000000053',
     slug: 'diaphragmatic-breathing',
@@ -523,7 +1155,55 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedAt: '2026-10-16T22:00:00Z',
   },
 
-  // 56. Pelvic Floor Muscle Training (Kegels)
+  // 54. Pursed-Lip Breathing Drill
+  '00000000-0000-0000-0000-000000000054': {
+    exerciseId: '00000000-0000-0000-0000-000000000054',
+    slug: 'pursed-lip-breathing-drill',
+    title: 'Pursed-Lip Breathing Drill',
+    assetPath: null,
+    altText: 'Pursed-Lip Breathing Drill rehabilitation protocol.',
+    bodyRegion: 'thoracic',
+    movementPhases: 'Starting Position: Comfortable sitting or standing. Action: Inhale slowly through nose for 2 counts. Purse lips as if blowing out candles. Exhale gent',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 55. Active Cycle of Breathing Technique (ACBT)
+  '00000000-0000-0000-0000-000000000055': {
+    exerciseId: '00000000-0000-0000-0000-000000000055',
+    slug: 'active-cycle-of-breathing-technique-acbt',
+    title: 'Active Cycle of Breathing Technique (ACBT)',
+    assetPath: null,
+    altText: 'Active Cycle of Breathing Technique (ACBT) cardiopulmonary airway clearance protocol.',
+    bodyRegion: 'thoracic',
+    movementPhases: 'Start: Seated upright comfortably on plinth -> Action: 4-5 relaxed diaphragmatic breaths with hands on lower ribcage, 3-4 deep breaths with 3s hold, followed by 1-2 open glottis huffs -> Finish: Cycle smoothly until airway clearance is achieved.',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: '/images/exercises/photographs/acbt-breathing.jpg',
+    photoAltText: 'Photograph of fictional Nigerian female patient seated upright on clinic plinth demonstrating diaphragmatic breathing control of Active Cycle of Breathing Technique.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian female, mid-30s, warm rich brown skin',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Upright seated plinth posture verified; bilateral hands correctly positioned over lower lateral ribcage and epigastrium; unhurried diaphragmatic excursion and relaxed cervical-shoulder musculature meet clinical standards.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-18T16:52:00Z',
+  },
+
+  // 56. Pelvic Floor Muscle Training (Kegels with Knack Technique)
   '00000000-0000-0000-0000-000000000056': {
     exerciseId: '00000000-0000-0000-0000-000000000056',
     slug: 'pelvic-floor-kegel',
@@ -538,14 +1218,141 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
   },
+
+  // 57. Supine Transverse Abdominis Drawing-In Maneuver
+  '00000000-0000-0000-0000-000000000057': {
+    exerciseId: '00000000-0000-0000-0000-000000000057',
+    slug: 'supine-transverse-abdominis-drawing-in-maneuver',
+    title: 'Supine Transverse Abdominis Drawing-In Maneuver',
+    assetPath: null,
+    altText: 'Supine Transverse Abdominis Drawing-In Maneuver rehabilitation protocol.',
+    bodyRegion: 'lumbar',
+    movementPhases: 'Starting Position: Supine, knees bent 90 degrees, feet flat. Fingers 1 inch inside hip bones. Action: Exhale gently and draw lower belly toward spine ',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 58. Transtibial Residual Limb Extension and Prone Positioning
+  '00000000-0000-0000-0000-000000000058': {
+    exerciseId: '00000000-0000-0000-0000-000000000058',
+    slug: 'transtibial-residual-limb-extension-and-prone-positioning',
+    title: 'Transtibial Residual Limb Extension and Prone Positioning',
+    assetPath: null,
+    altText: 'Transtibial Residual Limb Extension and Prone Positioning rehabilitation protocol.',
+    bodyRegion: 'hip',
+    movementPhases: 'Starting Position: Prone on mat with residual limb extended. Action: Tighten glutes, press residual limb gently downward into mat to achieve 0 degrees',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  },
+
+  // 59. Residual Limb Desensitization and Towel Friction Drill
+  '00000000-0000-0000-0000-000000000059': {
+    exerciseId: '00000000-0000-0000-0000-000000000059',
+    slug: 'residual-limb-desensitization-and-towel-friction-drill',
+    title: 'Residual Limb Desensitization and Towel Friction Drill',
+    assetPath: null,
+    altText: 'Residual Limb Desensitization and Towel Friction Drill rehabilitation protocol.',
+    bodyRegion: 'knee',
+    movementPhases: 'Starting Position: Seated with limb clean and dry. Action: Gently rub distal limb and scar in circular motions using graded textures: soft cotton/silk',
+    clinicalReviewStatus: 'pending_review',
+    license: 'Physenra Proprietary Original Clinical Artwork',
+    attribution: 'Physenra Clinical Architecture Team',
+    reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
+    reviewedAt: null,
+    photoAssetPath: null,
+    photoAltText: null,
+    photoAiGenerated: false,
+    photoDemographic: null,
+    photoClinicalReviewStatus: 'pending_physiotherapist_review',
+    photoClinicalObservationNotes: null,
+    photoReviewedBy: null,
+    photoReviewedAt: null,
+  }
 };
 
 /**
- * Retrieve visual illustration metadata for an exercise ID.
+ * Normalize an exercise identifier, name, or slug for resilient dictionary lookup.
+ * Removes whitespace, symbols, and lowercases text.
+ */
+export function normalizeExerciseLookupKey(val: string): string {
+  if (!val) return '';
+  return val
+    .toLowerCase()
+    .replace(/[()[]{}]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
+
+// Fast secondary lookups indexed at startup
+const SLUG_TO_VISUAL = new Map<string, ExerciseVisualMetadata>();
+const NAME_TO_VISUAL = new Map<string, ExerciseVisualMetadata>();
+
+for (const item of Object.values(EXERCISE_VISUALS_REGISTRY)) {
+  if (item.slug) {
+    SLUG_TO_VISUAL.set(item.slug.toLowerCase().trim(), item);
+    SLUG_TO_VISUAL.set(normalizeExerciseLookupKey(item.slug), item);
+  }
+  if (item.title) {
+    NAME_TO_VISUAL.set(normalizeExerciseLookupKey(item.title), item);
+  }
+}
+
+/**
+ * Retrieve visual illustration metadata for an exercise ID, slug, or title.
  * Returns null if the exercise has no visual entry or if its visual is not approved.
  */
-export function getExerciseVisual(exerciseId: string): ExerciseVisualMetadata | null {
-  const meta = EXERCISE_VISUALS_REGISTRY[exerciseId];
+export function getExerciseVisual(
+  exerciseIdOrSlugOrName: string,
+  nameFallback?: string
+): ExerciseVisualMetadata | null {
+  if (!exerciseIdOrSlugOrName) return null;
+
+  let meta: ExerciseVisualMetadata | undefined = EXERCISE_VISUALS_REGISTRY[exerciseIdOrSlugOrName];
+
+  if (!meta) {
+    meta = SLUG_TO_VISUAL.get(exerciseIdOrSlugOrName.toLowerCase().trim()) ||
+           SLUG_TO_VISUAL.get(normalizeExerciseLookupKey(exerciseIdOrSlugOrName));
+  }
+
+  if (!meta) {
+    meta = NAME_TO_VISUAL.get(normalizeExerciseLookupKey(exerciseIdOrSlugOrName));
+  }
+
+  if (!meta && nameFallback) {
+    meta = NAME_TO_VISUAL.get(normalizeExerciseLookupKey(nameFallback));
+    if (!meta) {
+      const normFallback = normalizeExerciseLookupKey(nameFallback);
+      for (const [key, item] of NAME_TO_VISUAL.entries()) {
+        if (key.includes(normFallback) || normFallback.includes(key)) {
+          meta = item;
+          break;
+        }
+      }
+    }
+  }
+
   if (!meta) return null;
   if (meta.clinicalReviewStatus !== 'approved' || !meta.assetPath) return null;
   return meta;
@@ -554,15 +1361,18 @@ export function getExerciseVisual(exerciseId: string): ExerciseVisualMetadata | 
 /**
  * Check whether an exercise has a clinically approved visual illustration ready for patient-facing display.
  */
-export function hasApprovedVisual(exerciseId: string): boolean {
-  return getExerciseVisual(exerciseId) !== null;
+export function hasApprovedVisual(exerciseId: string, nameFallback?: string): boolean {
+  return getExerciseVisual(exerciseId, nameFallback) !== null;
 }
 
 /**
- * Retrieve photographic demonstration metadata for an exercise ID.
- * Accessible in clinician review portals and catalog audit tools.
+ * Retrieve photographic demonstration metadata for an exercise ID, slug, or title.
+ * Multi-key resolution checks canonical ID, slug, title, and optional name fallback.
  */
-export function getExercisePhotoDemonstration(exerciseId: string): {
+export function getExercisePhotoDemonstration(
+  exerciseIdOrSlugOrName: string,
+  nameFallback?: string
+): {
   exerciseId: string;
   photoAssetPath: string;
   photoAltText: string;
@@ -573,8 +1383,38 @@ export function getExercisePhotoDemonstration(exerciseId: string): {
   photoReviewedBy?: string | null;
   photoReviewedAt?: string | null;
 } | null {
-  const meta = EXERCISE_VISUALS_REGISTRY[exerciseId];
+  if (!exerciseIdOrSlugOrName) return null;
+
+  // 1. Direct canonical UUID lookup
+  let meta: ExerciseVisualMetadata | undefined = EXERCISE_VISUALS_REGISTRY[exerciseIdOrSlugOrName];
+
+  // 2. Slug lookup
+  if (!meta) {
+    meta = SLUG_TO_VISUAL.get(exerciseIdOrSlugOrName.toLowerCase().trim()) ||
+           SLUG_TO_VISUAL.get(normalizeExerciseLookupKey(exerciseIdOrSlugOrName));
+  }
+
+  // 3. Name lookup
+  if (!meta) {
+    meta = NAME_TO_VISUAL.get(normalizeExerciseLookupKey(exerciseIdOrSlugOrName));
+  }
+
+  // 4. Secondary fallback name lookup
+  if (!meta && nameFallback) {
+    meta = NAME_TO_VISUAL.get(normalizeExerciseLookupKey(nameFallback));
+    if (!meta) {
+      const normFallback = normalizeExerciseLookupKey(nameFallback);
+      for (const [key, item] of NAME_TO_VISUAL.entries()) {
+        if (key.includes(normFallback) || normFallback.includes(key)) {
+          meta = item;
+          break;
+        }
+      }
+    }
+  }
+
   if (!meta || !meta.photoAssetPath) return null;
+
   return {
     exerciseId: meta.exerciseId,
     photoAssetPath: meta.photoAssetPath,
@@ -633,4 +1473,3 @@ export function getPhotoDemonstrationSummary(): {
     aiGeneratedCount,
   };
 }
-

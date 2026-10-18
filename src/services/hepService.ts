@@ -1,5 +1,11 @@
 import { supabase, getActivePracticeHeader } from '../lib/supabase';
 import { SYSTEM_EXERCISES_CATALOGUE } from './hepCatalogueData';
+import { normalizeExerciseLookupKey } from './exerciseVisualRegistry';
+
+/**
+ * Cache for resolving canonical system exercise UUIDs to remote database UUIDs
+ */
+export const CANONICAL_TO_DB_EXERCISE_ID = new Map<string, string>();
 import type {
   Exercise,
   ExerciseInsert,
@@ -31,6 +37,7 @@ export interface GetProgramsResult {
 
 export interface CreateProgramItemInput {
   exercise_id: string;
+  exercise_name?: string | null;
   order_index?: number;
   sets?: number | null;
   repetitions?: number | null;
@@ -135,15 +142,37 @@ export const hepService = {
 
     // Merge standard baseline catalogue with remote exercises
     const exerciseMap = new Map<string, Exercise>();
+    const normalizedSystemMap = new Map<string, Exercise>();
 
     // 1. Add standard system exercises
     for (const sysEx of SYSTEM_EXERCISES_CATALOGUE) {
       exerciseMap.set(sysEx.name.toLowerCase().trim(), sysEx);
+      normalizedSystemMap.set(normalizeExerciseLookupKey(sysEx.name), sysEx);
+      if (sysEx.name.includes('(')) {
+        normalizedSystemMap.set(normalizeExerciseLookupKey(sysEx.name.split('(')[0]), sysEx);
+      }
     }
 
     // 2. Overlay remote exercises (overrides standard if already in DB, and includes practice custom)
     for (const remoteEx of remoteExercises) {
-      exerciseMap.set(remoteEx.name.toLowerCase().trim(), remoteEx);
+      const normRemote = normalizeExerciseLookupKey(remoteEx.name);
+      let matchedSys = normalizedSystemMap.get(normRemote);
+      if (!matchedSys && remoteEx.name.includes('(')) {
+        matchedSys = normalizedSystemMap.get(normalizeExerciseLookupKey(remoteEx.name.split('(')[0]));
+      }
+
+      if (matchedSys && remoteEx.is_system) {
+        // Record canonical-to-DB ID resolution
+        CANONICAL_TO_DB_EXERCISE_ID.set(matchedSys.id, remoteEx.id);
+        // Overlay onto exerciseMap with remote DB ID
+        exerciseMap.set(matchedSys.name.toLowerCase().trim(), {
+          ...matchedSys,
+          id: remoteEx.id,
+          practice_id: remoteEx.practice_id,
+        });
+      } else {
+        exerciseMap.set(remoteEx.name.toLowerCase().trim(), remoteEx);
+      }
     }
 
     let combined = Array.from(exerciseMap.values());
@@ -629,6 +658,78 @@ export const hepService = {
       throw new Error('Program title is required.');
     }
 
+    // Resolve exercise IDs to valid database foreign keys
+    const itemsWithResolvedExercises: CreateProgramItemInput[] = (input.items || []).map((item) => {
+      let resolvedId = item.exercise_id;
+      if (CANONICAL_TO_DB_EXERCISE_ID.has(item.exercise_id)) {
+        resolvedId = CANONICAL_TO_DB_EXERCISE_ID.get(item.exercise_id)!;
+      }
+      return {
+        ...item,
+        exercise_id: resolvedId,
+      };
+    });
+
+    // 1. Primary Strategy: Atomic database transaction via RPC
+    try {
+      const { data: atomicResult, error: atomicError } = await supabase.rpc(
+        'create_home_exercise_program_atomic',
+        {
+          p_program: {
+            practice_id: activePracticeId,
+            patient_id: input.patient_id,
+            episode_id: input.episode_id || null,
+            clinical_visit_id: input.clinical_visit_id || null,
+            prescribing_clinician_id: input.prescribing_clinician_id,
+            title: input.title.trim(),
+            instructions: input.instructions?.trim() || null,
+            start_date: input.start_date || new Date().toISOString().split('T')[0],
+            review_date: input.review_date || null,
+            status: input.status || 'draft',
+          },
+          p_items: itemsWithResolvedExercises.map((item, idx) => ({
+            exercise_id: item.exercise_id,
+            exercise_name: (item as any).exercise_name || null,
+            order_index: item.order_index !== undefined ? item.order_index : idx + 1,
+            sets: item.sets || null,
+            repetitions: item.repetitions || null,
+            hold_seconds: item.hold_seconds || null,
+            duration_minutes: item.duration_minutes || null,
+            rest_seconds: item.rest_seconds || null,
+            frequency: item.frequency?.trim() || null,
+            intensity_load: item.intensity_load?.trim() || null,
+            laterality: item.laterality || 'na',
+            instructions: item.instructions?.trim() || null,
+            precautions: item.precautions?.trim() || null,
+            notes: item.notes?.trim() || null,
+          })),
+        }
+      );
+
+      if (!atomicError && atomicResult) {
+        return atomicResult as HomeExerciseProgram;
+      }
+
+      if (
+        atomicError &&
+        !atomicError.message.includes('function') &&
+        !atomicError.message.includes('not found') &&
+        !atomicError.message.includes('does not exist')
+      ) {
+        throw new Error(`Failed to save exercise program: ${atomicError.message}`);
+      }
+    } catch (rpcErr: any) {
+      if (
+        rpcErr.message &&
+        !rpcErr.message.includes('function') &&
+        !rpcErr.message.includes('not found') &&
+        !rpcErr.message.includes('does not exist')
+      ) {
+        throw rpcErr;
+      }
+    }
+
+    // 2. Secondary Strategy: Multi-step insertion with atomic compensation rollback
     // Generate atomic sequential identifier
     const { data: identifierData, error: idError } = await supabase.rpc(
       'generate_next_hep_identifier',
@@ -669,8 +770,8 @@ export const hepService = {
     const createdProgram = programData as HomeExerciseProgram;
 
     // Insert prescribed items if provided
-    if (input.items && input.items.length > 0) {
-      const itemsPayload = input.items.map((item, idx) => ({
+    if (itemsWithResolvedExercises.length > 0) {
+      const itemsPayload = itemsWithResolvedExercises.map((item, idx) => ({
         practice_id: activePracticeId,
         program_id: createdProgram.id,
         exercise_id: item.exercise_id,
@@ -693,7 +794,21 @@ export const hepService = {
         .insert(itemsPayload);
 
       if (itemsInsertError) {
-        throw new Error(`Program created but items insertion failed: ${itemsInsertError.message}`);
+        // Atomic compensation rollback: delete orphan draft program
+        try {
+          await supabase
+            .from('home_exercise_programs')
+            .delete()
+            .eq('id', createdProgram.id)
+            .eq('status', 'draft')
+            .eq('practice_id', activePracticeId);
+        } catch (rollbackErr) {
+          console.error('Failed to rollback orphan draft program:', rollbackErr);
+        }
+
+        throw new Error(
+          `Failed to save program items: ${itemsInsertError.message}. Draft program was safely rolled back to prevent orphan records.`
+        );
       }
     }
 
