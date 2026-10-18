@@ -1115,9 +1115,24 @@ export const saasSubscriptionService = {
       }),
     });
 
-    const result = await response.json();
+    const responseText = await response.text();
+    let result: any;
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+      throw new Error(
+        response.ok
+          ? 'Invalid response format from payment gateway.'
+          : `Payment service unavailable (${response.status}). Please try again shortly or use Bank Transfer.`
+      );
+    }
+
     if (!response.ok) {
-      throw new Error(result.error || 'Failed to initialize payment checkout');
+      throw new Error(result?.error || `Failed to initialize payment checkout (${response.status})`);
+    }
+
+    if (!result?.authorization_url || typeof result.authorization_url !== 'string') {
+      throw new Error(result?.error || 'Payment gateway did not provide a valid authorization URL.');
     }
 
     return result;

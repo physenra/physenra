@@ -171,7 +171,7 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
   // Pay Now Handler (Owner Only, Open Invoices Only)
   // ----------------------------------------------------------------------------
   const handlePayNow = async () => {
-    if (!invoice || !activePractice?.id || isReadOnly || invoice.status !== 'open') return;
+    if (!invoice || !activePractice?.id || isReadOnly || invoice.status !== 'open' || actionLoading) return;
 
     try {
       setActionLoading(true);
@@ -182,8 +182,9 @@ export const PracticeInvoiceDetailPage: React.FC = () => {
         invoice.id
       );
 
-      if (checkoutInit.authorization_url) {
-        window.location.href = checkoutInit.authorization_url;
+      const authUrl = checkoutInit.authorization_url;
+      if (authUrl && typeof authUrl === 'string' && (authUrl.startsWith('https://') || authUrl.startsWith('http://'))) {
+        window.location.href = authUrl;
       } else {
         throw new Error('Payment gateway did not provide a valid authorization URL.');
       }

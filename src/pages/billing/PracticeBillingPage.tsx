@@ -61,6 +61,19 @@ function formatDate(dateValue: string | Date | null | undefined): string {
   }
 }
 
+/**
+ * Validates gateway checkout URLs before browser navigation.
+ */
+function isValidCheckoutUrl(urlStr: string | null | undefined): boolean {
+  if (!urlStr || typeof urlStr !== 'string') return false;
+  try {
+    const parsed = new URL(urlStr);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 interface PracticeBillingPageProps {
   defaultTab?: 'overview' | 'plans' | 'invoices';
 }
@@ -96,6 +109,8 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
   // Modals state
   const [planToChange, setPlanToChange] = useState<SaasPlan | null>(null);
   const [changeType, setChangeType] = useState<'upgrade' | 'downgrade' | null>(null);
+  const [planModalError, setPlanModalError] = useState<string | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState<boolean>(false);
   const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
   const [showReactivateModal, setShowReactivateModal] = useState<boolean>(false);
   const [cancelReason, setCancelReason] = useState<string>('');
@@ -431,6 +446,8 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
     if (isReadOnly) return;
     setErrorMessage(null);
     setSuccessMessage(null);
+    setPlanModalError(null);
+    setIsRedirecting(false);
 
     const isTrial = subscription?.status === 'trialing';
     const currentPrice = subscription?.current_price_cents || 0;
@@ -451,10 +468,12 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
   // B. Confirm Plan Change
   const confirmPlanChange = async () => {
     if (!planToChange || !activePractice?.id || isReadOnly) return;
+    if (actionLoading || isRedirecting) return;
 
     try {
       setActionLoading(true);
       setErrorMessage(null);
+      setPlanModalError(null);
 
       const isTrial = subscription?.status === 'trialing';
 
@@ -509,6 +528,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
 
         setPlanToChange(null);
         setChangeType(null);
+        setPlanModalError(null);
         await loadBillingData();
         openTransferModal(btr);
         setSuccessMessage(`Bank transfer request created (${btr.request_number}). Please make the transfer and submit your transaction reference.`);
@@ -549,12 +569,13 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
           invResult.invoice_id
         );
 
-        if (checkoutInit.authorization_url) {
+        if (checkoutInit.authorization_url && isValidCheckoutUrl(checkoutInit.authorization_url)) {
+          setIsRedirecting(true);
           // Redirect to Paystack secure checkout URL
           window.location.href = checkoutInit.authorization_url;
           return;
         } else {
-          throw new Error('Gateway did not return an authorization URL.');
+          throw new Error('Payment gateway did not return a valid authorization URL.');
         }
       } else {
         // Paid / Expired / Past-Due Subscriptions:
@@ -580,12 +601,13 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
             result.invoice_id
           );
 
-          if (checkoutInit.authorization_url) {
+          if (checkoutInit.authorization_url && isValidCheckoutUrl(checkoutInit.authorization_url)) {
+            setIsRedirecting(true);
             // Redirect to Paystack secure checkout URL
             window.location.href = checkoutInit.authorization_url;
             return;
           } else {
-            throw new Error('Gateway did not return an authorization URL.');
+            throw new Error('Payment gateway did not return a valid authorization URL.');
           }
         }
 
@@ -601,18 +623,26 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
 
       setPlanToChange(null);
       setChangeType(null);
+      setPlanModalError(null);
       await loadBillingData();
     } catch (err: any) {
       console.error('Plan change error:', err);
-      setErrorMessage(err.message || 'Unable to update subscription plan.');
+      const failureMsg = err.message || 'Unable to update subscription plan.';
+      setErrorMessage(failureMsg);
+      setPlanModalError(failureMsg);
+      // Synchronize billing data so newly created invoices are visible immediately
+      loadBillingData().catch((syncErr) => {
+        console.warn('Background billing sync failed:', syncErr);
+      });
     } finally {
       setActionLoading(false);
+      setIsRedirecting(false);
     }
   };
 
   // C. Pay Open Invoice Directly via Paystack
   const handlePayInvoice = async (invoiceId: string) => {
-    if (!activePractice?.id || isReadOnly) return;
+    if (!activePractice?.id || isReadOnly || actionLoading || isRedirecting) return;
     try {
       setActionLoading(true);
       setErrorMessage(null);
@@ -622,7 +652,8 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
         invoiceId
       );
 
-      if (checkoutInit.authorization_url) {
+      if (checkoutInit.authorization_url && isValidCheckoutUrl(checkoutInit.authorization_url)) {
+        setIsRedirecting(true);
         window.location.href = checkoutInit.authorization_url;
       } else {
         throw new Error('Failed to generate payment authorization.');
@@ -631,6 +662,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
       console.error('Invoice payment initiation failed:', err);
       setErrorMessage(err.message || 'Payment initialization failed.');
       setActionLoading(false);
+      setIsRedirecting(false);
     }
   };
 
@@ -1728,12 +1760,38 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                 onClick={() => {
                   setPlanToChange(null);
                   setChangeType(null);
+                  setPlanModalError(null);
+                  setIsRedirecting(false);
                 }}
                 className="text-slate-400 hover:text-slate-600"
               >
                 <X size={20} />
               </button>
             </div>
+
+            {/* In-Modal Error Alert */}
+            {planModalError && (
+              <div className="mt-4 p-3.5 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-800 animate-in fade-in">
+                <AlertCircle size={16} className="text-rose-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-1">
+                  <div className="font-semibold text-rose-900">Checkout Error</div>
+                  <div className="leading-relaxed">{planModalError}</div>
+                  {bankConfig?.is_available && paymentMethod === 'paystack' && (
+                    <div className="pt-1 text-[11px] text-rose-700">
+                      You can retry checkout or switch to <strong>Bank Transfer</strong> below.
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPlanModalError(null)}
+                  className="text-rose-400 hover:text-rose-700"
+                  aria-label="Dismiss error"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
 
             <div className="py-4 space-y-4 text-sm text-slate-600">
               {/* Comparison Card */}
@@ -1787,7 +1845,10 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                     <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
-                        onClick={() => setPaymentMethod('paystack')}
+                        onClick={() => {
+                          setPaymentMethod('paystack');
+                          setPlanModalError(null);
+                        }}
                         className={`p-3 rounded-xl border text-left transition flex items-start gap-2.5 ${
                           paymentMethod === 'paystack'
                             ? 'border-teal-600 bg-teal-50/50 ring-1 ring-teal-600'
@@ -1806,6 +1867,7 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                         onClick={() => {
                           if (bankConfig?.is_available) {
                             setPaymentMethod('bank_transfer');
+                            setPlanModalError(null);
                           }
                         }}
                         className={`p-3 rounded-xl border text-left transition flex items-start gap-2.5 ${
@@ -1866,6 +1928,8 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                 onClick={() => {
                   setPlanToChange(null);
                   setChangeType(null);
+                  setPlanModalError(null);
+                  setIsRedirecting(false);
                 }}
                 className="px-4 py-2 text-sm text-slate-600 hover:text-slate-800"
               >
@@ -1881,7 +1945,9 @@ export const PracticeBillingPage: React.FC<PracticeBillingPageProps> = ({
                     : 'bg-slate-900 hover:bg-slate-800'
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                {actionLoading
+                {isRedirecting
+                  ? 'Redirecting to Paystack...'
+                  : actionLoading
                   ? 'Processing...'
                   : changeType === 'upgrade'
                   ? paymentMethod === 'bank_transfer'

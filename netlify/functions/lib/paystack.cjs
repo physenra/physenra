@@ -33,9 +33,14 @@ function verifyPaystackSignature(rawBody, signature, secretKey) {
     return false;
   }
 
+  const cleanSecretKey = secretKey.trim();
+  if (!cleanSecretKey) {
+    return false;
+  }
+
   try {
     const expectedHex = crypto
-      .createHmac('sha512', secretKey)
+      .createHmac('sha512', cleanSecretKey)
       .update(rawBody)
       .digest('hex');
 
@@ -111,6 +116,11 @@ async function initializePaystackTransaction(params, secretKey, customFetch) {
     throw new Error('PAYSTACK_SECRET_KEY is required to initialize transaction');
   }
 
+  const cleanSecretKey = String(secretKey).trim();
+  if (!cleanSecretKey) {
+    throw new Error('PAYSTACK_SECRET_KEY cannot be empty');
+  }
+
   if (!params.amount || typeof params.amount !== 'number' || params.amount <= 0 || !Number.isInteger(params.amount)) {
     throw new Error('Transaction amount must be a positive integer in kobo');
   }
@@ -124,9 +134,9 @@ async function initializePaystackTransaction(params, secretKey, customFetch) {
   }
 
   const payload = {
-    email: params.email,
+    email: params.email.trim(),
     amount: params.amount,
-    reference: params.reference,
+    reference: params.reference.trim(),
     currency: 'NGN',
     callback_url: params.callback_url,
     metadata: params.metadata || {},
@@ -135,14 +145,20 @@ async function initializePaystackTransaction(params, secretKey, customFetch) {
   const response = await fetchFn('https://api.paystack.co/transaction/initialize', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${secretKey}`,
+      Authorization: `Bearer ${cleanSecretKey}`,
       'Content-Type': 'application/json',
       Accept: 'application/json',
     },
     body: JSON.stringify(payload),
   });
 
-  const responseData = await response.json();
+  let responseData;
+  try {
+    responseData = await response.json();
+  } catch (jsonErr) {
+    throw new Error(`Invalid JSON response from Paystack gateway (HTTP ${response.status})`);
+  }
+
   return responseData;
 }
 
@@ -164,6 +180,11 @@ async function verifyPaystackTransaction(reference, secretKey, customFetch) {
     throw new Error('PAYSTACK_SECRET_KEY is required to verify transaction');
   }
 
+  const cleanSecretKey = String(secretKey).trim();
+  if (!cleanSecretKey) {
+    throw new Error('PAYSTACK_SECRET_KEY cannot be empty');
+  }
+
   if (!reference || typeof reference !== 'string') {
     throw new Error('Valid transaction reference is required for verification');
   }
@@ -172,12 +193,18 @@ async function verifyPaystackTransaction(reference, secretKey, customFetch) {
   const response = await fetchFn(url, {
     method: 'GET',
     headers: {
-      Authorization: `Bearer ${secretKey}`,
+      Authorization: `Bearer ${cleanSecretKey}`,
       Accept: 'application/json',
     },
   });
 
-  const responseData = await response.json();
+  let responseData;
+  try {
+    responseData = await response.json();
+  } catch (jsonErr) {
+    throw new Error(`Invalid JSON response from Paystack gateway (HTTP ${response.status})`);
+  }
+
   return responseData;
 }
 

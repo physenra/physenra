@@ -198,7 +198,8 @@ async function handler(event, context, deps = {}) {
   const reference = `PHY-SUB-${invNumClean}-${timestampSuffix}`;
 
   // 10. Call Paystack API server-side
-  const paystackSecretKey = env.PAYSTACK_SECRET_KEY;
+  const rawSecretKey = env.PAYSTACK_SECRET_KEY;
+  const paystackSecretKey = rawSecretKey ? String(rawSecretKey).trim() : null;
   if (!paystackSecretKey) {
     console.error('[Initialize Payment] PAYSTACK_SECRET_KEY missing in environment');
     return {
@@ -241,16 +242,27 @@ async function handler(event, context, deps = {}) {
     return {
       statusCode: 502,
       headers: jsonHeaders,
-      body: JSON.stringify({ error: 'Failed to communicate with payment gateway' }),
+      body: JSON.stringify({ error: 'Failed to communicate with payment gateway. Please try again or use Bank Transfer.' }),
     };
   }
 
   if (!initResponse || !initResponse.status || !initResponse.data) {
     const errMsg = initResponse?.message || 'Gateway rejected transaction initialization';
+    console.error(`[Initialize Payment] Gateway rejected transaction initialization: ${errMsg}`);
     return {
       statusCode: 400,
       headers: jsonHeaders,
       body: JSON.stringify({ error: errMsg }),
+    };
+  }
+
+  const authUrl = initResponse.data.authorization_url;
+  if (!authUrl || typeof authUrl !== 'string' || !authUrl.startsWith('http')) {
+    console.error('[Initialize Payment] Gateway returned an invalid authorization_url');
+    return {
+      statusCode: 502,
+      headers: jsonHeaders,
+      body: JSON.stringify({ error: 'Payment gateway returned an invalid checkout URL' }),
     };
   }
 
@@ -261,7 +273,7 @@ async function handler(event, context, deps = {}) {
     headers: jsonHeaders,
     body: JSON.stringify({
       success: true,
-      authorization_url: initResponse.data.authorization_url,
+      authorization_url: authUrl,
       access_code: initResponse.data.access_code,
       reference: reference,
       invoice_id: invoice.id,
