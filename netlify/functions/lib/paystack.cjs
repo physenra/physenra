@@ -22,6 +22,79 @@ const { createClient } = require('@supabase/supabase-js');
  * @param {string} secretKey - PAYSTACK_SECRET_KEY
  * @returns {boolean} True if signature is valid, false otherwise
  */
+/**
+ * Normalizes and sanitizes a Paystack key string:
+ * - Strips zero-width unicode characters and BOM (\u200B-\u200D, \uFEFF)
+ * - Trims standard and unicode whitespace
+ * - Strips accidental surrounding quotes (double or single)
+ * - Strips redundant 'Bearer ' prefix if accidentally entered
+ *
+ * @param {string} [key]
+ * @returns {string} Cleaned key string, or empty string
+ */
+function sanitizePaystackKey(key) {
+  if (!key || typeof key !== 'string') {
+    return '';
+  }
+  return key
+    .replace(/[\u200B-\u200D\uFEFF]/g, '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/^Bearer\s+/i, '')
+    .trim();
+}
+
+/**
+ * Validates that a Paystack secret key has the required format and prefix for backend API calls.
+ * Rejects public keys (pk_...) with an explicit error to prevent authentication rejections.
+ *
+ * @param {string} [key]
+ * @returns {{ valid: boolean, key?: string, mode?: 'live'|'test', reason?: string, message: string }}
+ */
+function validatePaystackSecretKey(key) {
+  const sanitized = sanitizePaystackKey(key);
+  if (!sanitized) {
+    return {
+      valid: false,
+      reason: 'missing',
+      message: 'PAYSTACK_SECRET_KEY is missing or empty',
+    };
+  }
+
+  if (sanitized.startsWith('pk_live_') || sanitized.startsWith('pk_test_')) {
+    const prefix = sanitized.substring(0, 7);
+    return {
+      valid: false,
+      reason: 'public_key_provided',
+      message: `PAYSTACK_SECRET_KEY is misconfigured with a Public Key (${prefix}...). A Secret Key (sk_...) is required for backend API calls.`,
+    };
+  }
+
+  if (!sanitized.startsWith('sk_live_') && !sanitized.startsWith('sk_test_')) {
+    return {
+      valid: false,
+      reason: 'invalid_prefix',
+      message: 'PAYSTACK_SECRET_KEY does not start with a valid secret key prefix (sk_live_ or sk_test_).',
+    };
+  }
+
+  return {
+    valid: true,
+    key: sanitized,
+    mode: sanitized.startsWith('sk_live_') ? 'live' : 'test',
+    message: 'Valid secret key format',
+  };
+}
+
+/**
+ * Validates Paystack webhook signature using constant-time HMAC-SHA512 comparison.
+ * Must be executed against the EXACT raw request body string.
+ *
+ * @param {string} rawBody - Raw unparsed request body string
+ * @param {string} signature - Hex signature from x-paystack-signature header
+ * @param {string} secretKey - PAYSTACK_SECRET_KEY
+ * @returns {boolean} True if signature is valid, false otherwise
+ */
 function verifyPaystackSignature(rawBody, signature, secretKey) {
   if (typeof rawBody !== 'string' || !rawBody) {
     return false;
@@ -33,7 +106,7 @@ function verifyPaystackSignature(rawBody, signature, secretKey) {
     return false;
   }
 
-  const cleanSecretKey = secretKey.trim();
+  const cleanSecretKey = sanitizePaystackKey(secretKey);
   if (!cleanSecretKey) {
     return false;
   }
@@ -112,14 +185,11 @@ async function initializePaystackTransaction(params, secretKey, customFetch) {
     throw new Error('fetch implementation is required for initializePaystackTransaction');
   }
 
-  if (!secretKey) {
-    throw new Error('PAYSTACK_SECRET_KEY is required to initialize transaction');
+  const keyValidation = validatePaystackSecretKey(secretKey);
+  if (!keyValidation.valid) {
+    throw new Error(keyValidation.message);
   }
-
-  const cleanSecretKey = String(secretKey).trim();
-  if (!cleanSecretKey) {
-    throw new Error('PAYSTACK_SECRET_KEY cannot be empty');
-  }
+  const cleanSecretKey = keyValidation.key;
 
   if (!params.amount || typeof params.amount !== 'number' || params.amount <= 0 || !Number.isInteger(params.amount)) {
     throw new Error('Transaction amount must be a positive integer in kobo');
@@ -176,14 +246,11 @@ async function verifyPaystackTransaction(reference, secretKey, customFetch) {
     throw new Error('fetch implementation is required for verifyPaystackTransaction');
   }
 
-  if (!secretKey) {
-    throw new Error('PAYSTACK_SECRET_KEY is required to verify transaction');
+  const keyValidation = validatePaystackSecretKey(secretKey);
+  if (!keyValidation.valid) {
+    throw new Error(keyValidation.message);
   }
-
-  const cleanSecretKey = String(secretKey).trim();
-  if (!cleanSecretKey) {
-    throw new Error('PAYSTACK_SECRET_KEY cannot be empty');
-  }
+  const cleanSecretKey = keyValidation.key;
 
   if (!reference || typeof reference !== 'string') {
     throw new Error('Valid transaction reference is required for verification');
@@ -303,17 +370,22 @@ function getPaystackEnvironment(key) {
   if (!key || typeof key !== 'string') {
     return 'unconfigured';
   }
-  const trimmed = key.trim();
-  if (trimmed.startsWith('sk_test_') || trimmed.startsWith('pk_test_')) {
+  const sanitized = sanitizePaystackKey(key);
+  if (!sanitized) {
+    return 'unconfigured';
+  }
+  if (sanitized.startsWith('sk_test_') || sanitized.startsWith('pk_test_')) {
     return 'test';
   }
-  if (trimmed.startsWith('sk_live_') || trimmed.startsWith('pk_live_')) {
+  if (sanitized.startsWith('sk_live_') || sanitized.startsWith('pk_live_')) {
     return 'live';
   }
   return 'unknown';
 }
 
 module.exports = {
+  sanitizePaystackKey,
+  validatePaystackSecretKey,
   verifyPaystackSignature,
   mapPaystackChannelToPaymentMethod,
   initializePaystackTransaction,

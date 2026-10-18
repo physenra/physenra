@@ -34,6 +34,8 @@ const initPaymentContent = fs.readFileSync(initPaymentPath, 'utf8');
 
 const paystackLibPath = path.join(NETLIFY_DIR, 'lib', 'paystack.cjs');
 const {
+  sanitizePaystackKey,
+  validatePaystackSecretKey,
   initializePaystackTransaction,
   verifyPaystackTransaction,
   verifyPaystackSignature,
@@ -398,6 +400,180 @@ test('=== PHYSENRA PAYSTACK CHECKOUT MODAL FIX SUITE ===', async (t) => {
       assert.equal(/sk_test_/i.test(billingPageContent), false, 'No sk_test_ in billingPageContent');
       assert.equal(/sk_live_/i.test(saasServiceContent), false, 'No sk_live_ in saasServiceContent');
       assert.equal(/sk_test_/i.test(saasServiceContent), false, 'No sk_test_ in saasServiceContent');
+    });
+  });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 6: Runtime Key Sanitization & Public Key Guard (Invalid Key Prevention)
+  // ----------------------------------------------------------------------------
+  await t.test('--- SUITE 6: Runtime Key Sanitization & Invalid Key Prevention ---', async (t6) => {
+    await t6.test('TEST 19: sanitizePaystackKey strips quotes, Bearer prefix, and zero-width spaces', () => {
+      assert.equal(sanitizePaystackKey('"sk_live_12345"'), 'sk_live_12345');
+      assert.equal(sanitizePaystackKey("'sk_live_12345'"), 'sk_live_12345');
+      assert.equal(sanitizePaystackKey('Bearer sk_live_12345'), 'sk_live_12345');
+      assert.equal(sanitizePaystackKey('\uFEFFsk_live_12345\u200B'), 'sk_live_12345');
+      assert.equal(sanitizePaystackKey('  sk_live_12345\r\n  '), 'sk_live_12345');
+    });
+
+    await t6.test('TEST 20: validatePaystackSecretKey accepts valid sk_live_ and sk_test_ keys', () => {
+      const liveRes = validatePaystackSecretKey('sk_live_abcdef123456');
+      assert.equal(liveRes.valid, true);
+      assert.equal(liveRes.mode, 'live');
+
+      const testRes = validatePaystackSecretKey('sk_test_abcdef123456');
+      assert.equal(testRes.valid, true);
+      assert.equal(testRes.mode, 'test');
+    });
+
+    await t6.test('TEST 21: validatePaystackSecretKey rejects public keys (pk_...) with explicit diagnostic', () => {
+      const pubLive = validatePaystackSecretKey('pk_live_abcdef123456');
+      assert.equal(pubLive.valid, false);
+      assert.equal(pubLive.reason, 'public_key_provided');
+      assert.match(pubLive.message, /Public Key/i);
+
+      const pubTest = validatePaystackSecretKey('pk_test_abcdef123456');
+      assert.equal(pubTest.valid, false);
+      assert.equal(pubTest.reason, 'public_key_provided');
+    });
+
+    await t6.test('TEST 22: validatePaystackSecretKey rejects non-sk keys with invalid_prefix', () => {
+      const nonSk = validatePaystackSecretKey('random_api_token_123');
+      assert.equal(nonSk.valid, false);
+      assert.equal(nonSk.reason, 'invalid_prefix');
+
+      const empty = validatePaystackSecretKey('');
+      assert.equal(empty.valid, false);
+      assert.equal(empty.reason, 'missing');
+    });
+
+    await t6.test('TEST 23: initialize-payment rejects public key in PAYSTACK_SECRET_KEY with HTTP 500', async () => {
+      const mockDb = {
+        from: (table) => {
+          if (table === 'saas_invoices') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    maybeSingle: async () => ({
+                      data: {
+                        id: 'inv-test-pk',
+                        invoice_number: 'PHY-INV-2026-000003',
+                        practice_id: 'prac-test-1',
+                        currency: 'NGN',
+                        total_cents: 1000000,
+                        status: 'open',
+                      },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === 'saas_payments') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    maybeSingle: async () => ({ data: null }),
+                  }),
+                }),
+              }),
+            };
+          }
+          return {};
+        },
+      };
+
+      const res = await initializePaymentHandler(
+        {
+          httpMethod: 'POST',
+          headers: { authorization: 'Bearer test-token' },
+          body: JSON.stringify({ practice_id: 'prac-test-1', invoice_id: 'inv-test-pk' }),
+        },
+        {},
+        {
+          env: { PAYSTACK_SECRET_KEY: 'pk_live_accidental_public_key' },
+          supabaseAdmin: mockDb,
+          isOwner: true,
+          user: { id: 'user-1', email: 'owner@physenra.com' },
+        }
+      );
+
+      assert.strictEqual(res.statusCode, 500);
+      const body = JSON.parse(res.body);
+      assert.match(body.error, /Public Key was provided where a Secret Key is required/i);
+    });
+
+    await t6.test('TEST 24: initialize-payment translates gateway Invalid key to actionable guidance', async () => {
+      const mockDb = {
+        from: (table) => {
+          if (table === 'saas_invoices') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    maybeSingle: async () => ({
+                      data: {
+                        id: 'inv-test-invalid-key',
+                        invoice_number: 'PHY-INV-2026-000004',
+                        practice_id: 'prac-test-1',
+                        currency: 'NGN',
+                        total_cents: 1000000,
+                        status: 'open',
+                      },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === 'saas_payments') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  eq: () => ({
+                    maybeSingle: async () => ({ data: null }),
+                  }),
+                }),
+              }),
+            };
+          }
+          return {};
+        },
+      };
+
+      const invalidKeyFetch = async () => ({
+        status: 401,
+        json: async () => ({
+          status: false,
+          message: 'Invalid key',
+          type: 'validation_error',
+          code: 'invalid_Key',
+        }),
+      });
+
+      const res = await initializePaymentHandler(
+        {
+          httpMethod: 'POST',
+          headers: { authorization: 'Bearer test-token' },
+          body: JSON.stringify({ practice_id: 'prac-test-1', invoice_id: 'inv-test-invalid-key' }),
+        },
+        {},
+        {
+          env: { PAYSTACK_SECRET_KEY: 'sk_live_unrecognized_secret' },
+          supabaseAdmin: mockDb,
+          fetch: invalidKeyFetch,
+          isOwner: true,
+          user: { id: 'user-1', email: 'owner@physenra.com' },
+        }
+      );
+
+      assert.strictEqual(res.statusCode, 400);
+      const body = JSON.parse(res.body);
+      assert.match(body.error, /Payment gateway authentication failed \(Invalid key in live mode\)/i);
+      assert.match(body.error, /Bank Transfer/i);
     });
   });
 });

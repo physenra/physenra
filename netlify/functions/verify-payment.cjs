@@ -14,6 +14,7 @@
 
 const {
   verifyPaystackTransaction,
+  validatePaystackSecretKey,
   mapPaystackChannelToPaymentMethod,
   getPaystackEnvironment,
   getSupabaseAdmin,
@@ -140,17 +141,22 @@ async function handler(event, context, deps = {}) {
   }
 
   // 7. Mandatory Server-to-Server Verification with Paystack API
-  const paystackSecretKey = env.PAYSTACK_SECRET_KEY;
-  if (!paystackSecretKey) {
-    console.error('[Verify Payment] PAYSTACK_SECRET_KEY missing in environment');
+  const rawSecretKey = env.PAYSTACK_SECRET_KEY;
+  const keyValidation = validatePaystackSecretKey(rawSecretKey);
+  if (!keyValidation.valid) {
+    console.error(`[Verify Payment] Paystack secret key validation error: ${keyValidation.message}`);
+    const clientErrMsg = keyValidation.reason === 'public_key_provided'
+      ? 'Payment gateway configuration error: A Paystack Public Key was provided where a Secret Key is required. Please update PAYSTACK_SECRET_KEY in Netlify settings.'
+      : 'Server payment configuration error. Please contact practice administrator.';
     return {
       statusCode: 500,
       headers: jsonHeaders,
-      body: JSON.stringify({ error: 'Server payment configuration error' }),
+      body: JSON.stringify({ error: clientErrMsg }),
     };
   }
 
-  const paystackEnv = getPaystackEnvironment(paystackSecretKey);
+  const paystackSecretKey = keyValidation.key;
+  const paystackEnv = keyValidation.mode;
   console.log(`[Verify Payment] Paystack operating mode: ${paystackEnv}`);
 
   let verifyResult;
@@ -167,11 +173,24 @@ async function handler(event, context, deps = {}) {
   }
 
   if (!verifyResult || !verifyResult.status || verifyResult.data?.status !== 'success') {
-    const errMsg = verifyResult?.message || 'Gateway reported transaction not successful';
+    const rawErrMsg = verifyResult?.message || 'Gateway reported transaction not successful';
+    const isInvalidKey = /invalid key/i.test(rawErrMsg) || verifyResult?.code === 'invalid_Key';
+
+    if (isInvalidKey) {
+      console.error(`[Verify Payment] Paystack API rejected the secret key (${paystackEnv} mode) as invalid.`);
+      return {
+        statusCode: 400,
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          error: `Payment gateway verification failed (Invalid key in ${paystackEnv} mode). Please verify your Paystack Live Secret Key in Netlify.`,
+        }),
+      };
+    }
+
     return {
       statusCode: 400,
       headers: jsonHeaders,
-      body: JSON.stringify({ error: `Gateway verification failed: ${errMsg}` }),
+      body: JSON.stringify({ error: `Gateway verification failed: ${rawErrMsg}` }),
     };
   }
 

@@ -14,6 +14,7 @@
 
 const {
   initializePaystackTransaction,
+  validatePaystackSecretKey,
   getPaystackEnvironment,
   getSupabaseAdmin,
   authenticateUser,
@@ -199,17 +200,21 @@ async function handler(event, context, deps = {}) {
 
   // 10. Call Paystack API server-side
   const rawSecretKey = env.PAYSTACK_SECRET_KEY;
-  const paystackSecretKey = rawSecretKey ? String(rawSecretKey).trim() : null;
-  if (!paystackSecretKey) {
-    console.error('[Initialize Payment] PAYSTACK_SECRET_KEY missing in environment');
+  const keyValidation = validatePaystackSecretKey(rawSecretKey);
+  if (!keyValidation.valid) {
+    console.error(`[Initialize Payment] Paystack secret key validation error: ${keyValidation.message}`);
+    const clientErrMsg = keyValidation.reason === 'public_key_provided'
+      ? 'Payment gateway configuration error: A Paystack Public Key was provided where a Secret Key is required. Please update PAYSTACK_SECRET_KEY in Netlify settings.'
+      : 'Server payment configuration error. Please try again or use Bank Transfer.';
     return {
       statusCode: 500,
       headers: jsonHeaders,
-      body: JSON.stringify({ error: 'Server payment configuration error' }),
+      body: JSON.stringify({ error: clientErrMsg }),
     };
   }
 
-  const paystackEnv = getPaystackEnvironment(paystackSecretKey);
+  const paystackSecretKey = keyValidation.key;
+  const paystackEnv = keyValidation.mode;
   console.log(`[Initialize Payment] Paystack operating mode: ${paystackEnv}`);
 
   const callbackUrl =
@@ -247,12 +252,25 @@ async function handler(event, context, deps = {}) {
   }
 
   if (!initResponse || !initResponse.status || !initResponse.data) {
-    const errMsg = initResponse?.message || 'Gateway rejected transaction initialization';
-    console.error(`[Initialize Payment] Gateway rejected transaction initialization: ${errMsg}`);
+    const rawErrMsg = initResponse?.message || 'Gateway rejected transaction initialization';
+    const isInvalidKey = /invalid key/i.test(rawErrMsg) || initResponse?.code === 'invalid_Key';
+
+    if (isInvalidKey) {
+      console.error(`[Initialize Payment] Paystack API rejected the secret key (${paystackEnv} mode) as invalid.`);
+      return {
+        statusCode: 400,
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          error: `Payment gateway authentication failed (Invalid key in ${paystackEnv} mode). Please verify your Paystack Live Secret Key in Netlify, or use Bank Transfer.`,
+        }),
+      };
+    }
+
+    console.error(`[Initialize Payment] Gateway rejected transaction initialization: ${rawErrMsg}`);
     return {
       statusCode: 400,
       headers: jsonHeaders,
-      body: JSON.stringify({ error: errMsg }),
+      body: JSON.stringify({ error: rawErrMsg }),
     };
   }
 
