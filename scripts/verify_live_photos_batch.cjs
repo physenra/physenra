@@ -33,6 +33,7 @@ const approvedAssets = [
   '/images/exercises/photographs/alfredson-heel-drop.jpg',
   '/images/exercises/photographs/table-slides.jpg',
   '/images/exercises/photographs/pursed-lip-breathing.jpg',
+  '/images/exercises/photographs/transverse-abdominis-drawing-in.jpg',
 ];
 
 function checkUrl(urlPath) {
