@@ -34,6 +34,7 @@ const approvedAssets = [
   '/images/exercises/photographs/table-slides.jpg',
   '/images/exercises/photographs/pursed-lip-breathing.jpg',
   '/images/exercises/photographs/transverse-abdominis-drawing-in.jpg',
+  '/images/exercises/photographs/half-kneeling-transitional-stepping.jpg',
 ];
 
 function checkUrl(urlPath) {
