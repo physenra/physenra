@@ -165,10 +165,10 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
 
   test('Nigerian Photographic Demonstrations: Registry integrity and asset existence', () => {
     const photoSummary = getPhotoDemonstrationSummary();
-    assert.equal(photoSummary.totalPhotos, 30, 'Must have 30 photographic demonstrations registered');
-    assert.equal(photoSummary.approvedPhotos, 28, 'Exactly 28 verified photos must be approved by physiotherapist');
+    assert.equal(photoSummary.totalPhotos, 31, 'Must have 31 photographic demonstrations registered');
+    assert.equal(photoSummary.approvedPhotos, 29, 'Exactly 29 verified photos must be approved by physiotherapist');
     assert.equal(photoSummary.pendingReviewPhotos, 2, 'Bird-Dog and Clamshells photos must remain pending_physiotherapist_review');
-    assert.equal(photoSummary.aiGeneratedCount, 30, 'All 30 photos must declare aiGenerated: true');
+    assert.equal(photoSummary.aiGeneratedCount, 31, 'All 31 photos must declare aiGenerated: true');
 
     const photosDir = path.resolve(__dirname, '../public/images/exercises/photographs');
     assert.ok(fs.existsSync(photosDir), 'Photographs directory must exist');
@@ -244,6 +244,7 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       '00000000-0000-0000-0000-000000000029', // Terminal Knee Extension (TKE) with Band
       '00000000-0000-0000-0000-000000000031', // Romanian Deadlift (RDL) with Dumbbells
       '00000000-0000-0000-0000-000000000033', // Eccentric Heel Drop on Step (Alfredson Protocol)
+      '00000000-0000-0000-0000-000000000037', // Bilateral Upper Extremity Table Slides with Towel
       '00000000-0000-0000-0000-000000000050', // 30-Second Chair Stand
       '00000000-0000-0000-0000-000000000053', // Diaphragmatic Breathing
       '00000000-0000-0000-0000-000000000055', // Active Cycle of Breathing Technique (ACBT)
@@ -303,7 +304,7 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
     assert.ok(cardSource.includes("objectFit: 'cover'"), 'Photographs must render with clean objectFit: cover framing');
   });
 
-  test('Catalogue Photo Coverage: Exactly 28 approved photos, 2 pending review, and 29 clean coming-soon fallbacks', () => {
+  test('Catalogue Photo Coverage: Exactly 29 approved photos, 2 pending review, and 28 clean coming-soon fallbacks', () => {
     const approvedExercises = [];
     const pendingExercises = [];
     const comingSoonExercises = [];
@@ -319,9 +320,9 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       }
     }
 
-    assert.equal(approvedExercises.length, 28, 'Exactly 28 exercises must have clinically approved photos');
+    assert.equal(approvedExercises.length, 29, 'Exactly 29 exercises must have clinically approved photos');
     assert.equal(pendingExercises.length, 2, 'Exactly 2 exercises (bird-dog and clamshells) must be pending review');
-    assert.equal(comingSoonExercises.length, 29, 'Exactly 29 exercises must cleanly display "Photo demonstration coming soon"');
+    assert.equal(comingSoonExercises.length, 28, 'Exactly 28 exercises must cleanly display "Photo demonstration coming soon"');
     assert.equal(approvedExercises.length + pendingExercises.length + comingSoonExercises.length, 59, 'Total must equal 59');
 
     // Verify all 28 approved photos map to valid JPEG files

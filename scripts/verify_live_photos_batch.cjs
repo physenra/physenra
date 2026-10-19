@@ -31,6 +31,7 @@ const approvedAssets = [
   '/images/exercises/photographs/terminal-knee-extension.jpg',
   '/images/exercises/photographs/romanian-deadlift.jpg',
   '/images/exercises/photographs/alfredson-heel-drop.jpg',
+  '/images/exercises/photographs/table-slides.jpg',
 ];
 
 function checkUrl(urlPath) {
