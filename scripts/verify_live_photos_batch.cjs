@@ -37,6 +37,7 @@ const approvedAssets = [
   '/images/exercises/photographs/half-kneeling-transitional-stepping.jpg',
   '/images/exercises/photographs/vor-gaze-stabilization.jpg',
   '/images/exercises/photographs/nordic-hamstring.jpg',
+  '/images/exercises/photographs/copenhagen-adductor.jpg',
 ];
 
 function checkUrl(urlPath) {

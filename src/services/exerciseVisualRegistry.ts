@@ -1151,6 +1151,14 @@ export const EXERCISE_VISUALS_REGISTRY: Record<string, ExerciseVisualMetadata> =
     attribution: 'Physenra Clinical Architecture Team',
     reviewedBy: 'Physenra Clinical Quality & Rehabilitation Board',
     reviewedAt: '2026-10-16T22:00:00Z',
+    photoAssetPath: '/images/exercises/photographs/copenhagen-adductor.jpg',
+    photoAltText: 'Photograph of fictional Nigerian male athlete demonstrating Copenhagen Adductor side plank hold with top leg supported on bench and body in rigid diagonal alignment.',
+    photoAiGenerated: true,
+    photoDemographic: 'Nigerian male, late 20s, warm dark brown skin',
+    photoClinicalReviewStatus: 'approved',
+    photoClinicalObservationNotes: 'Approved: Textbook Copenhagen adductor side plank biomechanics; lateral side plank supported on left forearm with stacked elbow under shoulder; top ankle and medial malleolus securely supported on padded rehabilitation bench; full pelvic elevation forming an unbroken straight diagonal line from shoulder through pelvis to top foot; bottom leg actively elevated and adducting underneath bench without ground contact; hand stable on iliac crest with neutral cervical alignment.',
+    photoReviewedBy: 'Dr. A. Adeleke, PT (Lead Clinical Specialist, Physenra Rehabilitation Board)',
+    photoReviewedAt: '2026-10-19T23:37:00Z',
   },
 
   // 48. Nordic Hamstring Curl (Eccentric Hamstring Protocol)
