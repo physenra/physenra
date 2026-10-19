@@ -35,6 +35,8 @@ const approvedAssets = [
   '/images/exercises/photographs/pursed-lip-breathing.jpg',
   '/images/exercises/photographs/transverse-abdominis-drawing-in.jpg',
   '/images/exercises/photographs/half-kneeling-transitional-stepping.jpg',
+  '/images/exercises/photographs/vor-gaze-stabilization.jpg',
+  '/images/exercises/photographs/nordic-hamstring.jpg',
 ];
 
 function checkUrl(urlPath) {
