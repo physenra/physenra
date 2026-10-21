@@ -38,6 +38,8 @@ const approvedAssets = [
   '/images/exercises/photographs/vor-gaze-stabilization.jpg',
   '/images/exercises/photographs/nordic-hamstring.jpg',
   '/images/exercises/photographs/copenhagen-adductor.jpg',
+  '/images/exercises/photographs/finger-tendon-gliding.jpg',
+  '/images/exercises/photographs/eccentric-decline-squat.jpg',
 ];
 
 function checkUrl(urlPath) {

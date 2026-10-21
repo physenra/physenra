@@ -165,10 +165,10 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
 
   test('Nigerian Photographic Demonstrations: Registry integrity and asset existence', () => {
     const photoSummary = getPhotoDemonstrationSummary();
-    assert.equal(photoSummary.totalPhotos, 37, 'Must have 37 photographic demonstrations registered');
-    assert.equal(photoSummary.approvedPhotos, 35, 'Exactly 35 verified photos must be approved by physiotherapist');
+    assert.equal(photoSummary.totalPhotos, 39, 'Must have 39 photographic demonstrations registered');
+    assert.equal(photoSummary.approvedPhotos, 37, 'Exactly 37 verified photos must be approved by physiotherapist');
     assert.equal(photoSummary.pendingReviewPhotos, 2, 'Bird-Dog and Clamshells photos must remain pending_physiotherapist_review');
-    assert.equal(photoSummary.aiGeneratedCount, 37, 'All 37 photos must declare aiGenerated: true');
+    assert.equal(photoSummary.aiGeneratedCount, 39, 'All 39 photos must declare aiGenerated: true');
 
     const photosDir = path.resolve(__dirname, '../public/images/exercises/photographs');
     assert.ok(fs.existsSync(photosDir), 'Photographs directory must exist');
@@ -239,9 +239,11 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       '00000000-0000-0000-0000-000000000019', // Prone Y-to-T Raises
       '00000000-0000-0000-0000-000000000021', // Wall Slides with Serratus Anterior Shrug
       '00000000-0000-0000-0000-000000000022', // Wrist Extensor Eccentric Loading (Tyler Twist)
+      '00000000-0000-0000-0000-000000000024', // Finger Tendon Gliding Exercises
       '00000000-0000-0000-0000-000000000027', // Standing Banded Hip Abduction
       '00000000-0000-0000-0000-000000000028', // Half-Kneeling Hip Flexor Stretch
       '00000000-0000-0000-0000-000000000029', // Terminal Knee Extension (TKE) with Band
+      '00000000-0000-0000-0000-000000000030', // Eccentric Decline Board Squat
       '00000000-0000-0000-0000-000000000031', // Romanian Deadlift (RDL) with Dumbbells
       '00000000-0000-0000-0000-000000000033', // Eccentric Heel Drop on Step (Alfredson Protocol)
       '00000000-0000-0000-0000-000000000037', // Bilateral Upper Extremity Table Slides with Towel
@@ -310,7 +312,7 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
     assert.ok(cardSource.includes("objectFit: 'cover'"), 'Photographs must render with clean objectFit: cover framing');
   });
 
-  test('Catalogue Photo Coverage: Exactly 35 approved photos, 2 pending review, and 22 clean coming-soon fallbacks', () => {
+  test('Catalogue Photo Coverage: Exactly 37 approved photos, 2 pending review, and 20 clean coming-soon fallbacks', () => {
     const approvedExercises = [];
     const pendingExercises = [];
     const comingSoonExercises = [];
@@ -326,9 +328,9 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       }
     }
 
-    assert.equal(approvedExercises.length, 35, 'Exactly 35 exercises must have clinically approved photos');
+    assert.equal(approvedExercises.length, 37, 'Exactly 37 exercises must have clinically approved photos');
     assert.equal(pendingExercises.length, 2, 'Exactly 2 exercises (bird-dog and clamshells) must be pending review');
-    assert.equal(comingSoonExercises.length, 22, 'Exactly 22 exercises must cleanly display "Photo demonstration coming soon"');
+    assert.equal(comingSoonExercises.length, 20, 'Exactly 20 exercises must cleanly display "Photo demonstration coming soon"');
     assert.equal(approvedExercises.length + pendingExercises.length + comingSoonExercises.length, 59, 'Total must equal 59');
 
     // Verify all 28 approved photos map to valid JPEG files
