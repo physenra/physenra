@@ -42,6 +42,8 @@ const approvedAssets = [
   '/images/exercises/photographs/eccentric-decline-squat.jpg',
   '/images/exercises/photographs/bridging-weight-acceptance.jpg',
   '/images/exercises/photographs/frenkel-heel-to-shin.jpg',
+  '/images/exercises/photographs/brandt-daroff.jpg',
+  '/images/exercises/photographs/multidirectional-stepping-clock.jpg',
 ];
 
 function checkUrl(urlPath) {

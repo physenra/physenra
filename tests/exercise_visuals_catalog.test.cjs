@@ -165,10 +165,10 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
 
   test('Nigerian Photographic Demonstrations: Registry integrity and asset existence', () => {
     const photoSummary = getPhotoDemonstrationSummary();
-    assert.equal(photoSummary.totalPhotos, 41, 'Must have 41 photographic demonstrations registered');
-    assert.equal(photoSummary.approvedPhotos, 39, 'Exactly 39 verified photos must be approved by physiotherapist');
+    assert.equal(photoSummary.totalPhotos, 43, 'Must have 43 photographic demonstrations registered');
+    assert.equal(photoSummary.approvedPhotos, 41, 'Exactly 41 verified photos must be approved by physiotherapist');
     assert.equal(photoSummary.pendingReviewPhotos, 2, 'Bird-Dog and Clamshells photos must remain pending_physiotherapist_review');
-    assert.equal(photoSummary.aiGeneratedCount, 41, 'All 41 photos must declare aiGenerated: true');
+    assert.equal(photoSummary.aiGeneratedCount, 43, 'All 43 photos must declare aiGenerated: true');
 
     const photosDir = path.resolve(__dirname, '../public/images/exercises/photographs');
     assert.ok(fs.existsSync(photosDir), 'Photographs directory must exist');
@@ -249,8 +249,10 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       '00000000-0000-0000-0000-000000000037', // Bilateral Upper Extremity Table Slides with Towel
       '00000000-0000-0000-0000-000000000038', // Bridging with Affected Limb Weight Acceptance
       '00000000-0000-0000-0000-000000000041', // Frenkel Coordination Heel-to-Shin Exercises
+      '00000000-0000-0000-0000-000000000043', // Brandt-Daroff Vestibular Habituation Drill
       '00000000-0000-0000-0000-000000000045', // Tall-Kneeling to Half-Kneeling Transitional Stepping
       '00000000-0000-0000-0000-000000000050', // 30-Second Chair Stand
+      '00000000-0000-0000-0000-000000000051', // Multidirectional Stepping Clock Drill
       '00000000-0000-0000-0000-000000000042', // Vestibular VOR x1 Gaze Stabilization Drill
       '00000000-0000-0000-0000-000000000047', // Copenhagen Adductor Exercise (Groin Strain Protocol)
       '00000000-0000-0000-0000-000000000048', // Nordic Hamstring Curl (Eccentric Hamstring Protocol)
@@ -314,7 +316,7 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
     assert.ok(cardSource.includes("objectFit: 'cover'"), 'Photographs must render with clean objectFit: cover framing');
   });
 
-  test('Catalogue Photo Coverage: Exactly 39 approved photos, 2 pending review, and 18 clean coming-soon fallbacks', () => {
+  test('Catalogue Photo Coverage: Exactly 41 approved photos, 2 pending review, and 16 clean coming-soon fallbacks', () => {
     const approvedExercises = [];
     const pendingExercises = [];
     const comingSoonExercises = [];
@@ -330,9 +332,9 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       }
     }
 
-    assert.equal(approvedExercises.length, 39, 'Exactly 39 exercises must have clinically approved photos');
+    assert.equal(approvedExercises.length, 41, 'Exactly 41 exercises must have clinically approved photos');
     assert.equal(pendingExercises.length, 2, 'Exactly 2 exercises (bird-dog and clamshells) must be pending review');
-    assert.equal(comingSoonExercises.length, 18, 'Exactly 18 exercises must cleanly display "Photo demonstration coming soon"');
+    assert.equal(comingSoonExercises.length, 16, 'Exactly 16 exercises must cleanly display "Photo demonstration coming soon"');
     assert.equal(approvedExercises.length + pendingExercises.length + comingSoonExercises.length, 59, 'Total must equal 59');
 
     // Verify all 28 approved photos map to valid JPEG files
