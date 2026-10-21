@@ -40,6 +40,8 @@ const approvedAssets = [
   '/images/exercises/photographs/copenhagen-adductor.jpg',
   '/images/exercises/photographs/finger-tendon-gliding.jpg',
   '/images/exercises/photographs/eccentric-decline-squat.jpg',
+  '/images/exercises/photographs/bridging-weight-acceptance.jpg',
+  '/images/exercises/photographs/frenkel-heel-to-shin.jpg',
 ];
 
 function checkUrl(urlPath) {
