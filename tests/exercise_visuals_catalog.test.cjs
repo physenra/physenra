@@ -337,13 +337,64 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
     assert.equal(comingSoonExercises.length, 16, 'Exactly 16 exercises must cleanly display "Photo demonstration coming soon"');
     assert.equal(approvedExercises.length + pendingExercises.length + comingSoonExercises.length, 59, 'Total must equal 59');
 
-    // Verify all 28 approved photos map to valid JPEG files
+    // Verify all 41 approved photos map to valid JPEG files
     for (const ex of approvedExercises) {
       const demo = getExercisePhotoDemonstration(ex.id);
       assert.ok(demo.photoAssetPath.endsWith('.jpg'), `Photo for ${ex.name} must be a .jpg`);
       const fullPath = path.resolve(__dirname, '..', 'public', demo.photoAssetPath.replace(/^\//, ''));
       assert.ok(fs.existsSync(fullPath), `Physical photo file must exist: ${fullPath}`);
     }
+  });
+
+  test('Catalogue Layout Invariants & Stable Visual Box Dimensions', () => {
+    const cardComponentPath = path.resolve(__dirname, '../src/components/hep/ExerciseVisualCard.tsx');
+    const cardSource = fs.readFileSync(cardComponentPath, 'utf8');
+
+    // Outer container sizing constraints
+    assert.ok(cardSource.includes('width: dimensions.width'), 'Visual container must enforce dimensions.width');
+    assert.ok(cardSource.includes("flexShrink: 0"), 'Visual container must enforce flexShrink: 0 to prevent collapsing');
+
+    // Inner photo and placeholder height & aspect ratio constraints
+    assert.ok(cardSource.includes('height: dimensions.height'), 'Visual container must enforce dimensions.height on photo/placeholder');
+    assert.ok(cardSource.includes("aspectRatio: '320 / 220'"), 'Photo and placeholder must maintain standard 320/220 aspect ratio');
+
+    // Catalogue modal responsive flex wrap in CreateHEPPage
+    const createHepPagePath = path.resolve(__dirname, '../src/pages/hep/CreateHEPPage.tsx');
+    const createHepSource = fs.readFileSync(createHepPagePath, 'utf8');
+    assert.ok(createHepSource.includes("flexWrap: 'wrap'"), 'Catalogue modal exercise cards must support responsive flexWrap');
+    assert.ok(createHepSource.includes("flex: '1 1 240px'"), 'Exercise details must expand flexibly without crushing photo thumbnail');
+  });
+
+  test('Catalogue Search & Region/Category Filter Photo Preservation', () => {
+    // 1. Filter by category: 'strengthening'
+    const strengtheningExercises = SYSTEM_EXERCISES_CATALOGUE.filter((e) => e.category === 'strengthening');
+    assert.ok(strengtheningExercises.length > 0);
+    for (const ex of strengtheningExercises) {
+      const demo = getExercisePhotoDemonstration(ex.id, ex.name);
+      if (demo && demo.photoClinicalReviewStatus === 'approved') {
+        assert.ok(demo.photoAssetPath.startsWith('/images/exercises/photographs/'));
+      }
+    }
+
+    // 2. Filter by body region: 'knee'
+    const kneeExercises = SYSTEM_EXERCISES_CATALOGUE.filter((e) => e.body_region === 'knee');
+    assert.ok(kneeExercises.length > 0);
+    for (const ex of kneeExercises) {
+      const demo = getExercisePhotoDemonstration(ex.id, ex.name);
+      if (demo && demo.photoClinicalReviewStatus === 'approved') {
+        assert.ok(demo.photoAssetPath.includes('.jpg'));
+      }
+    }
+
+    // 3. Search query: 'quad'
+    const searchHits = SYSTEM_EXERCISES_CATALOGUE.filter((e) => e.name.toLowerCase().includes('quad'));
+    assert.ok(searchHits.length > 0);
+    const quadSets = searchHits.find((e) => e.name.includes('Quad Sets'));
+    assert.ok(quadSets);
+    const quadDemo = getExercisePhotoDemonstration(quadSets.id, quadSets.name);
+    assert.ok(quadDemo);
+    assert.equal(quadDemo.photoClinicalReviewStatus, 'approved');
+    assert.equal(quadDemo.photoAssetPath, '/images/exercises/photographs/quad-sets.jpg');
   });
 });
 

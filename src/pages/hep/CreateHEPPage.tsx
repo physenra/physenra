@@ -1231,6 +1231,7 @@ export const CreateHEPPage: React.FC = () => {
                       borderRadius: '8px',
                       padding: '0.875rem 1rem',
                       display: 'flex',
+                      flexWrap: 'wrap',
                       justifyContent: 'space-between',
                       alignItems: 'center',
                       gap: '1rem',
@@ -1247,7 +1248,7 @@ export const CreateHEPPage: React.FC = () => {
                       showApprovalBadge={true}
                       style={{ flexShrink: 0 }}
                     />
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: '1 1 240px', minWidth: '200px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
                         <strong style={{ fontSize: '0.9375rem', color: '#0f172a' }}>{ex.name}</strong>
                         <span

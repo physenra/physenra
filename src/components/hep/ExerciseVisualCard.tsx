@@ -43,7 +43,7 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
     thumbnail: { width: '80px', height: '60px', borderRadius: '4px' },
     sm: { width: '140px', height: '100px', borderRadius: '6px' },
     md: { width: '220px', height: '150px', borderRadius: '8px' },
-    lg: { width: '100%', maxWidth: '340px', height: 'auto', borderRadius: '8px' },
+    lg: { width: '100%', maxWidth: '340px', height: '230px', borderRadius: '8px' },
   }[size];
 
   // Strictly enforce human physiotherapist clinical sign-off:
@@ -58,6 +58,9 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
           display: 'flex',
           flexDirection: 'column',
           gap: '0.375rem',
+          width: dimensions.width,
+          maxWidth: '100%',
+          flexShrink: 0,
           ...style,
         }}
       >
@@ -68,8 +71,10 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
             backgroundColor: '#f8fafc',
             border: '1px solid #e2e8f0',
             borderRadius: dimensions.borderRadius,
-            width: dimensions.width,
-            maxWidth: '100%',
+            width: '100%',
+            height: dimensions.height,
+            aspectRatio: '320 / 220',
+            flexShrink: 0,
           }}
         >
           <img
@@ -79,10 +84,9 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
             onError={() => setImageError(true)}
             style={{
               width: '100%',
-              height: size === 'thumbnail' ? '60px' : 'auto',
+              height: '100%',
               display: 'block',
               objectFit: 'cover',
-              aspectRatio: '320 / 220',
             }}
           />
 
@@ -144,6 +148,9 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: '0.375rem',
+        width: dimensions.width,
+        maxWidth: '100%',
+        flexShrink: 0,
         ...style,
       }}
     >
@@ -157,13 +164,15 @@ export const ExerciseVisualCard: React.FC<ExerciseVisualCardProps> = ({
           backgroundColor: '#f8fafc',
           border: '1px solid #e2e8f0',
           borderRadius: dimensions.borderRadius,
-          padding: size === 'thumbnail' ? '0.25rem' : '0.75rem',
-          width: dimensions.width,
+          padding: size === 'thumbnail' ? '0.25rem' : '0.5rem',
+          width: '100%',
           maxWidth: '100%',
-          height: size === 'thumbnail' ? '60px' : size === 'sm' ? '100px' : size === 'md' ? '150px' : '180px',
+          height: dimensions.height,
+          aspectRatio: '320 / 220',
           textAlign: 'center',
           color: '#64748b',
           boxSizing: 'border-box',
+          flexShrink: 0,
         }}
       >
         <Camera
