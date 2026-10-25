@@ -165,10 +165,10 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
 
   test('Nigerian Photographic Demonstrations: Registry integrity and asset existence', () => {
     const photoSummary = getPhotoDemonstrationSummary();
-    assert.equal(photoSummary.totalPhotos, 55, 'Must have 55 photographic demonstrations registered');
-    assert.equal(photoSummary.approvedPhotos, 54, 'Exactly 54 verified photos must be approved by physiotherapist');
+    assert.equal(photoSummary.totalPhotos, 57, 'Must have 57 photographic demonstrations registered');
+    assert.equal(photoSummary.approvedPhotos, 56, 'Exactly 56 verified photos must be approved by physiotherapist');
     assert.equal(photoSummary.pendingReviewPhotos, 1, 'Only Bird-Dog photo must remain pending_physiotherapist_review');
-    assert.equal(photoSummary.aiGeneratedCount, 55, 'All 55 photos must declare aiGenerated: true');
+    assert.equal(photoSummary.aiGeneratedCount, 57, 'All 57 photos must declare aiGenerated: true');
 
     const photosDir = path.resolve(__dirname, '../public/images/exercises/photographs');
     assert.ok(fs.existsSync(photosDir), 'Photographs directory must exist');
@@ -262,6 +262,7 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       '00000000-0000-0000-0000-000000000040', // Dynamic Auditory-Cued Gait Training
       '00000000-0000-0000-0000-000000000041', // Frenkel Coordination Heel-to-Shin Exercises
       '00000000-0000-0000-0000-000000000043', // Brandt-Daroff Vestibular Habituation Drill
+      '00000000-0000-0000-0000-000000000044', // Prone Tummy Time with Chest Bolster Support
       '00000000-0000-0000-0000-000000000045', // Tall-Kneeling to Half-Kneeling Transitional Stepping
       '00000000-0000-0000-0000-000000000046', // Bear Crawl Coordination Drill
       '00000000-0000-0000-0000-000000000049', // Lateral Bound and Stick (Frontal Plane Deceleration)
@@ -274,6 +275,7 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       '00000000-0000-0000-0000-000000000053', // Diaphragmatic Breathing
       '00000000-0000-0000-0000-000000000054', // Pursed-Lip Breathing Drill
       '00000000-0000-0000-0000-000000000055', // Active Cycle of Breathing Technique (ACBT)
+      '00000000-0000-0000-0000-000000000056', // Pelvic Floor Muscle Training (Kegels with Knack Technique)
       '00000000-0000-0000-0000-000000000057', // Supine Transverse Abdominis Drawing-In Maneuver
     ];
 
@@ -331,7 +333,7 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
     assert.ok(cardSource.includes("objectFit: 'cover'"), 'Photographs must render with clean objectFit: cover framing');
   });
 
-  test('Catalogue Photo Coverage: Exactly 54 approved photos, 1 pending review, and 4 clean coming-soon fallbacks', () => {
+  test('Catalogue Photo Coverage: Exactly 56 approved photos, 1 pending review, and 2 clean coming-soon fallbacks', () => {
     const approvedExercises = [];
     const pendingExercises = [];
     const comingSoonExercises = [];
@@ -347,12 +349,12 @@ describe('PHYSENRA CLINICAL EXERCISE VISUALS & REGISTRY AUDIT', () => {
       }
     }
 
-    assert.equal(approvedExercises.length, 54, 'Exactly 54 exercises must have clinically approved photos');
+    assert.equal(approvedExercises.length, 56, 'Exactly 56 exercises must have clinically approved photos');
     assert.equal(pendingExercises.length, 1, 'Exactly 1 exercise (bird-dog) must be pending review');
-    assert.equal(comingSoonExercises.length, 4, 'Exactly 4 exercises must cleanly display "Photo demonstration coming soon"');
+    assert.equal(comingSoonExercises.length, 2, 'Exactly 2 exercises must cleanly display "Photo demonstration coming soon"');
     assert.equal(approvedExercises.length + pendingExercises.length + comingSoonExercises.length, 59, 'Total must equal 59');
 
-    // Verify all 54 approved photos map to valid JPEG files
+    // Verify all 56 approved photos map to valid JPEG files
     for (const ex of approvedExercises) {
       const demo = getExercisePhotoDemonstration(ex.id);
       assert.ok(demo.photoAssetPath.endsWith('.jpg'), `Photo for ${ex.name} must be a .jpg`);
