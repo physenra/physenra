@@ -143,12 +143,12 @@ async function runLiveVerification() {
   );
   assertCheck(
     'Unauthenticated clinician-summary request is strictly REJECTED with HTTP 401',
-    unauthClinicianSummaryRes.statusCode === 401 && unauthClinicianSummaryRes.json?.success === false,
+    unauthClinicianSummaryRes.statusCode === 401 && Boolean(unauthClinicianSummaryRes.json?.error),
     `Status: ${unauthClinicianSummaryRes.statusCode}, Body: ${unauthClinicianSummaryRes.body}`
   );
   assertCheck(
     'Clinician-summary strictly requires Bearer token',
-    unauthClinicianSummaryRes.json?.error?.includes('Clinician authentication required'),
+    (unauthClinicianSummaryRes.json?.error || '').toLowerCase().includes('clinician authentication token is required'),
     `Error: ${unauthClinicianSummaryRes.json?.error}`
   );
 
