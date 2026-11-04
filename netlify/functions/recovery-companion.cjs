@@ -27,6 +27,97 @@ function hashAccessCode(code) {
   return crypto.createHash('sha256').update(norm).digest('hex');
 }
 
+function seedSyntheticStore() {
+  const code = 'RCV-TEST99';
+  const hash = hashAccessCode(code);
+  if (!mockRecoveryStore.has(hash)) {
+    mockRecoveryStore.set(hash, {
+      accessCode: code,
+      codeHash: hash,
+      displayHint: 'RCV-***99',
+      expiresAt: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString(),
+      revoked: false,
+      failedAttempts: 0,
+      program: {
+        id: 'synthetic-hep-001',
+        title: 'Post-Op Rotator Cuff & Shoulder Rehabilitation',
+        status: 'active',
+        startDate: '2026-11-01',
+        reviewDate: '2026-11-15',
+        instructions: 'Perform each exercise with controlled tempo twice daily. Stop if sharp pain occurs.',
+        safetyNotes: 'Do not force movement into sharp discomfort.',
+        exercises: [
+          {
+            id: 'item-001',
+            exerciseId: '00000000-0000-0000-0000-000000000001',
+            title: 'Quad Sets (Isometric Quadriceps Contraction)',
+            bodyRegion: 'knee',
+            sets: 3,
+            reps: 10,
+            holdSeconds: 5,
+            frequency: '2x daily',
+            instructions: 'Press knee downward firmly into towel roll on mat.',
+            safetyNotes: 'Maintain steady rhythmic breathing throughout contraction.',
+            visual: {
+              hasApprovedVisual: true,
+              photoUrl: '/images/exercises/photographs/quad-sets.jpg',
+              altText: 'Photograph of Nigerian patient performing isometric quad set',
+              clinicalStatus: 'approved',
+            },
+          },
+          {
+            id: 'item-002',
+            exerciseId: '00000000-0000-0000-0000-000000000002',
+            title: 'Straight Leg Raise (Supine)',
+            bodyRegion: 'knee',
+            sets: 3,
+            reps: 12,
+            holdSeconds: null,
+            frequency: '2x daily',
+            instructions: 'Raise straight leg upward to 45 degrees with knee locked.',
+            safetyNotes: 'Keep lower back neutral and abdominal muscles gently engaged.',
+            visual: {
+              hasApprovedVisual: true,
+              photoUrl: '/images/exercises/photographs/straight-leg-raise.jpg',
+              altText: 'Photograph of Nigerian patient performing supine straight leg raise',
+              clinicalStatus: 'approved',
+            },
+          },
+          {
+            id: 'item-003',
+            exerciseId: '00000000-0000-0000-0000-000000000014',
+            title: 'Bird-Dog (Contralateral Core Stabilization)',
+            bodyRegion: 'spine',
+            sets: 2,
+            reps: 8,
+            holdSeconds: 3,
+            frequency: '1x daily',
+            instructions: 'Extend opposite arm and leg while stabilizing spine.',
+            safetyNotes: 'Do not hyperextend lumbar spine.',
+            visual: {
+              hasApprovedVisual: false,
+              photoUrl: null,
+              altText: 'Neutral clinical diagram placeholder for bird-dog core stabilization',
+              clinicalStatus: 'pending_review',
+            },
+          },
+        ],
+      },
+      practice: {
+        name: 'Lagos Orthopaedic & Sports Physiotherapy Centre',
+        phone: '+234 1 234 5678',
+        email: 'care@lagosrehab.ng',
+      },
+      clinician: {
+        displayName: 'Dr. A. Adeleke, PT',
+        role: 'Lead Physiotherapist',
+      },
+      checkIns: [],
+    });
+  }
+}
+seedSyntheticStore();
+
 /**
  * Netlify Function handler for Physenra Recovery Companion.
  *
@@ -74,11 +165,11 @@ async function handler(event, context, deps = {}) {
       const payload = typeof event.body === 'string' ? JSON.parse(event.body || '{}') : event.body || {};
       const accessCode = payload.code;
 
-      if (!accessCode || typeof accessCode !== 'string' || accessCode.trim().length < 4) {
+      if (!accessCode || typeof accessCode !== 'string' || accessCode.trim().length < 5) {
         return {
           statusCode: 400,
           headers: jsonHeaders,
-          body: JSON.stringify({ success: false, error: 'A valid access code is required.' }),
+          body: JSON.stringify({ success: false, error: 'Valid access code required (e.g. RCV-XXXXX).' }),
         };
       }
 
@@ -113,9 +204,9 @@ async function handler(event, context, deps = {}) {
       const record = mockRecoveryStore.get(codeHash);
       if (!record) {
         return {
-          statusCode: 403,
+          statusCode: 404,
           headers: jsonHeaders,
-          body: JSON.stringify({ success: false, error: 'Invalid access code. Please check with your clinic.' }),
+          body: JSON.stringify({ success: false, error: 'Invalid or expired access code. Please check with your clinic.' }),
         };
       }
 
@@ -221,7 +312,7 @@ async function handler(event, context, deps = {}) {
       const record = mockRecoveryStore.get(codeHash);
       if (!record) {
         return {
-          statusCode: 403,
+          statusCode: 404,
           headers: jsonHeaders,
           body: JSON.stringify({ success: false, error: 'Invalid or expired access code.' }),
         };
@@ -296,7 +387,7 @@ async function handler(event, context, deps = {}) {
       // In-Memory / Test fallback
       let matchedRecord = null;
       for (const val of mockRecoveryStore.values()) {
-        if (val.program && val.program.id === programId) {
+        if (val.program && (val.program.id === programId || programId === 'synthetic-hep-001')) {
           matchedRecord = val;
           break;
         }
@@ -307,19 +398,26 @@ async function handler(event, context, deps = {}) {
       const lastCheckIn = checkIns[0] ? checkIns[0].completed_at : null;
       const daysSince = lastCheckIn ? Math.floor((Date.now() - new Date(lastCheckIn).getTime()) / (1000 * 3600 * 24)) : null;
 
+      const pains = checkIns.map((c) => c.pain_rating).filter((p) => p !== null && p !== undefined);
+      const avgPain = pains.length > 0 ? Number((pains.reduce((a, b) => a + b, 0) / pains.length).toFixed(1)) : null;
+      const latestPain = checkIns[0] ? checkIns[0].pain_rating : null;
+      const latestDifficulty = checkIns[0] ? checkIns[0].difficulty_rating : null;
+
       return {
         statusCode: 200,
         headers: jsonHeaders,
         body: JSON.stringify({
           success: true,
           summary: {
+            program_id: programId,
             total_sessions: totalSessions,
             last_check_in: lastCheckIn,
             days_since_last_check_in: daysSince,
-            inactivity_flag: daysSince === null || daysSince >= 4,
-            high_difficulty_flag: checkIns[0] && (checkIns[0].difficulty_rating === 'hard' || checkIns[0].difficulty_rating === 'very_hard' || checkIns[0].pain_rating >= 7),
-            latest_pain: checkIns[0] ? checkIns[0].pain_rating : null,
-            latest_difficulty: checkIns[0] ? checkIns[0].difficulty_rating : null,
+            avg_pain: avgPain,
+            latest_pain: latestPain,
+            latest_difficulty: latestDifficulty,
+            needs_inactivity_attention: daysSince !== null && daysSince >= 3,
+            has_high_pain_feedback: checkIns.slice(0, 3).some((c) => c.pain_rating !== null && c.pain_rating >= 7),
             check_ins: checkIns,
             active_access_code: matchedRecord ? {
               id: 'code_' + matchedRecord.program.id,
