@@ -68,13 +68,13 @@ export const RecoveryCompanionPage: React.FC = () => {
   // Handle session check-in submission
   const handleSubmitCheckIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeCode) return;
+    if (!activeCode && !recoveryCompanionService.getSessionToken()) return;
 
     setIsSubmittingCheckIn(true);
     setError(null);
 
     try {
-      await recoveryCompanionService.submitCheckIn(activeCode, {
+      await recoveryCompanionService.submitCheckIn({
         painRating,
         difficultyRating,
         notes: patientNotes,
@@ -85,8 +85,10 @@ export const RecoveryCompanionPage: React.FC = () => {
       setIsCheckInOpen(false);
 
       // Re-fetch program to get updated history
-      const refreshed = await recoveryCompanionService.verifyAccessCode(activeCode);
-      setProgramData(refreshed);
+      if (activeCode) {
+        const refreshed = await recoveryCompanionService.verifyAccessCode(activeCode);
+        setProgramData(refreshed);
+      }
 
       // Reset form
       setPatientNotes('');
@@ -108,6 +110,7 @@ export const RecoveryCompanionPage: React.FC = () => {
   };
 
   const handleSignOut = () => {
+    recoveryCompanionService.clearSession();
     setActiveCode(null);
     setProgramData(null);
     setAccessCodeInput('');

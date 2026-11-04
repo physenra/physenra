@@ -54,6 +54,7 @@ export interface PatientCheckInRecord {
 export interface RecoveryProgramPayload {
   success: boolean;
   error?: string;
+  session_token?: string;
   program: {
     id: string;
     title: string;
@@ -101,27 +102,44 @@ export interface RecoveryClinicianSummary {
   } | null;
 }
 
+// Memory-only session token storage (never persisted to localStorage or sessionStorage)
+let currentSessionToken: string | null = null;
+
 export const recoveryCompanionService = {
   /**
-   * Normalizes an access code to standard format (RCV-XXXXX).
+   * Clears active patient session from memory.
+   */
+  clearSession(): void {
+    currentSessionToken = null;
+  },
+
+  /**
+   * Retrieves active in-memory session token.
+   */
+  getSessionToken(): string | null {
+    return currentSessionToken;
+  },
+
+  /**
+   * Normalizes an access code to standard format.
    */
   normalizeCode(code: string): string {
     if (!code) return '';
     let c = code.trim().toUpperCase().replace(/\s+/g, '');
-    if (!c.startsWith('RCV-') && c.length === 5) {
+    if (!c.startsWith('RCV-') && c.length >= 20) {
       c = 'RCV-' + c;
     }
     return c;
   },
 
   /**
-   * Patient: Verifies an unguessable access code and retrieves their active HEP.
+   * Patient: Verifies an access code and receives an ephemeral session.
    * Does NOT expose patient national IDs or cross-patient data.
    */
   async verifyAccessCode(code: string): Promise<RecoveryProgramPayload> {
     const normalized = this.normalizeCode(code);
-    if (!normalized || normalized.length < 5) {
-      throw new Error('Please enter a valid access code (e.g. RCV-XXXXX).');
+    if (!normalized || normalized.length < 8) {
+      throw new Error('Please enter a valid access code (e.g. RCV-XXXXX...).');
     }
 
     // 1. Try authoritative Supabase RPC
@@ -131,43 +149,50 @@ export const recoveryCompanionService = {
       });
 
       if (!error && data) {
-        const payload = data as unknown as { success: boolean; error?: string };
+        const payload = data as unknown as { success: boolean; session_token?: string; error?: string };
         if (!payload.success) {
-          throw new Error(payload.error || 'Access denied.');
+          throw new Error(payload.error || 'Access denied. Invalid or expired access credentials.');
+        }
+        if (payload.session_token) {
+          currentSessionToken = payload.session_token;
         }
         return data as unknown as RecoveryProgramPayload;
       }
     } catch (rpcErr: any) {
-      // If RPC failed due to network or function in transit, attempt API route
-      console.warn('Direct Supabase RPC not available, trying API bridge:', rpcErr?.message);
+      // Direct RPC fallback to API route
     }
 
-    // 2. Fallback to API bridge route
+    // 2. Fallback to API bridge route with credentials: 'same-origin' for HttpOnly cookie
     const res = await fetch('/api/recovery-companion?action=verify-code', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: normalized }),
     });
 
     const result = await res.json();
     if (!res.ok || !result.success) {
-      throw new Error(result.error || 'Failed to verify access code.');
+      if (res.status === 429) {
+        throw new Error('Too many verification attempts. Please wait 5 minutes before retrying.');
+      }
+      throw new Error(result.error || 'Access denied. Invalid or expired access credentials.');
+    }
+
+    if (result.session_token) {
+      currentSessionToken = result.session_token;
     }
 
     return result as RecoveryProgramPayload;
   },
 
   /**
-   * Patient: Submits a completed exercise session check-in.
+   * Patient: Submits a completed exercise session check-in using the short-lived session.
    */
   async submitCheckIn(
-    code: string,
-    checkIn: RecoveryCheckInInput
+    checkIn: RecoveryCheckInInput,
+    sessionTokenOverride?: string
   ): Promise<{ success: boolean; check_in_id: string; completed_at: string }> {
-    const normalized = this.normalizeCode(code);
-    if (!normalized) {
-      throw new Error('Active access code is required.');
-    }
+    const sessionToken = sessionTokenOverride || currentSessionToken;
 
     const payload = {
       pain_rating: checkIn.painRating !== undefined && checkIn.painRating !== null ? Number(checkIn.painRating) : null,
@@ -177,28 +202,36 @@ export const recoveryCompanionService = {
     };
 
     // 1. Try authoritative Supabase RPC
-    try {
-      const { data, error } = await (supabase.rpc as any)('submit_recovery_companion_check_in', {
-        p_access_code: normalized,
-        p_check_in: payload,
-      });
+    if (sessionToken) {
+      try {
+        const { data, error } = await (supabase.rpc as any)('submit_recovery_companion_check_in', {
+          p_session_token: sessionToken,
+          p_check_in: payload,
+        });
 
-      if (!error && data) {
-        const resObj = data as unknown as { success: boolean; check_in_id: string; completed_at: string };
-        if (resObj.success) {
-          return resObj;
+        if (!error && data) {
+          const resObj = data as unknown as { success: boolean; check_in_id: string; completed_at: string };
+          if (resObj.success) {
+            return resObj;
+          }
         }
+      } catch (rpcErr: any) {
+        // Fallback to API route
       }
-    } catch (rpcErr: any) {
-      console.warn('Direct RPC submission fallback to API route:', rpcErr?.message);
     }
 
     // 2. Fallback to API bridge route
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (sessionToken) {
+      headers['Authorization'] = `Session ${sessionToken}`;
+    }
+
     const res = await fetch('/api/recovery-companion?action=submit-checkin', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      headers,
       body: JSON.stringify({
-        code: normalized,
+        sessionToken,
         checkIn: {
           painRating: payload.pain_rating,
           difficultyRating: payload.difficulty_rating,
@@ -210,7 +243,7 @@ export const recoveryCompanionService = {
 
     const result = await res.json();
     if (!res.ok || !result.success) {
-      throw new Error(result.error || 'Failed to submit check-in.');
+      throw new Error(result.error || 'Session expired or invalid. Please re-enter your access code.');
     }
 
     return result;

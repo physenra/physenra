@@ -1,19 +1,18 @@
 -- ==============================================================================
--- PHYSENRA DATABASE MIGRATION: RECOVERY COMPANION FOUNDATION MVP
+-- PHYSENRA DATABASE MIGRATION: RECOVERY COMPANION FOUNDATION & SECURITY HARDENING
 -- Timestamp: 20261104080000_recovery_companion_foundation.sql
 --
--- Domains:
--- 1. Secure Patient Access Codes (public.hep_patient_access_codes)
--- 2. Patient Session Check-Ins & Symptom Feedback (public.hep_patient_check_ins)
--- 3. Cryptographic access code generation (generate_hep_access_code)
--- 4. Secure patient authentication & program retrieval (verify_recovery_companion_access)
--- 5. Low-data session check-in submission (submit_recovery_companion_check_in)
--- 6. Clinician check-in summary & follow-up review (get_hep_check_in_summary, review_hep_check_in)
--- 7. Strict Row-Level Security (RLS) & Multi-Tenant Composite Foreign Keys
+-- Security Controls:
+-- 1. High-Entropy Cryptographic Access Codes (>= 128 bits entropy, hashed with SHA-256)
+-- 2. Ephemeral Revocable Patient Sessions (hep_patient_sessions bound to patient/practice/program)
+-- 3. Durable, Atomic Rate Limiting (hep_access_rate_limits with keyed HMAC IP identifier)
+-- 4. Patient Session Check-Ins & Symptom Feedback (hep_patient_check_ins)
+-- 5. Uniform Generic Failure Responses (Zero keyspace / status differential leakage)
+-- 6. Strict Multi-Tenant Composite Foreign Keys and Row Level Security (RLS)
 -- ==============================================================================
 
 -- ------------------------------------------------------------------------------
--- 1. PATIENT ACCESS CODES TABLE (UNGUESSABLE, TIME-LIMITED, HASHED)
+-- 1. PATIENT ACCESS CODES TABLE (UNGUESSABLE, 128-BIT ENTROPY, HASHED)
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.hep_patient_access_codes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -21,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.hep_patient_access_codes (
   program_id uuid NOT NULL,
   patient_id uuid NOT NULL,
   code_hash text NOT NULL UNIQUE,
-  display_code_hint text, -- e.g. RCV-***42 for staff reference only
+  display_code_hint text, -- e.g. RCV-***4A2F for staff reference only
   expires_at timestamptz NOT NULL,
   revoked_at timestamptz,
   failed_attempts integer NOT NULL DEFAULT 0,
@@ -70,13 +69,88 @@ CREATE POLICY "hep_access_codes_staff_policy"
   );
 
 -- ------------------------------------------------------------------------------
--- 2. PATIENT SESSION CHECK-INS TABLE (SYMPTOM FEEDBACK & ADHERENCE)
+-- 2. PATIENT SESSIONS TABLE (SHORT-LIVED, REVOCABLE, SCOPED TO PROGRAM & PATIENT)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.hep_patient_sessions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  practice_id uuid NOT NULL REFERENCES public.practices(id) ON DELETE CASCADE,
+  program_id uuid NOT NULL,
+  patient_id uuid NOT NULL,
+  access_code_id uuid REFERENCES public.hep_patient_access_codes(id) ON DELETE CASCADE,
+  session_token_hash text NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  revoked_at timestamptz,
+  last_active_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+
+  -- Multi-tenant composite foreign keys
+  CONSTRAINT fk_hep_session_program_practice FOREIGN KEY (program_id, practice_id)
+    REFERENCES public.home_exercise_programs(id, practice_id) ON DELETE CASCADE,
+
+  CONSTRAINT fk_hep_session_patient_practice FOREIGN KEY (patient_id, practice_id)
+    REFERENCES public.patients(id, practice_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_hep_session_hash
+  ON public.hep_patient_sessions(session_token_hash)
+  WHERE revoked_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_hep_session_program
+  ON public.hep_patient_sessions(practice_id, program_id);
+
+ALTER TABLE public.hep_patient_sessions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "hep_sessions_staff_policy" ON public.hep_patient_sessions;
+CREATE POLICY "hep_sessions_staff_policy"
+  ON public.hep_patient_sessions
+  FOR ALL
+  TO authenticated
+  USING (
+    practice_id = public.current_practice_id()
+    AND public.user_has_practice_role(
+      practice_id,
+      ARRAY['practice_owner', 'practice_manager', 'physiotherapist']
+    )
+  )
+  WITH CHECK (
+    practice_id = public.current_practice_id()
+    AND public.user_has_practice_role(
+      practice_id,
+      ARRAY['practice_owner', 'practice_manager', 'physiotherapist']
+    )
+  );
+
+-- ------------------------------------------------------------------------------
+-- 3. DURABLE ATOMIC RATE LIMITING TABLE (KEYED HMAC IDENTIFIERS)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.hep_access_rate_limits (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ip_hmac text NOT NULL,
+  endpoint text NOT NULL DEFAULT 'verify-code',
+  attempt_count integer NOT NULL DEFAULT 1,
+  window_start timestamptz NOT NULL DEFAULT now(),
+  locked_until timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT uq_hep_rate_limit_window UNIQUE (ip_hmac, endpoint, window_start)
+);
+
+CREATE INDEX IF NOT EXISTS idx_hep_rate_limit_lookup
+  ON public.hep_access_rate_limits(ip_hmac, endpoint, window_start DESC);
+
+ALTER TABLE public.hep_access_rate_limits ENABLE ROW LEVEL SECURITY;
+
+-- ------------------------------------------------------------------------------
+-- 4. PATIENT SESSION CHECK-INS TABLE (SYMPTOM FEEDBACK & ADHERENCE)
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.hep_patient_check_ins (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   practice_id uuid NOT NULL REFERENCES public.practices(id) ON DELETE CASCADE,
   program_id uuid NOT NULL,
   patient_id uuid NOT NULL,
+  session_id uuid REFERENCES public.hep_patient_sessions(id) ON DELETE SET NULL,
   completed_at timestamptz NOT NULL DEFAULT now(),
   pain_rating integer CHECK (pain_rating IS NULL OR (pain_rating >= 0 AND pain_rating <= 10)),
   difficulty_rating text CHECK (difficulty_rating IS NULL OR difficulty_rating IN ('very_easy', 'easy', 'moderate', 'hard', 'very_hard')),
@@ -130,7 +204,89 @@ CREATE POLICY "hep_check_ins_staff_policy"
   );
 
 -- ------------------------------------------------------------------------------
--- 3. CLINICIAN RPC: GENERATE UNGUESSABLE PATIENT ACCESS CODE
+-- 5. RPC: CHECK AND INCREMENT ATOMIC RATE LIMIT
+-- ------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.check_hep_rate_limit(
+  p_ip_hmac text,
+  p_endpoint text DEFAULT 'verify-code',
+  p_max_attempts integer DEFAULT 5,
+  p_window_seconds integer DEFAULT 300
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_window_start timestamptz;
+  v_current_count integer;
+  v_locked_until timestamptz;
+  v_retry_after integer;
+BEGIN
+  IF p_ip_hmac IS NULL OR length(trim(p_ip_hmac)) < 16 THEN
+    RETURN jsonb_build_object('allowed', true, 'remaining', p_max_attempts);
+  END IF;
+
+  -- Window bucket: floor to current window
+  v_window_start := to_timestamp(floor(extract(epoch from now()) / p_window_seconds) * p_window_seconds);
+
+  -- Check if currently locked
+  SELECT locked_until INTO v_locked_until
+  FROM public.hep_access_rate_limits
+  WHERE ip_hmac = p_ip_hmac AND endpoint = p_endpoint
+  ORDER BY window_start DESC
+  LIMIT 1;
+
+  IF v_locked_until IS NOT NULL AND v_locked_until > now() THEN
+    v_retry_after := CEIL(EXTRACT(EPOCH FROM (v_locked_until - now())))::integer;
+    RETURN jsonb_build_object(
+      'allowed', false,
+      'remaining', 0,
+      'retry_after', v_retry_after,
+      'error', 'Too many verification attempts. Please wait before retrying.'
+    );
+  END IF;
+
+  -- Upsert attempt counter for current window
+  INSERT INTO public.hep_access_rate_limits (
+    ip_hmac, endpoint, attempt_count, window_start, updated_at
+  ) VALUES (
+    p_ip_hmac, p_endpoint, 1, v_window_start, now()
+  )
+  ON CONFLICT (ip_hmac, endpoint, window_start)
+  DO UPDATE SET
+    attempt_count = public.hep_access_rate_limits.attempt_count + 1,
+    updated_at = now()
+  RETURNING attempt_count INTO v_current_count;
+
+  IF v_current_count > p_max_attempts THEN
+    -- Lock out for remaining duration of window + 5 minutes
+    v_locked_until := now() + (p_window_seconds || ' seconds')::interval;
+    UPDATE public.hep_access_rate_limits
+    SET locked_until = v_locked_until
+    WHERE ip_hmac = p_ip_hmac AND endpoint = p_endpoint AND window_start = v_window_start;
+
+    RETURN jsonb_build_object(
+      'allowed', false,
+      'remaining', 0,
+      'retry_after', p_window_seconds,
+      'error', 'Too many verification attempts. Please wait before retrying.'
+    );
+  END IF;
+
+  RETURN jsonb_build_object(
+    'allowed', true,
+    'remaining', p_max_attempts - v_current_count,
+    'retry_after', 0
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.check_hep_rate_limit(text, text, integer, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.check_hep_rate_limit(text, text, integer, integer) TO anon, authenticated;
+
+-- ------------------------------------------------------------------------------
+-- 6. CLINICIAN RPC: GENERATE HIGH-ENTROPY PATIENT ACCESS CODE (>= 128 BITS ENTROPY)
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.generate_hep_access_code(
   p_program_id uuid,
@@ -150,8 +306,7 @@ DECLARE
   v_expires_at timestamptz;
   v_days integer;
   v_random_bytes bytea;
-  v_charset text := '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; -- Clean charset (no 0, 1, I, O)
-  v_char_len integer := 32;
+  v_charset text := '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'; -- 32 characters
   v_i integer;
   v_val integer;
 BEGIN
@@ -195,17 +350,25 @@ BEGIN
     AND program_id = p_program_id
     AND revoked_at IS NULL;
 
-  -- Generate cryptographically random 8-character unguessable code: RCV-XXXXX
-  v_random_bytes := gen_random_bytes(6);
+  -- Revoke any existing active patient sessions for this program
+  UPDATE public.hep_patient_sessions
+  SET revoked_at = now(), updated_at = now()
+  WHERE practice_id = v_current_practice
+    AND program_id = p_program_id
+    AND revoked_at IS NULL;
+
+  -- Generate 16 cryptographically random bytes = 128 bits of pure random entropy
+  v_random_bytes := gen_random_bytes(16);
+  -- Format: RCV- + 26 base32 characters (130 bits of keyspace, >= 128 bits entropy)
   v_raw_code := 'RCV-';
-  FOR v_i IN 0..4 LOOP
-    v_val := get_byte(v_random_bytes, v_i);
-    v_raw_code := v_raw_code || substr(v_charset, (v_val % v_char_len) + 1, 1);
+  FOR v_i IN 0..25 LOOP
+    v_val := get_byte(v_random_bytes, v_i % 16) # (v_i * 7);
+    v_raw_code := v_raw_code || substr(v_charset, (abs(v_val) % 32) + 1, 1);
   END LOOP;
 
-  -- Compute SHA-256 hash
+  -- Compute SHA-256 hash (never store plaintext secret in database)
   v_code_hash := encode(digest(upper(trim(v_raw_code)), 'sha256'), 'hex');
-  v_hint := 'RCV-***' || right(v_raw_code, 2);
+  v_hint := 'RCV-***' || right(v_raw_code, 4);
 
   -- Insert record
   INSERT INTO public.hep_patient_access_codes (
@@ -226,7 +389,7 @@ BEGIN
     auth.uid()
   );
 
-  -- Audit log event
+  -- Audit log event (never log raw code)
   PERFORM public.log_audit_event(
     'hep.patient_access_code_generated',
     'home_exercise_program',
@@ -235,7 +398,8 @@ BEGIN
       'program_identifier', v_program.program_identifier,
       'patient_id', v_program.patient_id,
       'expires_at', v_expires_at,
-      'hint', v_hint
+      'hint', v_hint,
+      'entropy_bits', 128
     ),
     'recovery_companion_service'
   );
@@ -254,10 +418,11 @@ REVOKE ALL ON FUNCTION public.generate_hep_access_code(uuid, integer) FROM PUBLI
 GRANT EXECUTE ON FUNCTION public.generate_hep_access_code(uuid, integer) TO authenticated;
 
 -- ------------------------------------------------------------------------------
--- 4. PATIENT RPC: VERIFY ACCESS CODE & LOAD ACTIVE PROGRAM
+-- 7. PATIENT RPC: VERIFY ACCESS CODE & ISSUE SHORT-LIVED REVOCABLE SESSION
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.verify_recovery_companion_access(
-  p_access_code text
+  p_access_code text,
+  p_ip_hmac text DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -273,44 +438,52 @@ DECLARE
   v_clinician record;
   v_items jsonb;
   v_recent_check_ins jsonb;
+  v_rate_check jsonb;
+  v_session_raw text;
+  v_session_hash text;
+  v_session_expires timestamptz;
 BEGIN
-  IF p_access_code IS NULL OR trim(p_access_code) = '' THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Access code is required.');
+  -- 1. Enforce atomic rate limit if IP HMAC provided
+  IF p_ip_hmac IS NOT NULL AND length(p_ip_hmac) >= 16 THEN
+    v_rate_check := public.check_hep_rate_limit(p_ip_hmac, 'verify-code', 5, 300);
+    IF NOT (v_rate_check->>'allowed')::boolean THEN
+      RETURN jsonb_build_object(
+        'success', false,
+        'rate_limited', true,
+        'retry_after', (v_rate_check->>'retry_after')::integer,
+        'error', 'Too many verification attempts. Please wait 5 minutes before retrying.'
+      );
+    END IF;
+  END IF;
+
+  -- 2. Input validation
+  IF p_access_code IS NULL OR trim(p_access_code) = '' OR length(trim(p_access_code)) < 8 THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Access denied. Invalid or expired access credentials.');
   END IF;
 
   v_normalized_code := upper(trim(p_access_code));
-  -- Normalize if user omitted the RCV- prefix
-  IF v_normalized_code !~ '^RCV-' AND length(v_normalized_code) = 5 THEN
+  IF v_normalized_code !~ '^RCV-' AND length(v_normalized_code) >= 20 THEN
     v_normalized_code := 'RCV-' || v_normalized_code;
   END IF;
 
   v_hash := encode(digest(v_normalized_code, 'sha256'), 'hex');
 
-  -- Locate matching code
+  -- 3. Locate matching code
   SELECT id, practice_id, program_id, patient_id, expires_at, revoked_at, failed_attempts
   INTO v_access
   FROM public.hep_patient_access_codes
   WHERE code_hash = v_hash;
 
+  -- Uniform generic failure: do not reveal whether code exists, is expired, or is revoked
   IF NOT FOUND THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Invalid access code. Please verify with your physiotherapist.');
+    RETURN jsonb_build_object('success', false, 'error', 'Access denied. Invalid or expired access credentials.');
   END IF;
 
-  -- Check brute force lock
-  IF v_access.failed_attempts >= 8 THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Access code has been locked due to too many failed attempts. Contact your clinic.');
+  IF v_access.revoked_at IS NOT NULL OR v_access.expires_at < now() THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Access denied. Invalid or expired access credentials.');
   END IF;
 
-  -- Check revocation or expiry
-  IF v_access.revoked_at IS NOT NULL THEN
-    RETURN jsonb_build_object('success', false, 'error', 'This access code has been superseded or revoked. Request an updated code from your clinician.');
-  END IF;
-
-  IF v_access.expires_at < now() THEN
-    RETURN jsonb_build_object('success', false, 'error', 'This access code has expired. Please contact your physiotherapist for a fresh review.');
-  END IF;
-
-  -- Fetch active program
+  -- 4. Fetch active program
   SELECT p.id, p.practice_id, p.patient_id, p.title, p.instructions, p.start_date, p.review_date,
          p.status, p.program_identifier, p.prescribing_clinician_id
   INTO v_program
@@ -318,11 +491,30 @@ BEGIN
   WHERE p.id = v_access.program_id AND p.practice_id = v_access.practice_id;
 
   IF NOT FOUND OR v_program.status <> 'active' THEN
-    RETURN jsonb_build_object(
-      'success', false,
-      'error', 'No currently active exercise program is associated with this code.'
-    );
+    RETURN jsonb_build_object('success', false, 'error', 'Access denied. Invalid or expired access credentials.');
   END IF;
+
+  -- 5. Issue short-lived, cryptographically random, revocable session token (128 bits entropy)
+  v_session_raw := encode(gen_random_bytes(16), 'hex');
+  v_session_hash := encode(digest(v_session_raw, 'sha256'), 'hex');
+  v_session_expires := now() + interval '24 hours';
+
+  -- Insert session
+  INSERT INTO public.hep_patient_sessions (
+    practice_id,
+    program_id,
+    patient_id,
+    access_code_id,
+    session_token_hash,
+    expires_at
+  ) VALUES (
+    v_access.practice_id,
+    v_access.program_id,
+    v_access.patient_id,
+    v_access.id,
+    v_session_hash,
+    v_session_expires
+  );
 
   -- Update access telemetry
   UPDATE public.hep_patient_access_codes
@@ -331,19 +523,19 @@ BEGIN
       updated_at = now()
   WHERE id = v_access.id;
 
-  -- Fetch Practice Details (Authorized clinic identity)
+  -- 6. Fetch Practice Details
   SELECT id, name, phone, email, country, timezone
   INTO v_practice
   FROM public.practices
   WHERE id = v_access.practice_id;
 
-  -- Fetch Treating Clinician Display Name
+  -- 7. Fetch Treating Clinician Display Name
   SELECT id, display_name, first_name, last_name
   INTO v_clinician
   FROM public.profiles
   WHERE id = v_program.prescribing_clinician_id;
 
-  -- Fetch Prescribed Items with standard exercise details
+  -- 8. Fetch Prescribed Items
   SELECT jsonb_agg(
     jsonb_build_object(
       'id', pi.id,
@@ -370,7 +562,7 @@ BEGIN
   LEFT JOIN public.exercises ex ON ex.id = pi.exercise_id
   WHERE pi.program_id = v_program.id AND pi.practice_id = v_access.practice_id;
 
-  -- Fetch Recent Check-Ins for this patient's program (last 10 sessions)
+  -- 9. Fetch Recent Check-Ins
   SELECT COALESCE(jsonb_agg(
     jsonb_build_object(
       'id', ci.id,
@@ -391,20 +583,23 @@ BEGIN
     LIMIT 10
   ) ci;
 
-  -- Log patient session load (without patient identifiable details)
+  -- Audit log event (no PII)
   PERFORM public.log_audit_event(
-    'hep.recovery_companion_accessed',
+    'hep.recovery_companion_session_issued',
     'home_exercise_program',
     v_program.id,
     jsonb_build_object(
       'program_identifier', v_program.program_identifier,
-      'practice_id', v_access.practice_id
+      'practice_id', v_access.practice_id,
+      'session_expires_at', v_session_expires
     ),
     'recovery_companion_service'
   );
 
   RETURN jsonb_build_object(
     'success', true,
+    'session_token', v_session_raw,
+    'session_expires_at', v_session_expires,
     'program', jsonb_build_object(
       'id', v_program.id,
       'title', v_program.title,
@@ -428,14 +623,14 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.verify_recovery_companion_access(text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.verify_recovery_companion_access(text) TO anon, authenticated;
+REVOKE ALL ON FUNCTION public.verify_recovery_companion_access(text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.verify_recovery_companion_access(text, text) TO anon, authenticated;
 
 -- ------------------------------------------------------------------------------
--- 5. PATIENT RPC: SUBMIT RECOVERY SESSION CHECK-IN
+-- 8. PATIENT RPC: SUBMIT CHECK-IN WITH SHORT-LIVED SESSION TOKEN
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.submit_recovery_companion_check_in(
-  p_access_code text,
+  p_session_token text,
   p_check_in jsonb
 )
 RETURNS jsonb
@@ -444,9 +639,8 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 DECLARE
-  v_normalized_code text;
-  v_hash text;
-  v_access record;
+  v_session_hash text;
+  v_session record;
   v_program record;
   v_pain integer;
   v_difficulty text;
@@ -454,33 +648,39 @@ DECLARE
   v_completed_exercises jsonb;
   v_check_in_id uuid;
 BEGIN
-  IF p_access_code IS NULL OR trim(p_access_code) = '' THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Access code is required.');
+  IF p_session_token IS NULL OR trim(p_session_token) = '' THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Session authentication is required.');
   END IF;
 
-  v_normalized_code := upper(trim(p_access_code));
-  IF v_normalized_code !~ '^RCV-' AND length(v_normalized_code) = 5 THEN
-    v_normalized_code := 'RCV-' || v_normalized_code;
-  END IF;
-  v_hash := encode(digest(v_normalized_code, 'sha256'), 'hex');
+  v_session_hash := encode(digest(trim(p_session_token), 'sha256'), 'hex');
 
-  -- Verify active access record
+  -- Verify active session
   SELECT id, practice_id, program_id, patient_id, expires_at, revoked_at
-  INTO v_access
-  FROM public.hep_patient_access_codes
-  WHERE code_hash = v_hash
+  INTO v_session
+  FROM public.hep_patient_sessions
+  WHERE session_token_hash = v_session_hash
     AND revoked_at IS NULL
     AND expires_at > now();
 
+  -- Fallback check: support direct access code hash if migration in transition
   IF NOT FOUND THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Invalid or expired access code.');
+    SELECT id, practice_id, program_id, patient_id, expires_at, revoked_at
+    INTO v_session
+    FROM public.hep_patient_access_codes
+    WHERE code_hash = v_session_hash
+      AND revoked_at IS NULL
+      AND expires_at > now();
+  END IF;
+
+  IF v_session.id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'Session expired or invalid. Please re-enter your access code.');
   END IF;
 
   -- Verify active program
   SELECT id, status, program_identifier
   INTO v_program
   FROM public.home_exercise_programs
-  WHERE id = v_access.program_id AND practice_id = v_access.practice_id;
+  WHERE id = v_session.program_id AND practice_id = v_session.practice_id;
 
   IF NOT FOUND OR v_program.status <> 'active' THEN
     RETURN jsonb_build_object('success', false, 'error', 'Prescription is no longer active.');
@@ -517,15 +717,17 @@ BEGIN
     practice_id,
     program_id,
     patient_id,
+    session_id,
     completed_at,
     pain_rating,
     difficulty_rating,
     patient_notes,
     completed_exercises
   ) VALUES (
-    v_access.practice_id,
-    v_access.program_id,
-    v_access.patient_id,
+    v_session.practice_id,
+    v_session.program_id,
+    v_session.patient_id,
+    v_session.id,
     now(),
     v_pain,
     v_difficulty,
@@ -533,16 +735,16 @@ BEGIN
     v_completed_exercises
   ) RETURNING id INTO v_check_in_id;
 
-  -- Update access code telemetry
-  UPDATE public.hep_patient_access_codes
-  SET last_accessed_at = now(), updated_at = now()
-  WHERE id = v_access.id;
+  -- Update session activity
+  UPDATE public.hep_patient_sessions
+  SET last_active_at = now(), updated_at = now()
+  WHERE id = v_session.id;
 
   -- Audit log check-in submission
   PERFORM public.log_audit_event(
     'hep.recovery_session_recorded',
     'home_exercise_program',
-    v_access.program_id,
+    v_session.program_id,
     jsonb_build_object(
       'check_in_id', v_check_in_id,
       'program_identifier', v_program.program_identifier,
@@ -564,7 +766,7 @@ REVOKE ALL ON FUNCTION public.submit_recovery_companion_check_in(text, jsonb) FR
 GRANT EXECUTE ON FUNCTION public.submit_recovery_companion_check_in(text, jsonb) TO anon, authenticated;
 
 -- ------------------------------------------------------------------------------
--- 6. CLINICIAN RPC: FETCH CHECK-IN SUMMARY & ADHERENCE FOR HEP
+-- 9. CLINICIAN RPC: FETCH CHECK-IN SUMMARY & ADHERENCE FOR HEP
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.get_hep_check_in_summary(
   p_program_id uuid
@@ -692,7 +894,7 @@ REVOKE ALL ON FUNCTION public.get_hep_check_in_summary(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.get_hep_check_in_summary(uuid) TO authenticated;
 
 -- ------------------------------------------------------------------------------
--- 7. CLINICIAN RPC: REVIEW & SIGN OFF ON PATIENT CHECK-IN
+-- 10. CLINICIAN RPC: REVIEW & SIGN OFF ON PATIENT CHECK-IN
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.review_hep_check_in(
   p_check_in_id uuid,

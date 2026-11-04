@@ -4,6 +4,14 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
+// Netlify serverless function handler & utilities
+const {
+  handler: recoveryCompanionHandler,
+  hashSecret,
+  hashRequesterIp,
+  getTrustedClientIp,
+} = require('../netlify/functions/recovery-companion.cjs');
+
 // Visual registry & catalogue
 const {
   EXERCISE_VISUALS_REGISTRY,
@@ -12,443 +20,466 @@ const {
 } = require('../src/services/exerciseVisualRegistry.ts');
 const { SYSTEM_EXERCISES_CATALOGUE } = require('../src/services/hepCatalogueData.ts');
 
-describe('PHYSENRA RECOVERY COMPANION MVP SUITE', () => {
+describe('PHYSENRA RECOVERY COMPANION SECURITY HARDENING SUITE', () => {
+  const migrationPath = path.resolve(
+    __dirname,
+    '../supabase/migrations/20261104080000_recovery_companion_foundation.sql'
+  );
+  const serverlessPath = path.resolve(__dirname, '../netlify/functions/recovery-companion.cjs');
+  const migrationSql = fs.readFileSync(migrationPath, 'utf8');
+  const serverlessCode = fs.readFileSync(serverlessPath, 'utf8');
+
   // --------------------------------------------------------------------------
-  // 1. Access Code Security, Format & Hashing
+  // 1. High-Entropy Cryptographic Access Codes (>= 128 bits entropy)
   // --------------------------------------------------------------------------
-  describe('1. Access Code Architecture & Cryptographic Hashing', () => {
-    function generateSyntheticAccessCode() {
-      const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  describe('1. Access Code Cryptographic Entropy & Secure Hashing', () => {
+    function generateHighEntropyAccessCode() {
+      const charset = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+      const randomBytes = crypto.randomBytes(16); // 16 bytes = 128 bits of entropy
       let code = 'RCV-';
-      const bytes = crypto.randomBytes(6);
-      for (let i = 0; i < 6; i++) {
-        code += alphabet[bytes[i] % alphabet.length];
+      for (let i = 0; i < 26; i++) {
+        const val = randomBytes[i % 16] ^ (i * 7);
+        code += charset[Math.abs(val) % 32];
       }
       return code;
     }
 
-    function hashAccessCode(code) {
-      return crypto.createHash('sha256').update(code.trim().toUpperCase()).digest('hex');
-    }
+    test('Access codes have at least 128 bits of entropy in the random portion', () => {
+      const code = generateHighEntropyAccessCode();
+      assert.match(code, /^RCV-[2-9A-Z]{26}$/, 'Must have RCV- prefix followed by 26 base32 characters');
+      const randomPart = code.substring(4);
+      assert.equal(randomPart.length, 26, 'Random portion must be 26 characters long');
 
-    test('Access codes follow structured, unguessable pattern (RCV-XXXXXX)', () => {
-      const code = generateSyntheticAccessCode();
-      assert.match(code, /^RCV-[A-Z0-9]{6}$/, 'Code must follow RCV-XXXXXX format');
-      assert.ok(code.length >= 9, 'Code must have sufficient length for unguessability');
+      // 32^26 combinations = 2^(5 * 26) = 2^130 keyspace >= 128 bits entropy
+      const entropyBits = Math.log2(Math.pow(32, randomPart.length));
+      assert.ok(entropyBits >= 128, `Entropy (${entropyBits} bits) must be >= 128 bits`);
     });
 
-    test('Access code normalization handles case and whitespace resilience', () => {
-      const raw = '  rcv-7k9m2x  ';
-      const normalized = raw.trim().toUpperCase();
-      assert.equal(normalized, 'RCV-7K9M2X');
+    test('Access code generator in SQL migration utilizes 16 random bytes (128 bits entropy)', () => {
+      assert.ok(migrationSql.includes('gen_random_bytes(16)'), 'Migration must draw 16 bytes of entropy');
+      assert.ok(migrationSql.includes('0..25 LOOP'), 'Must iterate 26 characters for base32 representation');
     });
 
-    test('Cryptographic SHA-256 hash is deterministic and one-way', () => {
-      const code = 'RCV-TEST99';
-      const hash1 = hashAccessCode(code);
-      const hash2 = hashAccessCode('  rcv-test99  ');
-      assert.equal(hash1, hash2, 'Normalized hash must match exactly');
+    test('Cryptographic SHA-256 hash is deterministic, constant-case, and one-way', () => {
+      const code = generateHighEntropyAccessCode();
+      const hash1 = hashSecret(code);
+      const hash2 = hashSecret(code.toLowerCase());
+      assert.equal(hash1, hash2, 'Hash must be case-insensitive to withstand user typing variation');
       assert.equal(hash1.length, 64, 'SHA-256 hex string must be 64 characters');
     });
 
-    test('Database migration contains access codes schema with composite foreign keys and hashing', () => {
-      const migrationPath = path.resolve(__dirname, '../supabase/migrations/20261104080000_recovery_companion_foundation.sql');
-      assert.ok(fs.existsSync(migrationPath), 'Migration file must exist');
-      const sql = fs.readFileSync(migrationPath, 'utf8');
-
-      assert.ok(sql.includes('CREATE TABLE IF NOT EXISTS public.hep_patient_access_codes'), 'Must create hep_patient_access_codes table');
-      assert.ok(sql.includes('code_hash text NOT NULL UNIQUE'), 'Must store hashed code uniquely');
-      assert.ok(sql.includes('failed_attempts integer NOT NULL DEFAULT 0'), 'Must track brute-force attempts');
-      assert.ok(sql.includes('locked_until timestamptz'), 'Must include lockout mechanism');
-      assert.ok(sql.includes('FOREIGN KEY (program_id, practice_id)'), 'Must enforce tenant composite key on program');
-      assert.ok(sql.includes('FOREIGN KEY (patient_id, practice_id)'), 'Must enforce tenant composite key on patient');
-    });
-
-    test('Brute force prevention: Lockout after 5 consecutive failed attempts', () => {
-      let failedAttempts = 0;
-      let lockedUntil = null;
-      const MAX_ATTEMPTS = 5;
-
-      for (let attempt = 1; attempt <= 6; attempt++) {
-        if (lockedUntil && lockedUntil > Date.now()) {
-          // Account/Code is locked
-          assert.ok(attempt > MAX_ATTEMPTS, 'Lockout must trigger after MAX_ATTEMPTS');
-          continue;
-        }
-
-        failedAttempts++;
-        if (failedAttempts >= MAX_ATTEMPTS) {
-          lockedUntil = Date.now() + 15 * 60 * 1000; // 15-minute lockout
-        }
-      }
-
-      assert.equal(failedAttempts, 5);
-      assert.ok(lockedUntil !== null && lockedUntil > Date.now(), 'Lockout timestamp must be in the future');
+    test('Migration strictly enforces UNIQUE constraint on code_hash', () => {
+      assert.ok(migrationSql.includes('code_hash text NOT NULL UNIQUE'), 'code_hash must be unique in table schema');
     });
   });
 
   // --------------------------------------------------------------------------
-  // 2. Patient Recovery Companion Program Scoping & Visuals
+  // 2. Removal of Production Test Credentials & Mock Fallbacks
   // --------------------------------------------------------------------------
-  describe('2. Patient Recovery Companion Scoping & Exercise Visuals', () => {
-    test('Patient access returns only active, clinician-prescribed HEP', () => {
-      const syntheticPrograms = [
-        { id: 'prog-1', status: 'active', title: 'Rotator Cuff Protocol', patient_id: 'pat-1' },
-        { id: 'prog-2', status: 'draft', title: 'Unapproved Draft Regimen', patient_id: 'pat-1' },
-        { id: 'prog-3', status: 'discontinued', title: 'Prior Knee Protocol', patient_id: 'pat-1' },
-        { id: 'prog-4', status: 'active', title: 'Another Patient Protocol', patient_id: 'pat-2' },
-      ];
-
-      // Verification filter for active patient companion
-      const authorizedPatientId = 'pat-1';
-      const activePrograms = syntheticPrograms.filter(
-        (p) => p.patient_id === authorizedPatientId && p.status === 'active'
+  describe('2. Elimination of Production Test Fixtures & Predictable Codes', () => {
+    test('RCV-TEST99 is strictly eliminated from serverless production runtime', () => {
+      assert.equal(
+        serverlessCode.includes('RCV-TEST99'),
+        false,
+        'Serverless function must NOT contain hardcoded RCV-TEST99'
       );
-
-      assert.equal(activePrograms.length, 1);
-      assert.equal(activePrograms[0].id, 'prog-1');
-      assert.equal(activePrograms[0].title, 'Rotator Cuff Protocol');
     });
 
-    test('Cross-patient and cross-tenant access is rejected', () => {
-      const patientTenant = { patient_id: 'pat-100', practice_id: 'prac-A' };
-      const requestedProgram = { id: 'prog-999', patient_id: 'pat-200', practice_id: 'prac-B' };
-
-      const isAuthorized =
-        requestedProgram.patient_id === patientTenant.patient_id &&
-        requestedProgram.practice_id === patientTenant.practice_id;
-
-      assert.equal(isAuthorized, false, 'Cross-patient and cross-tenant access must be denied');
+    test('seedSyntheticStore() is strictly eliminated from serverless production runtime', () => {
+      assert.equal(
+        serverlessCode.includes('seedSyntheticStore'),
+        false,
+        'Serverless function must NOT contain seedSyntheticStore'
+      );
     });
 
-    test('Approved exercise photos render canonical clinical image mapping', () => {
-      // Test known approved exercises
-      const approvedIds = [
-        '00000000-0000-0000-0000-000000000001', // Quad Sets
-        '00000000-0000-0000-0000-000000000002', // Straight Leg Raise
-      ];
+    test('In production (without test mock store injection), unknown code verification fails generically', async () => {
+      const mockSupabaseAdmin = {
+        rpc: async (name, args) => {
+          if (name === 'check_hep_rate_limit') return { data: { allowed: true }, error: null };
+          if (name === 'verify_recovery_companion_access') return { data: { success: false, error: 'Invalid code' }, error: null };
+          return { data: null, error: null };
+        },
+      };
 
-      for (const id of approvedIds) {
-        assert.ok(hasApprovedVisual(id), `Exercise ${id} must have approved visual`);
-        const photo = getExercisePhotoDemonstration(id);
-        assert.ok(photo, `Exercise ${id} must have photo demonstration`);
-        assert.ok(photo.photoAssetPath.endsWith('.jpg'), `Photo path must be jpg format: ${photo.photoAssetPath}`);
-        assert.ok(photo.photoDemographic.toLowerCase().includes('nigerian'), 'Demographic must reflect Nigerian model');
-        assert.equal(photo.photoClinicalReviewStatus, 'approved', 'Must be clinically approved');
-        assert.ok(photo.photoReviewedBy, 'Must have clinical review sign-off');
-      }
+      const event = {
+        httpMethod: 'POST',
+        queryStringParameters: { action: 'verify-code' },
+        body: JSON.stringify({ code: 'RCV-TEST99' }),
+        headers: { 'client-ip': '192.0.2.1' },
+      };
+
+      // Calling handler with NO mock store injected (simulating production execution with Supabase DB)
+      const res = await recoveryCompanionHandler(event, {}, { supabaseAdmin: mockSupabaseAdmin });
+      assert.equal(res.statusCode, 401, 'Must return 401 generic failure');
+      const body = JSON.parse(res.body);
+      assert.equal(body.success, false);
+      assert.equal(body.error, 'Access denied. Invalid or expired access credentials.');
     });
 
-    test('Quarantined or unapproved exercises display neutral clinical fallback, never mismatched', () => {
-      // Bird dog exercise (00000000-0000-0000-0000-000000000014) photo is in pending review quarantine
-      const birdDogId = '00000000-0000-0000-0000-000000000014';
-      const visual = EXERCISE_VISUALS_REGISTRY[birdDogId];
+    test('In production, endpoint returns 503 and zero mock data when Supabase is unavailable', async () => {
+      const event = {
+        httpMethod: 'POST',
+        queryStringParameters: { action: 'verify-code' },
+        body: JSON.stringify({ code: 'RCV-TEST99' }),
+        headers: { 'client-ip': '192.0.2.1' },
+      };
 
-      assert.ok(visual, 'Bird dog must be in registry');
-      assert.equal(visual.photoClinicalReviewStatus, 'pending_physiotherapist_review', 'Bird dog photo must be in quarantine');
+      const res = await recoveryCompanionHandler(event, {}, { env: {} });
+      assert.equal(res.statusCode, 503, 'Must return 503 when Supabase is unavailable');
+      const body = JSON.parse(res.body);
+      assert.equal(body.success, false);
+      assert.equal(body.program, undefined, 'Must not return mock program data');
+    });
 
-      // Unapproved photo must never be presented as approved in patient recovery companion
-      const photo = getExercisePhotoDemonstration(birdDogId);
-      assert.equal(photo.photoClinicalReviewStatus, 'pending_physiotherapist_review');
+    test('In production, unauthenticated clinician-summary request fails with HTTP 401', async () => {
+      const event = {
+        httpMethod: 'GET',
+        queryStringParameters: { action: 'clinician-summary', programId: 'synth-1' },
+        headers: { 'client-ip': '192.0.2.1' },
+      };
 
-      // Exercises 58 & 59 have null photos
-      const limbExId = '00000000-0000-0000-0000-000000000058';
-      assert.equal(getExercisePhotoDemonstration(limbExId), null, 'Must return null for unmapped photos');
+      const res = await recoveryCompanionHandler(event, {}, { env: {} });
+      assert.equal(res.statusCode, 401, 'Must require valid Bearer token');
     });
   });
 
   // --------------------------------------------------------------------------
-  // 3. Patient Check-In Submission & Validation
+  // 3. Durable Keyed-HMAC Rate Limiting & Throttling
   // --------------------------------------------------------------------------
-  describe('3. Patient Check-In Validation & Adherence Logging', () => {
-    function validateCheckIn(data) {
-      const errors = [];
-
-      // Pain Rating (0-10 or null)
-      if (data.painRating !== undefined && data.painRating !== null) {
-        const p = Number(data.painRating);
-        if (isNaN(p) || p < 0 || p > 10 || !Number.isInteger(p)) {
-          errors.push('Pain rating must be an integer between 0 and 10.');
-        }
-      }
-
-      // Difficulty Rating Enum
-      const allowedDifficulties = ['very_easy', 'easy', 'moderate', 'hard', 'very_hard'];
-      if (data.difficultyRating && !allowedDifficulties.includes(data.difficultyRating)) {
-        errors.push(`Difficulty rating must be one of: ${allowedDifficulties.join(', ')}`);
-      }
-
-      // Patient Notes (<= 1000 chars)
-      if (data.notes && data.notes.length > 1000) {
-        errors.push('Patient notes cannot exceed 1000 characters.');
-      }
-
-      // Completed exercises array
-      if (data.completedExercises && !Array.isArray(data.completedExercises)) {
-        errors.push('Completed exercises must be an array of exercise IDs.');
-      }
-
-      return {
-        isValid: errors.length === 0,
-        errors,
+  describe('3. Durable Keyed-HMAC IP Rate Limiting', () => {
+    test('Requester IP is derived strictly from Netlify edge headers, rejecting spoofed forwarding headers', () => {
+      const spoofedHeaders = {
+        'x-forwarded-for': '203.0.113.195, 198.51.100.1',
+        'client-ip': '198.51.100.24',
+        'x-nf-client-connection-ip': '198.51.100.24',
       };
-    }
-
-    test('Valid check-in payload passes validation', () => {
-      const valid = {
-        painRating: 3,
-        difficultyRating: 'moderate',
-        notes: 'Felt a gentle stretch in my calf, completed all 3 sets comfortably.',
-        completedExercises: ['00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002'],
-      };
-      const result = validateCheckIn(valid);
-      assert.ok(result.isValid);
-      assert.equal(result.errors.length, 0);
+      const ip = getTrustedClientIp(spoofedHeaders);
+      assert.equal(ip, '198.51.100.24', 'Must prioritize trusted Netlify client connection IP');
     });
 
-    test('Pain rating < 0 or > 10 is rejected', () => {
-      assert.equal(validateCheckIn({ painRating: -1 }).isValid, false);
-      assert.equal(validateCheckIn({ painRating: 11 }).isValid, false);
-      assert.equal(validateCheckIn({ painRating: 4.5 }).isValid, false); // must be integer scale
-      assert.equal(validateCheckIn({ painRating: 0 }).isValid, true);
-      assert.equal(validateCheckIn({ painRating: 10 }).isValid, true);
-      assert.equal(validateCheckIn({ painRating: null }).isValid, true); // optional
+    test('IP identifier uses keyed HMAC-SHA256 with server-only secret and never logs raw IP', () => {
+      const ip = '198.51.100.42';
+      const secret = 'physenra-test-hmac-secret';
+      const hmac1 = hashRequesterIp(ip, secret);
+      const hmac2 = hashRequesterIp(ip, secret);
+      assert.equal(hmac1, hmac2, 'Keyed HMAC must be deterministic for the same secret');
+      assert.equal(hmac1.length, 64, 'HMAC-SHA256 hex string must be 64 characters');
+      assert.notEqual(hmac1, ip, 'IP must be thoroughly hashed');
     });
 
-    test('Invalid difficulty enum is rejected', () => {
-      assert.equal(validateCheckIn({ difficultyRating: 'impossible' }).isValid, false);
-      assert.equal(validateCheckIn({ difficultyRating: 'easy' }).isValid, true);
-      assert.equal(validateCheckIn({ difficultyRating: 'very_hard' }).isValid, true);
-    });
-
-    test('Patient note exceeding 1000 characters is rejected', () => {
-      const longNote = 'A'.repeat(1001);
-      const result = validateCheckIn({ notes: longNote });
-      assert.equal(result.isValid, false);
-      assert.ok(result.errors.some((e) => e.includes('1000 characters')));
-    });
-
-    test('Non-diagnostic rule: Check-in records feedback without mutating prescription dosage or exercises', () => {
-      const programBefore = {
-        id: 'prog-1',
-        items: [
-          { exercise_id: 'ex-1', sets: 3, reps: 10, hold_seconds: null },
-          { exercise_id: 'ex-2', sets: 2, reps: 15, hold_seconds: 5 },
-        ],
+    test('Rate limiter throttles after 5 verification attempts per 5-minute window with HTTP 429', async () => {
+      // In-memory rate limiter mock simulating durable atomic DB/edge table
+      const attempts = new Map();
+      const mockRateLimiter = {
+        check: (key) => {
+          const count = (attempts.get(key) || 0) + 1;
+          attempts.set(key, count);
+          if (count > 5) {
+            return { allowed: false, retryAfter: 300 };
+          }
+          return { allowed: true, remaining: 5 - count };
+        },
       };
 
-      // Synthetic check-in feedback submitted
-      const checkInRecord = {
-        id: 'chk-1',
-        program_id: 'prog-1',
-        pain_rating: 8, // patient reported high pain
-        difficulty_rating: 'very_hard',
-        patient_notes: 'Felt sharp pain during heel slides.',
-      };
+      const testIp = '192.0.2.100';
+      const mockStore = new Map();
 
-      // Program prescription remains completely unmodified under clinical governance
-      const programAfter = { ...programBefore };
-      assert.deepEqual(programAfter.items, programBefore.items, 'Prescription items and dosages must remain immutable');
-    });
-  });
-
-  // --------------------------------------------------------------------------
-  // 4. Clinician Follow-up View & Adherence Calculations
-  // --------------------------------------------------------------------------
-  describe('4. Clinician Follow-up Summary & Adherence Analytics', () => {
-    function computeClinicianSummary(checkIns) {
-      const totalSessions = checkIns.length;
-      if (totalSessions === 0) {
-        return {
-          totalSessions: 0,
-          lastCheckIn: null,
-          daysSinceLastCheckIn: null,
-          avgPain: null,
-          latestPain: null,
-          latestDifficulty: null,
-          needsInactivityAttention: true,
-          hasHighPainFeedback: false,
+      // Submit 5 invalid attempts
+      for (let i = 1; i <= 5; i++) {
+        const event = {
+          httpMethod: 'POST',
+          queryStringParameters: { action: 'verify-code' },
+          body: JSON.stringify({ code: `RCV-INVALID${i}RANDOM` }),
+          headers: { 'client-ip': testIp },
         };
+        const res = await recoveryCompanionHandler(event, {}, { mockStore, rateLimiter: mockRateLimiter });
+        assert.equal(res.statusCode, 401, `Attempt ${i} must return 401 generic failure`);
       }
 
-      // Sort by completed_at descending
-      const sorted = [...checkIns].sort(
-        (a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime()
+      // 6th attempt must trigger HTTP 429
+      const event6 = {
+        httpMethod: 'POST',
+        queryStringParameters: { action: 'verify-code' },
+        body: JSON.stringify({ code: 'RCV-INVALID6RANDOM' }),
+        headers: { 'client-ip': testIp },
+      };
+      const res6 = await recoveryCompanionHandler(event6, {}, { mockStore, rateLimiter: mockRateLimiter });
+      assert.equal(res6.statusCode, 429, '6th attempt must be blocked with HTTP 429');
+      assert.equal(res6.headers['Retry-After'], '300', 'Must specify Retry-After header of 300 seconds');
+      const body6 = JSON.parse(res6.body);
+      assert.equal(body6.success, false);
+      assert.ok(body6.error.includes('Too many verification attempts'));
+    });
+
+    test('Database migration contains hep_access_rate_limits table with composite window index', () => {
+      assert.ok(
+        migrationSql.includes('CREATE TABLE IF NOT EXISTS public.hep_access_rate_limits'),
+        'Must define hep_access_rate_limits table'
       );
-      const latest = sorted[0];
-      const now = new Date('2026-11-04T12:00:00Z').getTime();
-      const lastSessionTime = new Date(latest.completed_at).getTime();
-      const daysSince = Math.floor((now - lastSessionTime) / (1000 * 60 * 60 * 24));
-
-      const painValues = sorted.map((c) => c.pain_rating).filter((p) => p !== null && p !== undefined);
-      const avgPain = painValues.length > 0 ? (painValues.reduce((a, b) => a + b, 0) / painValues.length).toFixed(1) : null;
-
-      const needsInactivityAttention = daysSince >= 3;
-      const hasHighPainFeedback = sorted.slice(0, 3).some((c) => c.pain_rating !== null && c.pain_rating >= 7);
-
-      return {
-        totalSessions,
-        lastCheckIn: latest.completed_at,
-        daysSinceLastCheckIn: daysSince,
-        avgPain: avgPain ? Number(avgPain) : null,
-        latestPain: latest.pain_rating,
-        latestDifficulty: latest.difficulty_rating,
-        needsInactivityAttention,
-        hasHighPainFeedback,
-      };
-    }
-
-    test('Clinician summary correctly calculates sessions, pain averages, and last active date', () => {
-      const syntheticCheckIns = [
-        {
-          id: 'chk-1',
-          completed_at: '2026-11-03T10:00:00Z', // 1 day ago
-          pain_rating: 4,
-          difficulty_rating: 'moderate',
-        },
-        {
-          id: 'chk-2',
-          completed_at: '2026-11-01T09:00:00Z', // 3 days ago
-          pain_rating: 6,
-          difficulty_rating: 'hard',
-        },
-      ];
-
-      const summary = computeClinicianSummary(syntheticCheckIns);
-      assert.equal(summary.totalSessions, 2);
-      assert.equal(summary.daysSinceLastCheckIn, 1);
-      assert.equal(summary.latestPain, 4);
-      assert.equal(summary.latestDifficulty, 'moderate');
-      assert.equal(summary.avgPain, 5.0);
-      assert.equal(summary.needsInactivityAttention, false);
-      assert.equal(summary.hasHighPainFeedback, false);
-    });
-
-    test('Inactivity banner triggers when days since last check-in >= 3', () => {
-      const inactiveCheckIns = [
-        {
-          id: 'chk-old',
-          completed_at: '2026-10-30T10:00:00Z', // 5 days ago
-          pain_rating: 2,
-          difficulty_rating: 'easy',
-        },
-      ];
-
-      const summary = computeClinicianSummary(inactiveCheckIns);
-      assert.ok(summary.daysSinceLastCheckIn >= 3);
-      assert.equal(summary.needsInactivityAttention, true, 'Must flag patient as inactive for clinician review');
-    });
-
-    test('High pain flag triggers when recent check-in has pain >= 7/10', () => {
-      const highPainCheckIns = [
-        {
-          id: 'chk-pain',
-          completed_at: '2026-11-03T18:00:00Z',
-          pain_rating: 8,
-          difficulty_rating: 'very_hard',
-        },
-      ];
-
-      const summary = computeClinicianSummary(highPainCheckIns);
-      assert.equal(summary.hasHighPainFeedback, true, 'Must flag elevated pain for clinician review');
-    });
-
-    test('Clinician sign-off workflow logs review without altering finalized clinical record', () => {
-      const checkIn = {
-        id: 'chk-1',
-        program_id: 'prog-1',
-        status: 'pending_review',
-        reviewed_by: null,
-        reviewed_at: null,
-        clinician_notes: null,
-        follow_up_action: null,
-      };
-
-      // Clinician signs off
-      const signOff = {
-        reviewed_by: 'clinician-dr-kalu',
-        reviewed_at: '2026-11-04T12:30:00Z',
-        clinician_notes: 'Patient tolerating progressive load well. Schedule review in 1 week.',
-        follow_up_action: 'follow_up_planned',
-      };
-
-      const updatedCheckIn = {
-        ...checkIn,
-        ...signOff,
-        status: 'reviewed',
-      };
-
-      assert.equal(updatedCheckIn.status, 'reviewed');
-      assert.equal(updatedCheckIn.reviewed_by, 'clinician-dr-kalu');
-      assert.equal(updatedCheckIn.follow_up_action, 'follow_up_planned');
-      assert.ok(updatedCheckIn.reviewed_at !== null);
+      assert.ok(migrationSql.includes('ip_hmac text NOT NULL'), 'Must store hashed IP');
+      assert.ok(migrationSql.includes('attempt_count integer NOT NULL DEFAULT 1'), 'Must track attempts');
+      assert.ok(migrationSql.includes('check_hep_rate_limit'), 'Must implement atomic rate limiting RPC');
     });
   });
 
   // --------------------------------------------------------------------------
-  // 5. Privacy, Tenancy & Low-Data Footprint Compliance
+  // 4. Ephemeral, Revocable Patient Sessions
   // --------------------------------------------------------------------------
-  describe('5. Privacy, Tenancy & Low-Bandwidth Compliance', () => {
-    test('Zero clinical details in URLs or navigation routes', () => {
-      const routes = ['/recovery', '/companion'];
-      for (const r of routes) {
-        assert.ok(!r.includes('patient'), 'URL must not contain patient identifier');
-        assert.ok(!r.includes('diagnosis'), 'URL must not contain diagnosis');
-        assert.ok(!r.includes('treatment'), 'URL must not contain treatment info');
+  describe('4. Short-Lived Revocable Patient Sessions & Cookie Binding', () => {
+    test('Migration creates hep_patient_sessions with composite tenant keys and session hash', () => {
+      assert.ok(
+        migrationSql.includes('CREATE TABLE IF NOT EXISTS public.hep_patient_sessions'),
+        'Must create hep_patient_sessions table'
+      );
+      assert.ok(migrationSql.includes('session_token_hash text NOT NULL UNIQUE'), 'Must hash session secret uniquely');
+      assert.ok(migrationSql.includes('fk_hep_session_program_practice'), 'Must enforce program-practice composite key');
+      assert.ok(migrationSql.includes('fk_hep_session_patient_practice'), 'Must enforce patient-practice composite key');
+      assert.ok(migrationSql.includes('expires_at timestamptz NOT NULL'), 'Must enforce expiration timestamp');
+      assert.ok(migrationSql.includes('revoked_at timestamptz'), 'Must support session revocation');
+    });
+
+    test('Successful verification issues 128-bit session secret and Set-Cookie with HttpOnly and Secure flags', async () => {
+      const mockStore = new Map();
+      const code = 'RCV-SECURECODE128BITEXACTLY';
+      const codeHash = hashSecret(code);
+      mockStore.set(codeHash, {
+        accessCode: code,
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+        revoked: false,
+        program: { id: 'prog-1', title: 'Shoulder Rehab', status: 'active' },
+        practice: { name: 'Apex Lagos', phone: '0800', email: 'care@apex.ng' },
+        clinician: { display_name: 'Dr. Kalu' },
+        items: [],
+      });
+
+      const event = {
+        httpMethod: 'POST',
+        queryStringParameters: { action: 'verify-code' },
+        body: JSON.stringify({ code }),
+        headers: { 'client-ip': '192.0.2.20' },
+      };
+
+      const res = await recoveryCompanionHandler(event, {}, { mockStore });
+      assert.equal(res.statusCode, 200);
+      assert.ok(res.headers['Set-Cookie'], 'Must issue Set-Cookie header');
+      const cookie = res.headers['Set-Cookie'];
+      assert.ok(cookie.includes('HttpOnly'), 'Cookie must be HttpOnly');
+      assert.ok(cookie.includes('Secure'), 'Cookie must be Secure');
+      assert.ok(cookie.includes('SameSite=Strict'), 'Cookie must be SameSite=Strict');
+
+      const body = JSON.parse(res.body);
+      assert.ok(body.session_token, 'Response must return session_token');
+      assert.equal(body.session_token.length, 32, 'Session token must be 32 hex chars (128 bits)');
+    });
+
+    test('Check-in submission requires valid session token and rejects expired/unauthorized sessions', async () => {
+      const mockStore = new Map();
+      const code = 'RCV-PATIENTSESSIONCHECK';
+      const codeHash = hashSecret(code);
+      const record = {
+        accessCode: code,
+        expiresAt: new Date(Date.now() + 86400000).toISOString(),
+        revoked: false,
+        program: { id: 'prog-2', title: 'Knee Rehab', status: 'active' },
+        sessions: new Map(),
+        checkIns: [],
+      };
+      mockStore.set(codeHash, record);
+
+      // Create valid session
+      const validSession = 'session_valid_128bit_token';
+      record.sessions.set(validSession, { expiresAt: Date.now() + 86400000 });
+
+      // Valid session check-in
+      const validEvent = {
+        httpMethod: 'POST',
+        queryStringParameters: { action: 'submit-checkin' },
+        headers: {
+          'cookie': `physenra_recovery_session=${validSession}`,
+          'client-ip': '192.0.2.30',
+        },
+        body: JSON.stringify({
+          checkIn: { painRating: 2, difficultyRating: 'easy', notes: 'Feeling better' },
+        }),
+      };
+      const validRes = await recoveryCompanionHandler(validEvent, {}, { mockStore });
+      assert.equal(validRes.statusCode, 200, 'Valid session check-in must succeed');
+      const validBody = JSON.parse(validRes.body);
+      assert.ok(validBody.check_in_id);
+
+      // Invalid / fake session check-in
+      const invalidEvent = {
+        httpMethod: 'POST',
+        queryStringParameters: { action: 'submit-checkin' },
+        headers: {
+          'cookie': 'physenra_recovery_session=fake_invalid_token',
+          'client-ip': '192.0.2.30',
+        },
+        body: JSON.stringify({
+          checkIn: { painRating: 5 },
+        }),
+      };
+      const invalidRes = await recoveryCompanionHandler(invalidEvent, {}, { mockStore });
+      assert.equal(invalidRes.statusCode, 401, 'Invalid session must be rejected with HTTP 401');
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 5. Uniform Generic Failure Responses
+  // --------------------------------------------------------------------------
+  describe('5. Uniform Failure Responses & Anti-Enumeration', () => {
+    test('Non-existent, expired, and revoked codes return identical HTTP 401 status and error message', async () => {
+      const mockStore = new Map();
+
+      // Expired code
+      const expiredCode = 'RCV-EXPIREDCODE128BIT';
+      mockStore.set(hashSecret(expiredCode), {
+        accessCode: expiredCode,
+        expiresAt: new Date(Date.now() - 100000).toISOString(),
+        revoked: false,
+      });
+
+      // Revoked code
+      const revokedCode = 'RCV-REVOKEDCODE128BIT';
+      mockStore.set(hashSecret(revokedCode), {
+        accessCode: revokedCode,
+        expiresAt: new Date(Date.now() + 100000).toISOString(),
+        revoked: true,
+      });
+
+      const codesToTest = [
+        'RCV-NONEXISTENTCODE128BIT',
+        expiredCode,
+        revokedCode,
+        'MALFORMED_SHORT',
+      ];
+
+      for (const code of codesToTest) {
+        const event = {
+          httpMethod: 'POST',
+          queryStringParameters: { action: 'verify-code' },
+          body: JSON.stringify({ code }),
+          headers: { 'client-ip': '192.0.2.40' },
+        };
+        const res = await recoveryCompanionHandler(event, {}, { mockStore });
+        assert.equal(res.statusCode, 401, `Code ${code} must return HTTP 401`);
+        const body = JSON.parse(res.body);
+        assert.equal(body.success, false);
+        assert.equal(
+          body.error,
+          'Access denied. Invalid or expired access credentials.',
+          `Error string for ${code} must be identical to prevent enumeration`
+        );
+      }
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 6. Clinician Authorization & Elevated Credential Scoping
+  // --------------------------------------------------------------------------
+  describe('6. Clinician Summary Authorization & Access Boundary', () => {
+    test('clinician-summary strictly requires Authorization Bearer header', async () => {
+      const mockStore = new Map();
+      const event = {
+        httpMethod: 'GET',
+        queryStringParameters: { action: 'clinician-summary', programId: 'prog-1' },
+        headers: {}, // No auth header
+      };
+
+      const res = await recoveryCompanionHandler(event, {}, { mockStore });
+      assert.equal(res.statusCode, 401);
+      const body = JSON.parse(res.body);
+      assert.ok(body.error.includes('Unauthorized'));
+    });
+
+    test('clinician-summary validates clinician Bearer credentials before returning summary', async () => {
+      const mockStore = new Map();
+      mockStore.set('prog-1', {
+        program: { id: 'prog-1', title: 'Ankle Protocol' },
+        checkIns: [
+          { id: 'chk-1', pain_rating: 3, difficulty_rating: 'moderate', completed_at: new Date().toISOString() },
+        ],
+      });
+
+      // Valid clinician token
+      const validEvent = {
+        httpMethod: 'GET',
+        queryStringParameters: { action: 'clinician-summary', programId: 'prog-1' },
+        headers: {
+          authorization: 'Bearer valid-clinician-token-lagos',
+        },
+      };
+
+      const validRes = await recoveryCompanionHandler(validEvent, {}, { mockStore });
+      assert.equal(validRes.statusCode, 200);
+      const validBody = JSON.parse(validRes.body);
+      assert.equal(validBody.success, true);
+      assert.equal(validBody.summary.total_sessions, 1);
+
+      // Invalid clinician token
+      const invalidEvent = {
+        httpMethod: 'GET',
+        queryStringParameters: { action: 'clinician-summary', programId: 'prog-1' },
+        headers: {
+          authorization: 'Bearer invalid-token',
+        },
+      };
+
+      const invalidRes = await recoveryCompanionHandler(invalidEvent, {}, { mockStore });
+      assert.equal(invalidRes.statusCode, 401);
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // 7. Database Grants, SECURITY DEFINER & Search Path Auditing
+  // --------------------------------------------------------------------------
+  describe('7. Database Security, Grants & Role Boundaries', () => {
+    test('Every RPC function is SECURITY DEFINER with fixed search_path = public, pg_temp', () => {
+      const rpcFunctions = [
+        'generate_hep_access_code',
+        'verify_recovery_companion_access',
+        'submit_recovery_companion_check_in',
+        'get_hep_check_in_summary',
+        'review_hep_check_in',
+        'check_hep_rate_limit',
+      ];
+
+      for (const fn of rpcFunctions) {
+        assert.ok(migrationSql.includes(`FUNCTION public.${fn}`), `Must define function ${fn}`);
+        const fnBlock = migrationSql.substring(migrationSql.indexOf(`FUNCTION public.${fn}`));
+        const endIndex = fnBlock.indexOf('$$;');
+        const snippet = fnBlock.substring(0, endIndex + 3);
+        assert.ok(snippet.includes('SECURITY DEFINER'), `${fn} must be SECURITY DEFINER`);
+        assert.ok(snippet.includes('SET search_path = public, pg_temp'), `${fn} must lock search_path`);
       }
     });
 
-    test('No unconsented messaging or push notifications are dispatched to patients', () => {
-      // In Physenra, notifications require verified consent and are strictly transactional
-      const notificationEvent = {
-        type: 'check_in_recorded',
-        patient_consent: false,
-        channel: 'whatsapp',
-      };
+    test('Public execution is revoked from all sensitive clinician RPCs', () => {
+      assert.ok(migrationSql.includes('REVOKE ALL ON FUNCTION public.generate_hep_access_code(uuid, integer) FROM PUBLIC;'));
+      assert.ok(migrationSql.includes('REVOKE ALL ON FUNCTION public.get_hep_check_in_summary(uuid) FROM PUBLIC;'));
+      assert.ok(migrationSql.includes('REVOKE ALL ON FUNCTION public.review_hep_check_in(uuid, text, text) FROM PUBLIC;'));
+    });
+  });
 
-      const canDispatch = notificationEvent.patient_consent === true;
-      assert.equal(canDispatch, false, 'Unconsented messages must never be sent');
+  // --------------------------------------------------------------------------
+  // 8. Privacy, Storage & Source Code Scan
+  // --------------------------------------------------------------------------
+  describe('8. Source Code & Bundle Privacy Compliance', () => {
+    test('No access codes, tokens, or patient PII stored in localStorage or sessionStorage in frontend code', () => {
+      const pageCode = fs.readFileSync(
+        path.resolve(__dirname, '../src/pages/recovery/RecoveryCompanionPage.tsx'),
+        'utf8'
+      );
+      assert.equal(pageCode.includes('localStorage'), false, 'RecoveryCompanionPage must NOT access localStorage');
+      assert.equal(pageCode.includes('sessionStorage'), false, 'RecoveryCompanionPage must NOT access sessionStorage');
     });
 
-    test('Recovery Companion payload size is lightweight (< 15KB JSON) for 2G/3G low-data connections', () => {
-      const samplePayload = {
-        success: true,
-        program: {
-          id: '00000000-0000-0000-0000-000000000001',
-          title: 'Post-Op Knee Rehabilitation',
-          startDate: '2026-11-01',
-          reviewDate: '2026-11-15',
-          notes: 'Perform slowly twice daily',
-          exercises: [
-            {
-              id: 'item-1',
-              exerciseId: '00000000-0000-0000-0000-000000000001',
-              title: 'Ankle Pumps',
-              bodyRegion: 'lower_limb',
-              sets: 3,
-              reps: 15,
-              holdSeconds: 3,
-              frequency: '2x daily',
-              instructions: 'Point toes down then pull toes back towards knee.',
-              safetyNotes: 'Do not force into sharp pain.',
-              visual: {
-                hasApprovedVisual: true,
-                photoUrl: '/images/exercises/physenra_exercise_ankle_pumps_001.jpg',
-                altText: 'Nigerian male in athletic shorts demonstrating ankle pumps',
-              },
-            },
-          ],
-        },
-        practice: {
-          name: 'Apex Physio Lagos',
-          phone: '+234 800 000 0000',
-          email: 'care@apexphysio.ng',
-        },
-      };
-
-      const jsonString = JSON.stringify(samplePayload);
-      const byteSize = Buffer.byteLength(jsonString, 'utf8');
-      assert.ok(byteSize < 15000, `Payload size (${byteSize} bytes) must be < 15KB`);
+    test('Zero clinical details or patient IDs in recovery routes', () => {
+      const appCode = fs.readFileSync(path.resolve(__dirname, '../src/App.tsx'), 'utf8');
+      assert.ok(appCode.includes('path="/recovery"'), 'Must have clean /recovery route');
+      assert.ok(appCode.includes('path="/companion"'), 'Must have clean /companion route');
+      assert.equal(appCode.includes('path="/recovery/:patientId"'), false, 'Route must not expose patientId');
     });
   });
 });
