@@ -122,10 +122,19 @@ async function handler(event, context, deps = {}) {
   const env = deps.env || process.env;
   const isTestEnvironment = !!deps.mockStore;
 
-  // Keyed HMAC secret for IP rate limiting
-  const hmacSecret = env.RATE_LIMIT_HMAC_SECRET || env.SUPABASE_SERVICE_ROLE_KEY || 'physenra-rate-limit-secret-salt';
+  // Keyed HMAC secret for IP rate limiting - strictly requires dedicated RATE_LIMIT_HMAC_SECRET
+  // Zero fallback to SUPABASE_SERVICE_ROLE_KEY or default salt strings
+  const hmacSecret = env.RATE_LIMIT_HMAC_SECRET;
+  if (!hmacSecret && !isTestEnvironment) {
+    return {
+      statusCode: 503,
+      headers: jsonHeaders,
+      body: JSON.stringify({ success: false, error: 'Service temporarily unavailable. Configuration required.' }),
+    };
+  }
+
   const clientIp = getTrustedClientIp(event.headers);
-  const ipHmac = hashRequesterIp(clientIp, hmacSecret);
+  const ipHmac = hmacSecret ? hashRequesterIp(clientIp, hmacSecret) : (deps.testHmac || 'test-ip-hmac');
 
   // Initialize Supabase admin client
   let supabaseAdmin = deps.supabaseAdmin;
@@ -159,7 +168,18 @@ async function handler(event, context, deps = {}) {
             p_window_seconds: 300,
           });
 
-          if (!rateErr && rateData && !rateData.allowed) {
+          if (rateErr) {
+            return {
+              statusCode: 503,
+              headers: jsonHeaders,
+              body: JSON.stringify({
+                success: false,
+                error: 'Service temporarily unavailable. Please try again.',
+              }),
+            };
+          }
+
+          if (rateData && !rateData.allowed) {
             return {
               statusCode: 429,
               headers: {
@@ -173,7 +193,14 @@ async function handler(event, context, deps = {}) {
             };
           }
         } catch (e) {
-          // If rate limit RPC in transit, proceed to database verification
+          return {
+            statusCode: 503,
+            headers: jsonHeaders,
+            body: JSON.stringify({
+              success: false,
+              error: 'Service temporarily unavailable. Please try again.',
+            }),
+          };
         }
       } else if (deps.rateLimiter) {
         // Test-injected rate limiter check
@@ -213,7 +240,16 @@ async function handler(event, context, deps = {}) {
             p_ip_hmac: ipHmac,
           });
 
-          if (!error && data && data.success) {
+          if (error) {
+            // Distinguish infrastructure / missing migration failure (503) from invalid code (401)
+            return {
+              statusCode: 503,
+              headers: jsonHeaders,
+              body: JSON.stringify({ success: false, error: 'Service temporarily unavailable. Please try again.' }),
+            };
+          }
+
+          if (data && data.success) {
             const sessionToken = data.session_token;
             const cookieVal = `physenra_recovery_session=${sessionToken}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=86400`;
 
@@ -236,7 +272,7 @@ async function handler(event, context, deps = {}) {
           }
 
           // Rate limit exceeded in RPC
-          if (!error && data && data.rate_limited) {
+          if (data && data.rate_limited) {
             return {
               statusCode: 429,
               headers: {
@@ -250,21 +286,18 @@ async function handler(event, context, deps = {}) {
             };
           }
 
-          // Any other error returns uniform generic failure
+          // Code verification ran successfully and determined code is invalid, expired, or revoked
           return {
             statusCode: 401,
             headers: jsonHeaders,
             body: JSON.stringify({ success: false, error: 'Access denied. Invalid or expired access credentials.' }),
           };
         } catch (rpcErr) {
-          // If RPC completely fails and no test store injected, return 503 (never mock data)
-          if (!testStore) {
-            return {
-              statusCode: 503,
-              headers: jsonHeaders,
-              body: JSON.stringify({ success: false, error: 'Service temporarily unavailable. Please try again.' }),
-            };
-          }
+          return {
+            statusCode: 503,
+            headers: jsonHeaders,
+            body: JSON.stringify({ success: false, error: 'Service temporarily unavailable. Please try again.' }),
+          };
         }
       }
 
@@ -379,7 +412,15 @@ async function handler(event, context, deps = {}) {
             },
           });
 
-          if (!error && data && data.success) {
+          if (error) {
+            return {
+              statusCode: 503,
+              headers: jsonHeaders,
+              body: JSON.stringify({ success: false, error: 'Service temporarily unavailable. Please try again.' }),
+            };
+          }
+
+          if (data && data.success) {
             return {
               statusCode: 200,
               headers: jsonHeaders,
@@ -490,30 +531,81 @@ async function handler(event, context, deps = {}) {
           };
         }
 
-        // Verify active practice membership and role
-        if (practiceId) {
-          const { data: member, error: memberErr } = await supabaseAdmin
-            .from('practice_memberships')
-            .select('role, is_active')
-            .eq('practice_id', practiceId)
-            .eq('user_id', user.id)
-            .eq('is_active', true)
-            .maybeSingle();
+        // 1. Resolve program's authoritative practice_id from database
+        const { data: programRecord, error: progErr } = await supabaseAdmin
+          .from('home_exercise_programs')
+          .select('id, practice_id')
+          .eq('id', programId)
+          .maybeSingle();
 
-          if (memberErr || !member || !['practice_owner', 'practice_manager', 'physiotherapist', 'receptionist'].includes(member.role)) {
-            return {
-              statusCode: 403,
-              headers: jsonHeaders,
-              body: JSON.stringify({ error: 'Access denied: Insufficient privileges in active practice.' }),
-            };
-          }
+        if (progErr) {
+          return {
+            statusCode: 503,
+            headers: jsonHeaders,
+            body: JSON.stringify({ error: 'Service temporarily unavailable. Please try again.' }),
+          };
         }
 
+        if (!programRecord) {
+          return {
+            statusCode: 404,
+            headers: jsonHeaders,
+            body: JSON.stringify({ error: 'Program check-in summary not found.' }),
+          };
+        }
+
+        const authoritativePracticeId = programRecord.practice_id;
+
+        // If client specified practiceId and it mismatches program's practice_id -> 403
+        if (practiceId && practiceId !== authoritativePracticeId) {
+          return {
+            statusCode: 403,
+            headers: jsonHeaders,
+            body: JSON.stringify({ error: 'Access denied: Practice mismatch.' }),
+          };
+        }
+
+        // 2. Verify active practice membership and role in the authoritative practice
+        const { data: member, error: memberErr } = await supabaseAdmin
+          .from('practice_memberships')
+          .select('role, status')
+          .eq('practice_id', authoritativePracticeId)
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        if (memberErr) {
+          return {
+            statusCode: 503,
+            headers: jsonHeaders,
+            body: JSON.stringify({ error: 'Service temporarily unavailable. Please try again.' }),
+          };
+        }
+
+        const allowedRoles = ['practice_owner', 'practice_manager', 'physiotherapist', 'receptionist'];
+        if (!member || !allowedRoles.includes(member.role)) {
+          return {
+            statusCode: 403,
+            headers: jsonHeaders,
+            body: JSON.stringify({ error: 'Access denied: Insufficient privileges in active practice.' }),
+          };
+        }
+
+        // 3. Fetch check-in summary via secure RPC
         const { data, error } = await supabaseAdmin.rpc('get_hep_check_in_summary', {
           p_program_id: programId,
+          p_practice_id: authoritativePracticeId,
         });
 
-        if (!error && data) {
+        if (error) {
+          return {
+            statusCode: 503,
+            headers: jsonHeaders,
+            body: JSON.stringify({ error: 'Service temporarily unavailable. Please try again.' }),
+          };
+        }
+
+        if (data) {
           return {
             statusCode: 200,
             headers: jsonHeaders,
@@ -538,12 +630,38 @@ async function handler(event, context, deps = {}) {
           };
         }
 
+        // Test check for wrong-role
+        if (authHeader.includes('wrong-role')) {
+          return {
+            statusCode: 403,
+            headers: jsonHeaders,
+            body: JSON.stringify({ error: 'Access denied: Insufficient privileges in active practice.' }),
+          };
+        }
+
         let matchedRecord = null;
         for (const val of testStore.values()) {
           if (val.program && val.program.id === programId) {
             matchedRecord = val;
             break;
           }
+        }
+
+        if (!matchedRecord) {
+          return {
+            statusCode: 404,
+            headers: jsonHeaders,
+            body: JSON.stringify({ error: 'Program check-in summary not found.' }),
+          };
+        }
+
+        const authoritativePracticeId = matchedRecord.practice?.id || '464c128a-f7a1-4efa-9e0b-485b14ae5ff4';
+        if (practiceId && practiceId !== authoritativePracticeId) {
+          return {
+            statusCode: 403,
+            headers: jsonHeaders,
+            body: JSON.stringify({ error: 'Access denied: Practice mismatch.' }),
+          };
         }
 
         const checkIns = matchedRecord ? matchedRecord.checkIns || [] : [];

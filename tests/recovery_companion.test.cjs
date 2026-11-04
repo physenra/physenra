@@ -109,8 +109,11 @@ describe('PHYSENRA RECOVERY COMPANION SECURITY HARDENING SUITE', () => {
         headers: { 'client-ip': '192.0.2.1' },
       };
 
-      // Calling handler with NO mock store injected (simulating production execution with Supabase DB)
-      const res = await recoveryCompanionHandler(event, {}, { supabaseAdmin: mockSupabaseAdmin });
+      // Calling handler with NO mock store injected (simulating production execution with Supabase DB & dedicated HMAC secret)
+      const res = await recoveryCompanionHandler(event, {}, {
+        env: { RATE_LIMIT_HMAC_SECRET: 'test-dedicated-hmac-secret-123456789' },
+        supabaseAdmin: mockSupabaseAdmin,
+      });
       assert.equal(res.statusCode, 401, 'Must return 401 generic failure');
       const body = JSON.parse(res.body);
       assert.equal(body.success, false);
@@ -125,11 +128,58 @@ describe('PHYSENRA RECOVERY COMPANION SECURITY HARDENING SUITE', () => {
         headers: { 'client-ip': '192.0.2.1' },
       };
 
-      const res = await recoveryCompanionHandler(event, {}, { env: {} });
+      const res = await recoveryCompanionHandler(event, {}, {
+        env: { RATE_LIMIT_HMAC_SECRET: 'test-dedicated-hmac-secret-123456789' },
+      });
       assert.equal(res.statusCode, 503, 'Must return 503 when Supabase is unavailable');
       const body = JSON.parse(res.body);
       assert.equal(body.success, false);
       assert.equal(body.program, undefined, 'Must not return mock program data');
+    });
+
+    test('In production, endpoint returns 503 when Supabase RPC returns infrastructure error (PGRST202)', async () => {
+      const mockSupabaseAdmin = {
+        rpc: async (name) => {
+          if (name === 'check_hep_rate_limit') return { data: { allowed: true }, error: null };
+          if (name === 'verify_recovery_companion_access') {
+            return { data: null, error: { code: 'PGRST202', message: 'Could not find the function in schema cache' } };
+          }
+          return { data: null, error: null };
+        },
+      };
+
+      const event = {
+        httpMethod: 'POST',
+        queryStringParameters: { action: 'verify-code' },
+        body: JSON.stringify({ code: 'RCV-23456789-2345-6789-2345-678923' }),
+        headers: { 'client-ip': '192.0.2.1' },
+      };
+
+      const res = await recoveryCompanionHandler(event, {}, {
+        env: { RATE_LIMIT_HMAC_SECRET: 'test-dedicated-hmac-secret-123456789' },
+        supabaseAdmin: mockSupabaseAdmin,
+      });
+      assert.equal(res.statusCode, 503, 'Must return 503 when RPC is missing, distinguishing from 401 invalid code');
+      const body = JSON.parse(res.body);
+      assert.equal(body.success, false);
+    });
+
+    test('In production, missing RATE_LIMIT_HMAC_SECRET returns 503 configuration error without fallback', async () => {
+      const event = {
+        httpMethod: 'POST',
+        queryStringParameters: { action: 'verify-code' },
+        body: JSON.stringify({ code: 'RCV-TEST99' }),
+        headers: { 'client-ip': '192.0.2.1' },
+      };
+
+      // Even if SUPABASE_SERVICE_ROLE_KEY is provided, function must NOT fall back to it
+      const res = await recoveryCompanionHandler(event, {}, {
+        env: { SUPABASE_SERVICE_ROLE_KEY: 'test-service-key-not-for-hmac' },
+      });
+      assert.equal(res.statusCode, 503, 'Must return 503 when dedicated HMAC secret is missing');
+      const body = JSON.parse(res.body);
+      assert.equal(body.success, false);
+      assert.ok(body.error.includes('Configuration required'));
     });
 
     test('In production, unauthenticated clinician-summary request fails with HTTP 401', async () => {
@@ -139,7 +189,9 @@ describe('PHYSENRA RECOVERY COMPANION SECURITY HARDENING SUITE', () => {
         headers: { 'client-ip': '192.0.2.1' },
       };
 
-      const res = await recoveryCompanionHandler(event, {}, { env: {} });
+      const res = await recoveryCompanionHandler(event, {}, {
+        env: { RATE_LIMIT_HMAC_SECRET: 'test-dedicated-hmac-secret-123456789' },
+      });
       assert.equal(res.statusCode, 401, 'Must require valid Bearer token');
     });
   });
@@ -428,6 +480,38 @@ describe('PHYSENRA RECOVERY COMPANION SECURITY HARDENING SUITE', () => {
 
       const invalidRes = await recoveryCompanionHandler(invalidEvent, {}, { mockStore });
       assert.equal(invalidRes.statusCode, 401);
+
+      // Wrong role clinician token
+      const wrongRoleEvent = {
+        httpMethod: 'GET',
+        queryStringParameters: { action: 'clinician-summary', programId: 'prog-1' },
+        headers: {
+          authorization: 'Bearer valid-clinician-token-wrong-role',
+        },
+      };
+
+      const wrongRoleRes = await recoveryCompanionHandler(wrongRoleEvent, {}, { mockStore });
+      assert.equal(wrongRoleRes.statusCode, 403, 'Must return 403 for wrong role');
+      const wrongRoleBody = JSON.parse(wrongRoleRes.body);
+      assert.ok(wrongRoleBody.error.includes('Insufficient privileges'));
+
+      // Cross-practice access attempt
+      const crossPracticeEvent = {
+        httpMethod: 'GET',
+        queryStringParameters: {
+          action: 'clinician-summary',
+          programId: 'prog-1',
+          practiceId: 'mismatched-practice-id',
+        },
+        headers: {
+          authorization: 'Bearer valid-clinician-token-lagos',
+        },
+      };
+
+      const crossPracticeRes = await recoveryCompanionHandler(crossPracticeEvent, {}, { mockStore });
+      assert.equal(crossPracticeRes.statusCode, 403, 'Must return 403 for cross-practice attempt');
+      const crossBody = JSON.parse(crossPracticeRes.body);
+      assert.ok(crossBody.error.includes('Practice mismatch'));
     });
   });
 
@@ -456,9 +540,9 @@ describe('PHYSENRA RECOVERY COMPANION SECURITY HARDENING SUITE', () => {
     });
 
     test('Public execution is revoked from all sensitive clinician RPCs', () => {
-      assert.ok(migrationSql.includes('REVOKE ALL ON FUNCTION public.generate_hep_access_code(uuid, integer) FROM PUBLIC;'));
-      assert.ok(migrationSql.includes('REVOKE ALL ON FUNCTION public.get_hep_check_in_summary(uuid) FROM PUBLIC;'));
-      assert.ok(migrationSql.includes('REVOKE ALL ON FUNCTION public.review_hep_check_in(uuid, text, text) FROM PUBLIC;'));
+      assert.ok(migrationSql.includes('REVOKE ALL ON FUNCTION public.generate_hep_access_code(uuid, integer, uuid) FROM PUBLIC;'));
+      assert.ok(migrationSql.includes('REVOKE ALL ON FUNCTION public.get_hep_check_in_summary(uuid, uuid) FROM PUBLIC;'));
+      assert.ok(migrationSql.includes('REVOKE ALL ON FUNCTION public.review_hep_check_in(uuid, text, text, uuid) FROM PUBLIC;'));
     });
   });
 

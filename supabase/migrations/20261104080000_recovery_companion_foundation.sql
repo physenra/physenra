@@ -290,7 +290,8 @@ GRANT EXECUTE ON FUNCTION public.check_hep_rate_limit(text, text, integer, integ
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.generate_hep_access_code(
   p_program_id uuid,
-  p_duration_days integer DEFAULT 30
+  p_duration_days integer DEFAULT 30,
+  p_practice_id uuid DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -310,16 +311,18 @@ DECLARE
   v_i integer;
   v_val integer;
 BEGIN
-  v_current_practice := public.current_practice_id();
+  v_current_practice := COALESCE(p_practice_id, public.current_practice_id());
   IF v_current_practice IS NULL THEN
     RAISE EXCEPTION 'Access denied: Active practice context required.';
   END IF;
 
-  IF NOT public.user_has_practice_role(
-    v_current_practice,
-    ARRAY['practice_owner', 'practice_manager', 'physiotherapist']
-  ) THEN
-    RAISE EXCEPTION 'Access denied: Only clinical staff can generate patient access codes.';
+  IF current_setting('request.jwt.claim.role', true) <> 'service_role' THEN
+    IF NOT public.user_has_practice_role(
+      v_current_practice,
+      ARRAY['practice_owner', 'practice_manager', 'physiotherapist']
+    ) THEN
+      RAISE EXCEPTION 'Access denied: Only clinical staff can generate patient access codes.';
+    END IF;
   END IF;
 
   -- Verify program exists, belongs to practice, and is active
@@ -414,8 +417,8 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.generate_hep_access_code(uuid, integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.generate_hep_access_code(uuid, integer) TO authenticated;
+REVOKE ALL ON FUNCTION public.generate_hep_access_code(uuid, integer, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.generate_hep_access_code(uuid, integer, uuid) TO authenticated, service_role;
 
 -- ------------------------------------------------------------------------------
 -- 7. PATIENT RPC: VERIFY ACCESS CODE & ISSUE SHORT-LIVED REVOCABLE SESSION
@@ -769,7 +772,8 @@ GRANT EXECUTE ON FUNCTION public.submit_recovery_companion_check_in(text, jsonb)
 -- 9. CLINICIAN RPC: FETCH CHECK-IN SUMMARY & ADHERENCE FOR HEP
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.get_hep_check_in_summary(
-  p_program_id uuid
+  p_program_id uuid,
+  p_practice_id uuid DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -790,16 +794,18 @@ DECLARE
   v_check_in_list jsonb;
   v_active_code record;
 BEGIN
-  v_current_practice := public.current_practice_id();
+  v_current_practice := COALESCE(p_practice_id, public.current_practice_id());
   IF v_current_practice IS NULL THEN
     RAISE EXCEPTION 'Access denied: Active practice context required.';
   END IF;
 
-  IF NOT public.user_has_practice_role(
-    v_current_practice,
-    ARRAY['practice_owner', 'practice_manager', 'physiotherapist', 'receptionist']
-  ) THEN
-    RAISE EXCEPTION 'Access denied: Insufficient privileges to view HEP check-in summary.';
+  IF current_setting('request.jwt.claim.role', true) <> 'service_role' THEN
+    IF NOT public.user_has_practice_role(
+      v_current_practice,
+      ARRAY['practice_owner', 'practice_manager', 'physiotherapist', 'receptionist']
+    ) THEN
+      RAISE EXCEPTION 'Access denied: Insufficient privileges to view HEP check-in summary.';
+    END IF;
   END IF;
 
   -- Count total sessions
@@ -890,8 +896,8 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.get_hep_check_in_summary(uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.get_hep_check_in_summary(uuid) TO authenticated;
+REVOKE ALL ON FUNCTION public.get_hep_check_in_summary(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_hep_check_in_summary(uuid, uuid) TO authenticated, service_role;
 
 -- ------------------------------------------------------------------------------
 -- 10. CLINICIAN RPC: REVIEW & SIGN OFF ON PATIENT CHECK-IN
@@ -899,7 +905,8 @@ GRANT EXECUTE ON FUNCTION public.get_hep_check_in_summary(uuid) TO authenticated
 CREATE OR REPLACE FUNCTION public.review_hep_check_in(
   p_check_in_id uuid,
   p_notes text,
-  p_action text
+  p_action text,
+  p_practice_id uuid DEFAULT NULL
 )
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -911,16 +918,18 @@ DECLARE
   v_check_in record;
   v_action text;
 BEGIN
-  v_current_practice := public.current_practice_id();
+  v_current_practice := COALESCE(p_practice_id, public.current_practice_id());
   IF v_current_practice IS NULL THEN
     RAISE EXCEPTION 'Access denied: Active practice context required.';
   END IF;
 
-  IF NOT public.user_has_practice_role(
-    v_current_practice,
-    ARRAY['practice_owner', 'practice_manager', 'physiotherapist']
-  ) THEN
-    RAISE EXCEPTION 'Access denied: Only clinical staff can review patient check-ins.';
+  IF current_setting('request.jwt.claim.role', true) <> 'service_role' THEN
+    IF NOT public.user_has_practice_role(
+      v_current_practice,
+      ARRAY['practice_owner', 'practice_manager', 'physiotherapist']
+    ) THEN
+      RAISE EXCEPTION 'Access denied: Only clinical staff can review patient check-ins.';
+    END IF;
   END IF;
 
   v_action := COALESCE(p_action, 'acknowledged');
@@ -969,5 +978,5 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.review_hep_check_in(uuid, text, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.review_hep_check_in(uuid, text, text) TO authenticated;
+REVOKE ALL ON FUNCTION public.review_hep_check_in(uuid, text, text, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.review_hep_check_in(uuid, text, text, uuid) TO authenticated, service_role;
