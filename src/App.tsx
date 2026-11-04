@@ -29,6 +29,7 @@ import { OutcomeAssessmentDetailPage } from './pages/outcomes/OutcomeAssessmentD
 import { HEPListPage } from './pages/hep/HEPListPage';
 import { CreateHEPPage } from './pages/hep/CreateHEPPage';
 import { HEPDetailPage } from './pages/hep/HEPDetailPage';
+import { RecoveryCompanionPage } from './pages/recovery/RecoveryCompanionPage';
 import { TreatmentPlanListPage } from './pages/treatment-plans/TreatmentPlanListPage';
 import { CreateTreatmentPlanPage } from './pages/treatment-plans/CreateTreatmentPlanPage';
 import { TreatmentPlanDetailPage } from './pages/treatment-plans/TreatmentPlanDetailPage';
@@ -148,6 +149,10 @@ export const App: React.FC = () => {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignUpPage />} />
       <Route path="/register-practice" element={<RegisterPracticePage />} />
+
+      {/* Physenra Recovery Companion (Patient-facing, low-data, verified access code) */}
+      <Route path="/recovery" element={<RecoveryCompanionPage />} />
+      <Route path="/companion" element={<RecoveryCompanionPage />} />
 
       {/* Platform Administration Console */}
       <Route

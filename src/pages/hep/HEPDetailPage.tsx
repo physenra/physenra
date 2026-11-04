@@ -16,6 +16,7 @@ import { hepService } from '../../services/hepService';
 import { ExerciseVisualCard } from '../../components/hep/ExerciseVisualCard';
 import { ClinicalDocumentPrintHeader } from '../../components/clinical/ClinicalDocumentPrintHeader';
 import { ClinicalDocumentPrintFooter } from '../../components/clinical/ClinicalDocumentPrintFooter';
+import { RecoveryCompanionClinicianSection } from '../../components/hep/RecoveryCompanionClinicianSection';
 import type {
   HomeExerciseProgramWithRelations,
   HEPStatus,
@@ -269,6 +270,10 @@ export const HEPDetailPage: React.FC = () => {
       `${program.finalizer.first_name || ''} ${program.finalizer.last_name || ''}`.trim() ||
       'Authorized Clinician'
     : null;
+
+  const patientName = program.patient
+    ? `${program.patient.first_name || ''} ${program.patient.last_name || ''}`.trim() || 'Patient'
+    : 'Patient';
 
   return (
     <div style={{ padding: '2rem', maxWidth: '1100px', margin: '0 auto' }}>
@@ -1054,6 +1059,13 @@ export const HEPDetailPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Recovery Companion & Patient Check-Ins */}
+      <RecoveryCompanionClinicianSection
+        programId={program.id}
+        programStatus={program.status}
+        patientName={patientName}
+      />
 
       {/* Audit & Finalization Provenance */}
       <div
