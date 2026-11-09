@@ -8,6 +8,7 @@ import {
   Building2,
   Package,
   Receipt,
+  Users,
   ShieldCheck,
   Settings,
   ArrowLeft,
@@ -31,6 +32,7 @@ export const PlatformLayout: React.FC = () => {
     { to: '/platform/practices', label: 'Practice Directory', icon: Building2 },
     { to: '/platform/plans', label: 'SaaS Plans Catalog', icon: Package },
     { to: '/platform/billing', label: 'Billing & Invoices', icon: Receipt },
+    { to: '/platform/sales', label: 'Sales & Referrals', icon: Users },
     { to: '/platform/audit', label: 'Security & Audit Log', icon: ShieldCheck },
     { to: '/platform/settings', label: 'Platform Settings', icon: Settings },
   ];

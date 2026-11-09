@@ -19,6 +19,7 @@ import { saasSubscriptionService } from '../../services/saasSubscriptionService'
 import { supabase, setActivePracticeHeader } from '../../lib/supabase';
 import { BrandLogo } from '../../components/ui/BrandLogo';
 import { formatNaira } from '../../utils/currency';
+import { referralTrackingService, isValidReferralCode } from '../../services/referralTrackingService';
 import type { SaasPlanCode, SaasBillingInterval, SaasPlan } from '../../types/models';
 import {
   Building2,
@@ -56,6 +57,8 @@ export const RegisterPracticePage: React.FC = () => {
   const [selectedInterval, setSelectedInterval] = useState<'monthly' | 'annual'>(
     initialInterval === 'annual' ? 'annual' : 'monthly'
   );
+  const [referralCode, setReferralCode] = useState<string>('');
+  const [showReferralInput, setShowReferralInput] = useState<boolean>(false);
 
   // Authoritative plan data from backend
   const [plans, setPlans] = useState<SaasPlan[]>([]);
@@ -69,9 +72,17 @@ export const RegisterPracticePage: React.FC = () => {
   const { user, session, loading: authLoading, signUp, signOut } = useAuth();
   const { refreshPractices } = usePractice();
 
-  // Load authoritative public plans on mount
+  // Load authoritative public plans on mount & capture referral code
   useEffect(() => {
     let isMounted = true;
+    const captured =
+      referralTrackingService.captureReferralFromUrl(searchParams) ||
+      referralTrackingService.getStoredReferralCode();
+    if (captured) {
+      setReferralCode(captured);
+      setShowReferralInput(true);
+    }
+
     saasSubscriptionService
       .getPublicPlans()
       .then((data) => {
@@ -207,6 +218,7 @@ export const RegisterPracticePage: React.FC = () => {
 
       // 4. Atomically register practice, assign owner role, and provision 14-day trial
       setStatusMessage('Initializing clinical workspace and 14-day trial...');
+      const cleanRefCode = referralCode.trim() ? referralCode.trim().toUpperCase() : undefined;
       const result = await saasSubscriptionService.registerPracticeAndSubscribe({
         practice_name: practiceName.trim(),
         slug: cleanSlug,
@@ -214,7 +226,11 @@ export const RegisterPracticePage: React.FC = () => {
         billing_interval: selectedInterval,
         country: 'NG',
         timezone: 'Africa/Lagos',
+        referral_code: cleanRefCode,
       });
+
+      // Clear referral attribution storage on success
+      referralTrackingService.clearStoredReferralCode();
 
       // 5. Establish practice context header immediately
       setActivePracticeHeader(result.practice_id);
@@ -665,6 +681,51 @@ export const RegisterPracticePage: React.FC = () => {
                       <p className="text-[11px] text-slate-400 mt-1">
                         Unique clinic identifier. 3–48 lowercase letters, numbers, and hyphens.
                       </p>
+                    </div>
+
+                    {/* Referral Partner Attribution */}
+                    <div className="pt-1">
+                      {!showReferralInput && !referralCode ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowReferralInput(true)}
+                          className="text-[11px] font-semibold text-teal-600 hover:text-teal-700 underline flex items-center gap-1"
+                        >
+                          <Sparkles className="w-3 h-3 text-teal-500" />
+                          <span>Have a referral code from a Physenra Sales Partner?</span>
+                        </button>
+                      ) : (
+                        <div className="p-3 bg-teal-50/50 rounded-xl border border-teal-200">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="text-xs font-semibold text-teal-900 flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                              <span>Sales Partner Referral Code</span>
+                            </label>
+                            {referralCode && (
+                              <span className="text-[10px] bg-teal-100 text-teal-800 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                Applied
+                              </span>
+                            )}
+                          </div>
+                          <input
+                            type="text"
+                            value={referralCode}
+                            onChange={(e) => {
+                              const val = e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+                              setReferralCode(val);
+                              if (val && isValidReferralCode(val)) {
+                                referralTrackingService.setReferralCode(val, true);
+                              }
+                            }}
+                            placeholder="e.g. LAGOS-REP-01"
+                            className="w-full px-3 py-2 bg-white border border-teal-300 rounded-lg text-xs font-mono font-semibold text-teal-900 placeholder-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-500 uppercase"
+                            disabled={submitting}
+                          />
+                          <p className="text-[11px] text-teal-700 mt-1">
+                            Your practice will be connected with your Physenra representative for priority onboarding.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
 

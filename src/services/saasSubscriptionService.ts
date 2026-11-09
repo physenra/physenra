@@ -123,6 +123,7 @@ export const saasSubscriptionService = {
       p_billing_interval: payload.billing_interval || 'monthly',
       p_country: payload.country || 'NG',
       p_timezone: payload.timezone || 'Africa/Lagos',
+      p_referral_code: payload.referral_code || null,
     });
 
     if (error) {

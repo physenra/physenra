@@ -12,6 +12,13 @@
 [functions]
   directory = "netlify/functions"
 
+[functions."process-commission-outbox"]
+  schedule = "*/5 * * * *"
+
+[functions."reconcile-referral-commissions"]
+  schedule = "0 */6 * * *"
+
+
 # API Route redirects for server-side Paystack payment infrastructure
 [[redirects]]
   from = "/api/paystack-webhook"
@@ -41,6 +48,16 @@
 [[redirects]]
   from = "/api/recovery-companion"
   to = "/.netlify/functions/recovery-companion"
+  status = 200
+
+[[redirects]]
+  from = "/api/process-commission-outbox"
+  to = "/.netlify/functions/process-commission-outbox"
+  status = 200
+
+[[redirects]]
+  from = "/api/reconcile-referral-commissions"
+  to = "/.netlify/functions/reconcile-referral-commissions"
   status = 200
 
 # SPA routing fallback: rewrite all non-asset requests to /index.html (HTTP 200)

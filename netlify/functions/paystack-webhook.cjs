@@ -181,7 +181,167 @@ async function handler(event, context, deps = {}) {
     };
   }
 
-  // 8. Event filtering: Safely acknowledge non-charge events without settlement
+  // 8. Event filtering & specialized event routing
+  // 8a. Handle Refund Events
+  if (eventType === 'refund.processed') {
+    const refundRef = eventData.transaction_reference || eventData.reference;
+    const refundAmount = Number(eventData.amount || 0);
+    const refundEventId = `refund_${eventData.id || refundRef || Date.now()}`;
+
+    try {
+      const { data: payment } = await supabaseAdmin
+        .from('saas_payments')
+        .select('id, amount_cents')
+        .eq('gateway_reference', refundRef)
+        .maybeSingle();
+
+      if (payment) {
+        const isFull = refundAmount >= Number(payment.amount_cents);
+        await supabaseAdmin.rpc('record_commission_adjustment', {
+          p_payment_id: payment.id,
+          p_adjustment_type: isFull ? 'full_refund' : 'partial_refund',
+          p_refund_amount_cents: refundAmount,
+          p_source_system: 'paystack_webhook',
+          p_external_event_id: refundEventId,
+          p_reason: 'Paystack refund processed',
+        });
+      }
+
+      if (webhookRecordId) {
+        await supabaseAdmin
+          .from('saas_webhook_events')
+          .update({
+            processed: true,
+            processed_at: new Date().toISOString(),
+            error_message: null,
+          })
+          .eq('id', webhookRecordId);
+      }
+
+      return {
+        statusCode: 200,
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          status: 'success',
+          message: 'Refund adjustment processed',
+        }),
+      };
+    } catch (err) {
+      console.error('[Paystack Webhook] Refund handling error:', err.message);
+      return {
+        statusCode: 500,
+        headers: jsonHeaders,
+        body: JSON.stringify({ error: err.message }),
+      };
+    }
+  }
+
+  // 8b. Handle Dispute Events
+  if (eventType === 'charge.dispute.create' || eventType === 'charge.dispute.resolve') {
+    const disputeRef = eventData.transaction?.reference || eventData.reference;
+    const disputeEventId = `dispute_${eventData.id || disputeRef || Date.now()}`;
+    const disputeAmount = Number(eventData.amount || 0);
+
+    try {
+      const { data: payment } = await supabaseAdmin
+        .from('saas_payments')
+        .select('id, amount_cents')
+        .eq('gateway_reference', disputeRef)
+        .maybeSingle();
+
+      if (payment) {
+        const adjType = eventType === 'charge.dispute.create' ? 'dispute_opened' : 'chargeback';
+        await supabaseAdmin.rpc('record_commission_adjustment', {
+          p_payment_id: payment.id,
+          p_adjustment_type: adjType,
+          p_refund_amount_cents: disputeAmount,
+          p_source_system: 'paystack_webhook',
+          p_external_event_id: disputeEventId,
+          p_reason: `Paystack dispute: ${eventData.status || eventType}`,
+        });
+      }
+
+      if (webhookRecordId) {
+        await supabaseAdmin
+          .from('saas_webhook_events')
+          .update({
+            processed: true,
+            processed_at: new Date().toISOString(),
+            error_message: null,
+          })
+          .eq('id', webhookRecordId);
+      }
+
+      return {
+        statusCode: 200,
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          status: 'success',
+          message: 'Dispute event processed',
+        }),
+      };
+    } catch (err) {
+      console.error('[Paystack Webhook] Dispute handling error:', err.message);
+      return {
+        statusCode: 500,
+        headers: jsonHeaders,
+        body: JSON.stringify({ error: err.message }),
+      };
+    }
+  }
+
+  // 8c. Handle Representative Payout Transfer Events (Allocation Isolation & Unique Transfer Ref)
+  if (['transfer.success', 'transfer.failed', 'transfer.reversed'].includes(eventType)) {
+    const transferRef = eventData.transfer_code || eventData.reference;
+    const transferEventId = `${eventType}_${eventData.id || transferRef || Date.now()}`;
+    const reasonText = eventData.reason || eventData.status || `Transfer ${eventType}`;
+
+    try {
+      const { data: transferResult, error: transferErr } = await supabaseAdmin.rpc(
+        'settle_payout_transfer_event',
+        {
+          p_transfer_reference: transferRef,
+          p_event_type: eventType,
+          p_reason: reasonText,
+          p_external_event_id: transferEventId,
+          p_raw_payload: payload,
+        }
+      );
+
+      if (transferErr) {
+        throw transferErr;
+      }
+
+      if (webhookRecordId) {
+        await supabaseAdmin
+          .from('saas_webhook_events')
+          .update({
+            processed: true,
+            processed_at: new Date().toISOString(),
+            error_message: null,
+          })
+          .eq('id', webhookRecordId);
+      }
+
+      return {
+        statusCode: 200,
+        headers: jsonHeaders,
+        body: JSON.stringify({
+          status: 'success',
+          transfer_result: transferResult,
+        }),
+      };
+    } catch (err) {
+      console.error('[Paystack Webhook] Transfer event error:', err.message);
+      return {
+        statusCode: 500,
+        headers: jsonHeaders,
+        body: JSON.stringify({ error: err.message }),
+      };
+    }
+  }
+
+  // 8d. Safely acknowledge other non-charge events without settlement
   if (eventType !== 'charge.success') {
     if (webhookRecordId) {
       await supabaseAdmin
@@ -406,6 +566,7 @@ async function handler(event, context, deps = {}) {
       paymentMethod,
       gatewayFeeCents,
       authToken,
+      paidAt: verified.paid_at || eventData.paid_at || null,
     });
 
     // 16. Mark webhook event as successfully processed

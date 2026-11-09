@@ -194,6 +194,7 @@ export interface RegisterPracticeAndSubscribePayload {
   billing_interval?: SaasBillingInterval;
   country?: string;
   timezone?: string;
+  referral_code?: string;
 }
 
 export interface RegisterPracticeAndSubscribeResponse {

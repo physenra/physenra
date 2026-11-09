@@ -88,6 +88,9 @@ import { PlatformPlansPage } from './pages/platform/PlatformPlansPage';
 import { PlatformBillingPage } from './pages/platform/PlatformBillingPage';
 import { PlatformAuditPage } from './pages/platform/PlatformAuditPage';
 import { PlatformSettingsPage } from './pages/platform/PlatformSettingsPage';
+import { PlatformSalesPage } from './pages/platform/PlatformSalesPage';
+import { SalesRepGuard } from './components/auth/SalesRepGuard';
+import { RepDashboardPage } from './pages/rep/RepDashboardPage';
 import { PricingPage } from './pages/public/PricingPage';
 import { RegisterPracticePage } from './pages/auth/RegisterPracticePage';
 import { SignUpPage } from './pages/auth/SignUpPage';
@@ -171,7 +174,26 @@ export const App: React.FC = () => {
         <Route path="billing" element={<PlatformBillingPage />} />
         <Route path="audit" element={<PlatformAuditPage />} />
         <Route path="settings" element={<PlatformSettingsPage />} />
+        <Route path="sales" element={<PlatformSalesPage />} />
       </Route>
+
+      {/* Sales Representative Self-Service Portal */}
+      <Route
+        path="/rep"
+        element={
+          <SalesRepGuard>
+            <RepDashboardPage />
+          </SalesRepGuard>
+        }
+      />
+      <Route
+        path="/rep/dashboard"
+        element={
+          <SalesRepGuard>
+            <RepDashboardPage />
+          </SalesRepGuard>
+        }
+      />
 
       {/* Authenticated user with no practice assigned */}
       <Route path="/no-practice" element={<NoPracticePage />} />

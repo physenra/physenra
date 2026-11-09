@@ -409,6 +409,7 @@ function getPaystackEnvironment(key) {
  * @param {string} params.paymentMethod - Channel mapped to enum ('card', 'bank_transfer', etc.)
  * @param {number} [params.gatewayFeeCents=0] - Gateway fee in Kobo
  * @param {string|null} [params.authToken=null] - Reusable authorization token
+ * @param {string|null} [params.paidAt=null] - Authoritative payment timestamp
  * @returns {Promise<{ status: 'settled'|'already_paid', invoice_id: string, payment_id?: string, plan_id?: string, seat_limit?: number, new_period_end?: string }>}
  */
 async function settleSubscriptionPayment({
@@ -419,6 +420,7 @@ async function settleSubscriptionPayment({
   paymentMethod,
   gatewayFeeCents = 0,
   authToken = null,
+  paidAt = null,
 }) {
   const numericAmount = Number(verifiedAmount);
 
@@ -435,6 +437,7 @@ async function settleSubscriptionPayment({
         p_payment_method: paymentMethod,
         p_gateway_fee_cents: gatewayFeeCents || 0,
         p_auth_token: authToken || null,
+        p_paid_at: paidAt || null,
       }
     );
 
@@ -532,6 +535,7 @@ async function settleSubscriptionPayment({
   const paymentNumber = `PHY-PAY-${now.getFullYear()}-${String(
     Math.floor(Math.random() * 1000000)
   ).padStart(6, '0')}`;
+  const effectivePaidAt = paidAt || now.toISOString();
 
   const { data: paymentRecord, error: payInsertErr } = await supabaseAdmin
     .from('saas_payments')
@@ -547,6 +551,7 @@ async function settleSubscriptionPayment({
       gateway_fee_cents: gatewayFeeCents || 0,
       status: 'successful',
       settled_at: now.toISOString(),
+      paid_at: effectivePaidAt,
     })
     .select('id')
     .single();
@@ -562,13 +567,26 @@ async function settleSubscriptionPayment({
     .from('saas_invoices')
     .update({
       status: 'paid',
-      paid_at: now.toISOString(),
+      paid_at: effectivePaidAt,
       updated_at: now.toISOString(),
     })
     .eq('id', currentInv.id);
 
   if (invUpdateErr) {
     throw new Error(`Failed to mark invoice paid: ${invUpdateErr.message}`);
+  }
+
+  // 7b. Enqueue to sales_commission_outbox for asynchronous commission evaluation
+  try {
+    await supabaseAdmin.from('sales_commission_outbox').insert({
+      practice_id: currentInv.practice_id,
+      invoice_id: currentInv.id,
+      payment_id: paymentId,
+      status: 'pending_retry',
+      last_error: 'Fallback settlement: pending outbox evaluation',
+    });
+  } catch (outboxErr) {
+    console.warn('[Paystack Settlement] Outbox fallback enqueue notice:', outboxErr.message);
   }
 
   // 8. Advance Subscription to ACTIVE & Apply promoted plan

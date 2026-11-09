@@ -289,6 +289,7 @@ async function handler(event, context, deps = {}) {
       paymentMethod,
       gatewayFeeCents,
       authToken,
+      paidAt: verified.paid_at || null,
     });
 
     return {
