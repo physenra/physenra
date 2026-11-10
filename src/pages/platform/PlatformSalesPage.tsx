@@ -79,7 +79,7 @@ export const PlatformSalesPage: React.FC = () => {
   const loadAllData = async () => {
     try {
       setError(null);
-      const [ov, rList, cList, pList, oList, qList] = await Promise.all([
+      const results = await Promise.allSettled([
         salesRepAdminService.getSalesOverview(),
         salesRepAdminService.getSalesReps(),
         salesRepAdminService.getCommissions(),
@@ -88,12 +88,20 @@ export const PlatformSalesPage: React.FC = () => {
         salesRepAdminService.getQuarantineEntries(),
       ]);
 
-      setOverview(ov);
-      setReps(rList);
-      setCommissions(cList);
-      setPayouts(pList);
-      setOutboxTasks(oList);
-      setQuarantine(qList);
+      const [ovRes, rListRes, cListRes, pListRes, oListRes, qListRes] = results;
+
+      if (ovRes.status === 'fulfilled') setOverview(ovRes.value);
+      if (rListRes.status === 'fulfilled') setReps(rListRes.value);
+      if (cListRes.status === 'fulfilled') setCommissions(cListRes.value);
+      if (pListRes.status === 'fulfilled') setPayouts(pListRes.value);
+      if (oListRes.status === 'fulfilled') setOutboxTasks(oListRes.value);
+      if (qListRes.status === 'fulfilled') setQuarantine(qListRes.value);
+
+      const rejected = results.find((r) => r.status === 'rejected') as PromiseRejectedResult | undefined;
+      if (rejected) {
+        console.warn('[PlatformSalesPage] Partial data loading issue:', rejected.reason);
+        setError(rejected.reason?.message || 'Failed to load some sales management data');
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load sales management data');
     } finally {
@@ -417,67 +425,75 @@ export const PlatformSalesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {reps.map((rep) => (
-                  <tr key={rep.id} className="hover:bg-slate-800/40 transition">
-                    <td className="p-4">
-                      <div className="font-semibold text-white">{rep.full_name}</div>
-                      <div className="text-[11px] text-slate-400">{rep.email}</div>
-                      <div className="text-[11px] text-slate-500">{rep.phone_number}</div>
-                    </td>
-                    <td className="p-4">
-                      {rep.referral_codes && rep.referral_codes.length > 0 ? (
-                        <span className="font-mono bg-slate-800 px-2.5 py-1 rounded border border-slate-700 text-teal-300 font-bold">
-                          {rep.referral_codes[0].code}
-                        </span>
-                      ) : (
-                        <span className="text-slate-500">None</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-slate-300">{rep.state_region}</td>
-                    <td className="p-4">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                          rep.status === 'active'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                            : rep.status === 'suspended'
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                        }`}
-                      >
-                        {rep.status}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      {rep.bank_account ? (
-                        <div className="space-y-0.5">
-                          <div className="font-mono text-slate-200">{rep.bank_account.masked_account_number}</div>
-                          <div className="text-[11px] text-slate-400">{rep.bank_account.bank_name}</div>
-                        </div>
-                      ) : (
-                        <span className="text-slate-500">No account</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-[11px] text-slate-400">
-                      <div>Start: {rep.pilot_start_date}</div>
-                      <div>End: {rep.pilot_end_date}</div>
-                    </td>
-                    <td className="p-4 text-right">
-                      {rep.bank_account && (
-                        <button
-                          onClick={() => {
-                            setRevealModal({ repId: rep.id, repName: rep.full_name });
-                            setRevealedBank(null);
-                            setRevealJustification('');
-                          }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-slate-300 border border-slate-700"
-                        >
-                          <Eye className="w-3 h-3 text-slate-400" />
-                          <span>Reveal NUBAN</span>
-                        </button>
-                      )}
+                {reps.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-500 italic">
+                      No representatives registered yet. Click &quot;Onboard Representative&quot; above to register.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  reps.map((rep) => (
+                    <tr key={rep.id} className="hover:bg-slate-800/40 transition">
+                      <td className="p-4">
+                        <div className="font-semibold text-white">{rep.full_name}</div>
+                        <div className="text-[11px] text-slate-400">{rep.email}</div>
+                        <div className="text-[11px] text-slate-500">{rep.phone_number}</div>
+                      </td>
+                      <td className="p-4">
+                        {rep.referral_codes && rep.referral_codes.length > 0 ? (
+                          <span className="font-mono bg-slate-800 px-2.5 py-1 rounded border border-slate-700 text-teal-300 font-bold">
+                            {rep.referral_codes[0].code}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500">None</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-slate-300">{rep.state_region}</td>
+                      <td className="p-4">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            rep.status === 'active'
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                              : rep.status === 'suspended'
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                          }`}
+                        >
+                          {rep.status}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        {rep.bank_account ? (
+                          <div className="space-y-0.5">
+                            <div className="font-mono text-slate-200">{rep.bank_account.masked_account_number}</div>
+                            <div className="text-[11px] text-slate-400">{rep.bank_account.bank_name}</div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-500">No account</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-[11px] text-slate-400">
+                        <div>Start: {rep.pilot_start_date}</div>
+                        <div>End: {rep.pilot_end_date}</div>
+                      </td>
+                      <td className="p-4 text-right">
+                        {rep.bank_account && (
+                          <button
+                            onClick={() => {
+                              setRevealModal({ repId: rep.id, repName: rep.full_name });
+                              setRevealedBank(null);
+                              setRevealJustification('');
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-slate-300 border border-slate-700"
+                          >
+                            <Eye className="w-3 h-3 text-slate-400" />
+                            <span>Reveal NUBAN</span>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -501,7 +517,14 @@ export const PlatformSalesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {commissions.map((c) => {
+                {commissions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-500 italic">
+                      No commission records found.
+                    </td>
+                  </tr>
+                ) : (
+                  commissions.map((c) => {
                   const isHoldExpired = new Date(c.holding_expires_at) <= new Date();
                   const canSelectForPayout = c.current_status === 'approved' && !c.is_payout_frozen;
 
@@ -587,7 +610,7 @@ export const PlatformSalesPage: React.FC = () => {
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
           </div>
@@ -625,45 +648,53 @@ export const PlatformSalesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {payouts.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-800/40 transition">
-                    <td className="p-4 font-mono font-bold text-white">{p.payout_number}</td>
-                    <td className="p-4 font-semibold text-slate-200">{p.sales_rep?.full_name}</td>
-                    <td className="p-4 text-[11px]">
-                      <div>{p.account_name}</div>
-                      <div className="font-mono text-slate-400">{p.masked_account_number} ({p.bank_name})</div>
-                    </td>
-                    <td className="p-4 font-bold text-emerald-400">{formatNaira(p.total_amount_cents)}</td>
-                    <td className="p-4">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                          p.status === 'completed'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                            : p.status === 'initiated'
-                            ? 'bg-teal-500/10 text-teal-400 border border-teal-500/30'
-                            : p.status === 'draft'
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                        }`}
-                      >
-                        {p.status}
-                      </span>
-                    </td>
-                    <td className="p-4 font-mono text-[11px] text-slate-300">
-                      {p.transfer_reference || <span className="text-slate-500 italic">Unassigned</span>}
-                    </td>
-                    <td className="p-4 text-right">
-                      {p.status === 'draft' && (
-                        <button
-                          onClick={() => setTransferRefInput({ payoutId: p.id, ref: '' })}
-                          className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-slate-200 border border-slate-700"
-                        >
-                          Attach Transfer Code
-                        </button>
-                      )}
+                {payouts.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-500 italic">
+                      No payout records found.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  payouts.map((p) => (
+                    <tr key={p.id} className="hover:bg-slate-800/40 transition">
+                      <td className="p-4 font-mono font-bold text-white">{p.payout_number}</td>
+                      <td className="p-4 font-semibold text-slate-200">{p.sales_rep?.full_name}</td>
+                      <td className="p-4 text-[11px]">
+                        <div>{p.account_name}</div>
+                        <div className="font-mono text-slate-400">{p.masked_account_number} ({p.bank_name})</div>
+                      </td>
+                      <td className="p-4 font-bold text-emerald-400">{formatNaira(p.total_amount_cents)}</td>
+                      <td className="p-4">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                            p.status === 'completed'
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                              : p.status === 'initiated'
+                              ? 'bg-teal-500/10 text-teal-400 border border-teal-500/30'
+                              : p.status === 'draft'
+                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                          }`}
+                        >
+                          {p.status}
+                        </span>
+                      </td>
+                      <td className="p-4 font-mono text-[11px] text-slate-300">
+                        {p.transfer_reference || <span className="text-slate-500 italic">Unassigned</span>}
+                      </td>
+                      <td className="p-4 text-right">
+                        {p.status === 'draft' && (
+                          <button
+                            onClick={() => setTransferRefInput({ payoutId: p.id, ref: '' })}
+                            className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-slate-200 border border-slate-700"
+                          >
+                            Attach Transfer Code
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -717,7 +748,14 @@ export const PlatformSalesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                {outboxTasks.map((task) => (
+                {outboxTasks.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center text-slate-500 italic">
+                      No pending outbox retry tasks.
+                    </td>
+                  </tr>
+                ) : (
+                  outboxTasks.map((task) => (
                   <tr key={task.id} className="hover:bg-slate-800/40 transition">
                     <td className="p-4 font-semibold text-white">{task.practice?.name || task.practice_id}</td>
                     <td className="p-4 font-mono text-[11px] text-slate-300">
@@ -753,7 +791,7 @@ export const PlatformSalesPage: React.FC = () => {
                       )}
                     </td>
                   </tr>
-                ))}
+                )))}
               </tbody>
             </table>
           </div>

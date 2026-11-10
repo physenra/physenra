@@ -87,68 +87,122 @@ export interface PayoutBatchRecord {
   }>;
 }
 
+/**
+ * Safely determines if a PostgREST error represents a missing table,
+ * missing relationship, or stale schema cache.
+ */
+export function isSchemaCacheOrMissingTableError(error: any): boolean {
+  if (!error) return false;
+  const code = String(error.code || '');
+  const message = String(error.message || '');
+  const details = String(error.details || '');
+  return (
+    code === 'PGRST205' ||
+    code === 'PGRST200' ||
+    code === 'PGRST202' ||
+    code === '42P01' ||
+    message.includes('schema cache') ||
+    message.includes('does not exist') ||
+    details.includes('schema cache')
+  );
+}
+
 export const salesRepAdminService = {
   /**
    * Fetches platform-wide sales overview metrics.
    */
   async getSalesOverview() {
-    // 1. Total Active Reps
-    const { count: activeRepsCount } = await db
-      .from('sales_representatives')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'active');
+    try {
+      // 1. Total Active Reps
+      const { count: activeRepsCount, error: repErr } = await db
+        .from('sales_representatives')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active');
 
-    // 2. Referrals Summary
-    const { data: referrals } = await supabase
-      .from('sales_referrals')
-      .select('status');
-
-    const totalReferrals = referrals?.length || 0;
-    const qualifiedReferrals = referrals?.filter((r: any) => r.status === 'qualified').length || 0;
-
-    // 3. Commissions Summary
-    const { data: commissions } = await supabase
-      .from('sales_commissions')
-      .select('original_commission_cents, current_status');
-
-    let totalEarnedCents = 0;
-    let totalPendingLiabilityCents = 0;
-    let totalPaidOutCents = 0;
-
-    for (const c of commissions || []) {
-      const amt = Number(c.original_commission_cents) || 0;
-      if (['pending', 'approved', 'in_payout', 'held_suspended'].includes(c.current_status)) {
-        totalPendingLiabilityCents += amt;
+      if (repErr && !isSchemaCacheOrMissingTableError(repErr)) {
+        console.warn('[salesRepAdminService] Error loading active reps count:', repErr.message);
       }
-      if (c.current_status === 'paid') {
-        totalPaidOutCents += amt;
+
+      // 2. Referrals Summary
+      const { data: referrals, error: refErr } = await supabase
+        .from('sales_referrals')
+        .select('status');
+
+      if (refErr && !isSchemaCacheOrMissingTableError(refErr)) {
+        console.warn('[salesRepAdminService] Error loading referrals:', refErr.message);
       }
-      if (c.current_status !== 'cancelled') {
-        totalEarnedCents += amt;
+
+      const totalReferrals = referrals?.length || 0;
+      const qualifiedReferrals = referrals?.filter((r: any) => r.status === 'qualified').length || 0;
+
+      // 3. Commissions Summary
+      const { data: commissions, error: comErr } = await supabase
+        .from('sales_commissions')
+        .select('original_commission_cents, current_status');
+
+      if (comErr && !isSchemaCacheOrMissingTableError(comErr)) {
+        console.warn('[salesRepAdminService] Error loading commissions:', comErr.message);
       }
+
+      let totalEarnedCents = 0;
+      let totalPendingLiabilityCents = 0;
+      let totalPaidOutCents = 0;
+
+      for (const c of commissions || []) {
+        const amt = Number(c.original_commission_cents) || 0;
+        if (['pending', 'approved', 'in_payout', 'held_suspended'].includes(c.current_status)) {
+          totalPendingLiabilityCents += amt;
+        }
+        if (c.current_status === 'paid') {
+          totalPaidOutCents += amt;
+        }
+        if (c.current_status !== 'cancelled') {
+          totalEarnedCents += amt;
+        }
+      }
+
+      // 4. Outbox & Quarantine Items
+      const { count: pendingOutboxCount, error: outErr } = await supabase
+        .from('sales_commission_outbox')
+        .select('*', { count: 'exact', head: true })
+        .in('status', ['pending_retry', 'processing', 'abandoned']);
+
+      if (outErr && !isSchemaCacheOrMissingTableError(outErr)) {
+        console.warn('[salesRepAdminService] Error loading outbox count:', outErr.message);
+      }
+
+      const { count: quarantineCount, error: quarErr } = await supabase
+        .from('sales_adjustment_quarantine')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending_review');
+
+      if (quarErr && !isSchemaCacheOrMissingTableError(quarErr)) {
+        console.warn('[salesRepAdminService] Error loading quarantine count:', quarErr.message);
+      }
+
+      return {
+        activeRepsCount: activeRepsCount || 0,
+        totalReferrals,
+        qualifiedReferrals,
+        totalEarnedCents,
+        totalPendingLiabilityCents,
+        totalPaidOutCents,
+        pendingOutboxCount: pendingOutboxCount || 0,
+        quarantineCount: quarantineCount || 0,
+      };
+    } catch (err: any) {
+      console.warn('[salesRepAdminService] getSalesOverview error, returning fallback metrics:', err);
+      return {
+        activeRepsCount: 0,
+        totalReferrals: 0,
+        qualifiedReferrals: 0,
+        totalEarnedCents: 0,
+        totalPendingLiabilityCents: 0,
+        totalPaidOutCents: 0,
+        pendingOutboxCount: 0,
+        quarantineCount: 0,
+      };
     }
-
-    // 4. Outbox & Quarantine Items
-    const { count: pendingOutboxCount } = await supabase
-      .from('sales_commission_outbox')
-      .select('*', { count: 'exact', head: true })
-      .in('status', ['pending_retry', 'processing', 'abandoned']);
-
-    const { count: quarantineCount } = await supabase
-      .from('sales_adjustment_quarantine')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending_review');
-
-    return {
-      activeRepsCount: activeRepsCount || 0,
-      totalReferrals,
-      qualifiedReferrals,
-      totalEarnedCents,
-      totalPendingLiabilityCents,
-      totalPaidOutCents,
-      pendingOutboxCount: pendingOutboxCount || 0,
-      quarantineCount: quarantineCount || 0,
-    };
   },
 
   /**
@@ -164,7 +218,13 @@ export const salesRepAdminService = {
       `)
       .order('created_at', { ascending: false });
 
-    if (error) throw new Error(`Failed to fetch sales representatives: ${error.message}`);
+    if (error) {
+      if (isSchemaCacheOrMissingTableError(error)) {
+        console.warn('[salesRepAdminService] sales_representatives table unavailable or schema cache pending:', error.message);
+        return [];
+      }
+      throw new Error(`Failed to fetch sales representatives: ${error.message}`);
+    }
 
     return (reps || []).map((r: any) => {
       const bank = r.bank_accounts?.[0];
@@ -304,7 +364,13 @@ export const salesRepAdminService = {
     }
 
     const { data, error } = await query;
-    if (error) throw new Error(`Failed to fetch commissions: ${error.message}`);
+    if (error) {
+      if (isSchemaCacheOrMissingTableError(error)) {
+        console.warn('[salesRepAdminService] sales_commissions table unavailable or schema cache pending:', error.message);
+        return [];
+      }
+      throw new Error(`Failed to fetch commissions: ${error.message}`);
+    }
     return (data || []) as unknown as CommissionRecord[];
   },
 
@@ -340,7 +406,13 @@ export const salesRepAdminService = {
       `)
       .order('created_at', { ascending: false });
 
-    if (error) throw new Error(`Failed to fetch payouts: ${error.message}`);
+    if (error) {
+      if (isSchemaCacheOrMissingTableError(error)) {
+        console.warn('[salesRepAdminService] sales_commission_payouts table unavailable or schema cache pending:', error.message);
+        return [];
+      }
+      throw new Error(`Failed to fetch payouts: ${error.message}`);
+    }
     return (data || []) as unknown as PayoutBatchRecord[];
   },
 
@@ -474,7 +546,13 @@ export const salesRepAdminService = {
       `)
       .order('created_at', { ascending: false });
 
-    if (error) throw new Error(`Failed to fetch outbox tasks: ${error.message}`);
+    if (error) {
+      if (isSchemaCacheOrMissingTableError(error)) {
+        console.warn('[salesRepAdminService] sales_commission_outbox table unavailable or schema cache pending:', error.message);
+        return [];
+      }
+      throw new Error(`Failed to fetch outbox tasks: ${error.message}`);
+    }
     return data || [];
   },
 
@@ -504,7 +582,13 @@ export const salesRepAdminService = {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (error) throw new Error(`Failed to fetch quarantine entries: ${error.message}`);
+    if (error) {
+      if (isSchemaCacheOrMissingTableError(error)) {
+        console.warn('[salesRepAdminService] sales_adjustment_quarantine table unavailable or schema cache pending:', error.message);
+        return [];
+      }
+      throw new Error(`Failed to fetch quarantine entries: ${error.message}`);
+    }
     return data || [];
   },
 };

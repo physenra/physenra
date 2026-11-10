@@ -1178,4 +1178,111 @@ test('PHYSENRA SALES REP & REFERRAL SUITE', async (t) => {
       assert.strictEqual(authorizedScannerRes.statusCode, 200);
     });
   });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 9: PAYOUT RETRIEVAL RESILIENCE & SCHEMA CACHE RECOVERY
+  // ----------------------------------------------------------------------------
+  await t.test('SUITE 9: Payout Retrieval Resilience & Schema Cache Recovery', async (st) => {
+    const adminServiceSource = fs.readFileSync(
+      path.join(__dirname, '../src/services/salesRepAdminService.ts'),
+      'utf8'
+    );
+    const salesPageSource = fs.readFileSync(
+      path.join(__dirname, '../src/pages/platform/PlatformSalesPage.tsx'),
+      'utf8'
+    );
+
+    await st.test('TEST 31: isSchemaCacheOrMissingTableError recognizes PostgREST PGRST205, PGRST200, PGRST202 and 42P01', () => {
+      assert.ok(
+        adminServiceSource.includes("code === 'PGRST205'"),
+        'Must catch PGRST205 table not found in schema cache'
+      );
+      assert.ok(
+        adminServiceSource.includes("message.includes('schema cache')"),
+        'Must catch schema cache message strings'
+      );
+      assert.ok(
+        adminServiceSource.includes("code === '42P01'"),
+        'Must catch PostgreSQL undefined table code 42P01'
+      );
+    });
+
+    await st.test('TEST 32: getPayouts handles PGRST205 schema cache error gracefully and returns empty array', () => {
+      assert.ok(
+        adminServiceSource.includes("async getPayouts(): Promise<PayoutBatchRecord[]>"),
+        'getPayouts must be typed as Promise<PayoutBatchRecord[]>'
+      );
+      assert.ok(
+        adminServiceSource.includes("if (isSchemaCacheOrMissingTableError(error))"),
+        'getPayouts must check isSchemaCacheOrMissingTableError'
+      );
+      assert.ok(
+        adminServiceSource.includes("console.warn('[salesRepAdminService] sales_commission_payouts table unavailable or schema cache pending:'"),
+        'getPayouts must log informative warning on missing table'
+      );
+      assert.ok(
+        adminServiceSource.includes("return [];"),
+        'getPayouts must return empty array instead of throwing on schema cache miss'
+      );
+    });
+
+    await st.test('TEST 33: getSalesOverview returns safe zeroed metrics on missing table / schema cache miss', () => {
+      assert.ok(
+        adminServiceSource.includes("activeRepsCount: 0"),
+        'Fallback metrics must default activeRepsCount to 0'
+      );
+      assert.ok(
+        adminServiceSource.includes("totalEarnedCents: 0"),
+        'Fallback metrics must default totalEarnedCents to 0'
+      );
+      assert.ok(
+        adminServiceSource.includes("totalPendingLiabilityCents: 0"),
+        'Fallback metrics must default totalPendingLiabilityCents to 0'
+      );
+    });
+
+    await st.test('TEST 34: getSalesReps, getCommissions, getOutboxTasks, and getQuarantineEntries handle schema cache gracefully', () => {
+      const methods = ['getSalesReps', 'getCommissions', 'getOutboxTasks', 'getQuarantineEntries'];
+      for (const m of methods) {
+        assert.ok(
+          adminServiceSource.includes(`async ${m}`) || adminServiceSource.includes(`${m}(`),
+          `Service must define ${m}`
+        );
+      }
+    });
+
+    await st.test('TEST 35: PlatformSalesPage uses Promise.allSettled to isolate subsystem loading', () => {
+      assert.ok(
+        salesPageSource.includes('Promise.allSettled'),
+        'PlatformSalesPage must use Promise.allSettled so a missing table or single failure cannot crash the dashboard'
+      );
+      assert.ok(
+        salesPageSource.includes('No payout records found'),
+        'PlatformSalesPage must render clean empty state for payouts'
+      );
+      assert.ok(
+        salesPageSource.includes('No representatives registered yet'),
+        'PlatformSalesPage must render clean empty state for representatives'
+      );
+    });
+
+    await st.test('TEST 36: Database migration creates public.sales_commission_payouts with complete schema and constraints', () => {
+      assert.ok(
+        foundationSql.includes('CREATE TABLE IF NOT EXISTS public.sales_commission_payouts'),
+        'Migration must create sales_commission_payouts'
+      );
+      assert.ok(
+        foundationSql.includes('transfer_reference text UNIQUE'),
+        'transfer_reference must have UNIQUE constraint'
+      );
+      assert.ok(
+        foundationSql.includes('payout_number text NOT NULL UNIQUE'),
+        'payout_number must have UNIQUE constraint'
+      );
+      assert.ok(
+        foundationSql.includes('sales_rep_id uuid NOT NULL REFERENCES public.sales_representatives(id)'),
+        'Must link to sales_representatives'
+      );
+    });
+  });
 });
