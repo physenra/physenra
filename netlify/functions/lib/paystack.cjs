@@ -442,11 +442,24 @@ async function settleSubscriptionPayment({
     );
 
     if (settlementErr) {
+      if (
+        settlementErr.message?.includes('Gateway reference collision') ||
+        settlementErr.message?.includes('cannot be settled') ||
+        settlementErr.code === '23505'
+      ) {
+        throw new Error(settlementErr.message);
+      }
       rpcErr = settlementErr;
     } else if (settlementData) {
+      if (settlementData.status === 'error') {
+        throw new Error(settlementData.message || `Settlement error: ${settlementData.error_code}`);
+      }
       return settlementData;
     }
   } catch (err) {
+    if (err.message?.includes('Gateway reference collision') || err.message?.includes('cannot be settled')) {
+      throw err;
+    }
     rpcErr = err;
   }
 
@@ -528,6 +541,37 @@ async function settleSubscriptionPayment({
         newInterval === 'annual'
           ? targetPlan.annual_price_cents
           : targetPlan.monthly_price_cents;
+    }
+  }
+
+  // 5B. Strict transaction identity verification for existing reference in fallback
+  try {
+    const paymentTable = supabaseAdmin.from('saas_payments');
+    if (paymentTable && typeof paymentTable.select === 'function') {
+      const { data: existingRefPayment } = await paymentTable
+        .select('id, invoice_id, practice_id, amount_cents, currency, gateway_provider, status')
+        .eq('gateway_reference', reference)
+        .maybeSingle();
+
+      if (existingRefPayment) {
+        if (
+          existingRefPayment.invoice_id !== currentInv.id ||
+          existingRefPayment.practice_id !== currentInv.practice_id ||
+          Number(existingRefPayment.amount_cents) !== numericAmount ||
+          existingRefPayment.currency !== currentInv.currency
+        ) {
+          throw new Error(
+            `Gateway reference collision: reference ${reference} already belongs to payment ${existingRefPayment.id} for invoice ${existingRefPayment.invoice_id}`
+          );
+        }
+        if (existingRefPayment.status === 'successful') {
+          return { status: 'duplicate_reference', invoice_id: existingRefPayment.invoice_id, payment_id: existingRefPayment.id };
+        }
+      }
+    }
+  } catch (refCheckErr) {
+    if (refCheckErr.message?.includes('Gateway reference collision')) {
+      throw refCheckErr;
     }
   }
 

@@ -526,8 +526,7 @@ DECLARE
   v_sub record;
   v_target_plan record;
   v_payment_id uuid;
-  v_existing_payment_id uuid;
-  v_existing_inv_id uuid;
+  v_existing_payment record;
   v_new_period_start timestamptz;
   v_new_period_end timestamptz;
   v_new_plan_id uuid;
@@ -561,23 +560,6 @@ BEGIN
       USING ERRCODE = 'check_violation';
   END IF;
 
-  -- Verify gateway reference uniqueness and duplicate webhook idempotency
-  IF p_gateway_reference IS NOT NULL AND TRIM(p_gateway_reference) <> '' THEN
-    SELECT id, invoice_id INTO v_existing_payment_id, v_existing_inv_id
-    FROM public.saas_payments
-    WHERE gateway_reference = TRIM(p_gateway_reference)
-    LIMIT 1;
-
-    IF FOUND THEN
-      RETURN jsonb_build_object(
-        'status', 'duplicate_reference',
-        'invoice_id', v_existing_inv_id,
-        'payment_id', v_existing_payment_id,
-        'gateway_reference', p_gateway_reference
-      );
-    END IF;
-  END IF;
-
   -- 2. Verify amount matches invoice total
   IF p_amount_cents <= 0 THEN
     RAISE EXCEPTION 'Payment amount must be positive: %', p_amount_cents
@@ -587,6 +569,115 @@ BEGIN
   IF p_amount_cents < v_inv.total_cents THEN
     RAISE EXCEPTION 'Payment amount % is less than invoice total %', p_amount_cents, v_inv.total_cents
       USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- Verify gateway reference uniqueness and duplicate webhook idempotency
+  IF p_gateway_reference IS NOT NULL AND TRIM(p_gateway_reference) <> '' THEN
+    SELECT * INTO v_existing_payment
+    FROM public.saas_payments
+    WHERE gateway_reference = TRIM(p_gateway_reference)
+    LIMIT 1;
+
+    IF FOUND THEN
+      -- Strict transaction identity verification:
+      -- Check if invoice_id, practice_id, amount_cents, currency, and gateway_provider match
+      IF v_existing_payment.invoice_id <> p_invoice_id OR
+         v_existing_payment.practice_id <> v_inv.practice_id OR
+         v_existing_payment.amount_cents <> p_amount_cents OR
+         v_existing_payment.currency <> v_inv.currency OR
+         v_existing_payment.gateway_provider <> p_gateway THEN
+
+        -- Case B: Conflicting reference collision across different transactions
+        -- Durably log security & reconciliation event to platform_audit_logs
+        INSERT INTO public.platform_audit_logs (
+          action,
+          target_resource_type,
+          target_resource_id,
+          details
+        ) VALUES (
+          'payment.gateway_reference_collision',
+          'saas_payments',
+          v_existing_payment.id::text,
+          jsonb_build_object(
+            'error', 'Conflicting gateway reference detected across transactions',
+            'gateway_reference', p_gateway_reference,
+            'existing_payment_id', v_existing_payment.id,
+            'existing_invoice_id', v_existing_payment.invoice_id,
+            'existing_practice_id', v_existing_payment.practice_id,
+            'existing_amount_cents', v_existing_payment.amount_cents,
+            'existing_currency', v_existing_payment.currency,
+            'existing_gateway', v_existing_payment.gateway_provider,
+            'existing_status', v_existing_payment.status,
+            'incoming_invoice_id', p_invoice_id,
+            'incoming_practice_id', v_inv.practice_id,
+            'incoming_amount_cents', p_amount_cents,
+            'incoming_currency', v_inv.currency,
+            'incoming_gateway', p_gateway
+          )
+        );
+
+        -- Also record in quarantine store for dead-letter inspection
+        INSERT INTO public.sales_adjustment_quarantine (
+          event_type,
+          source_reference,
+          payload,
+          reason
+        ) VALUES (
+          'payment.gateway_reference_collision',
+          p_gateway_reference,
+          jsonb_build_object(
+            'gateway_reference', p_gateway_reference,
+            'existing_payment_id', v_existing_payment.id,
+            'existing_invoice_id', v_existing_payment.invoice_id,
+            'incoming_invoice_id', p_invoice_id
+          ),
+          'Conflicting gateway reference detected between existing payment ' || v_existing_payment.id || ' and invoice ' || p_invoice_id
+        );
+
+        RETURN jsonb_build_object(
+          'status', 'error',
+          'error_code', 'gateway_reference_collision',
+          'message', 'Gateway reference collision: reference ' || p_gateway_reference || ' already belongs to payment ' || v_existing_payment.id || ' for a different transaction context',
+          'invoice_id', p_invoice_id,
+          'existing_payment_id', v_existing_payment.id,
+          'existing_invoice_id', v_existing_payment.invoice_id,
+          'gateway_reference', p_gateway_reference
+        );
+      END IF;
+
+      -- Identity matches. Now check payment status:
+      IF v_existing_payment.status = 'successful' THEN
+        -- Case A: Genuine duplicate delivery for the same successful payment
+        RETURN jsonb_build_object(
+          'status', 'duplicate_reference',
+          'invoice_id', v_existing_payment.invoice_id,
+          'payment_id', v_existing_payment.id,
+          'gateway_reference', p_gateway_reference,
+          'amount_cents', v_existing_payment.amount_cents,
+          'currency', v_existing_payment.currency,
+          'payment_status', v_existing_payment.status
+        );
+      ELSIF v_existing_payment.status IN ('pending', 'failed') THEN
+        -- Case C: Existing payment record is pending or failed; update it to successful settlement
+        UPDATE public.saas_payments
+        SET status = 'successful',
+            settled_at = now(),
+            paid_at = v_paid_at,
+            gateway_fee_cents = COALESCE(p_gateway_fee_cents, gateway_fee_cents),
+            payment_method = COALESCE(p_payment_method, payment_method)
+        WHERE id = v_existing_payment.id;
+
+        v_payment_id := v_existing_payment.id;
+      ELSE
+        RETURN jsonb_build_object(
+          'status', 'error',
+          'error_code', 'invalid_existing_payment_status',
+          'message', 'Cannot settle payment with gateway reference in status ' || v_existing_payment.status,
+          'invoice_id', p_invoice_id,
+          'payment_id', v_existing_payment.id
+        );
+      END IF;
+    END IF;
   END IF;
 
   -- 3. Lock subscription
@@ -639,34 +730,36 @@ BEGIN
     v_new_interval := v_sub.billing_interval;
   END IF;
 
-  -- 6. Record Payment in ledger
-  INSERT INTO public.saas_payments (
-    payment_number,
-    invoice_id,
-    practice_id,
-    amount_cents,
-    currency,
-    payment_method,
-    gateway_provider,
-    gateway_reference,
-    gateway_fee_cents,
-    status,
-    settled_at,
-    paid_at
-  ) VALUES (
-    'PHY-PAY-' || to_char(v_paid_at, 'YYYY') || '-' || lpad(floor(random()*1000000)::text, 6, '0'),
-    v_inv.id,
-    v_inv.practice_id,
-    p_amount_cents,
-    v_inv.currency,
-    p_payment_method,
-    p_gateway,
-    p_gateway_reference,
-    p_gateway_fee_cents,
-    'successful',
-    now(),
-    v_paid_at
-  ) RETURNING id INTO v_payment_id;
+  -- 6. Record Payment in ledger (if not already updated from pending/failed)
+  IF v_payment_id IS NULL THEN
+    INSERT INTO public.saas_payments (
+      payment_number,
+      invoice_id,
+      practice_id,
+      amount_cents,
+      currency,
+      payment_method,
+      gateway_provider,
+      gateway_reference,
+      gateway_fee_cents,
+      status,
+      settled_at,
+      paid_at
+    ) VALUES (
+      'PHY-PAY-' || to_char(v_paid_at, 'YYYY') || '-' || lpad(floor(random()*1000000)::text, 6, '0'),
+      v_inv.id,
+      v_inv.practice_id,
+      p_amount_cents,
+      v_inv.currency,
+      p_payment_method,
+      p_gateway,
+      p_gateway_reference,
+      p_gateway_fee_cents,
+      'successful',
+      now(),
+      v_paid_at
+    ) RETURNING id INTO v_payment_id;
+  END IF;
 
   -- 7. Mark Invoice Paid (Triggers trg_freeze_paid_invoice_financials)
   UPDATE public.saas_invoices

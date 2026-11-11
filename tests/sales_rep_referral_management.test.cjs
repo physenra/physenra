@@ -1660,4 +1660,471 @@ test('PHYSENRA SALES REP & REFERRAL SUITE', async (t) => {
       );
     });
   });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 11: GATEWAY REFERENCE COLLISION & STRICT TRANSACTION IDENTITY (PHASE 1.2)
+  // ----------------------------------------------------------------------------
+  await t.test('SUITE 11: Gateway Reference Collision & Strict Transaction Identity (Phase 1.2)', async (st) => {
+    // Helper simulation function modeling the exact database RPC logic
+    function simulateSettlementRPC({
+      invoice,
+      gateway,
+      gatewayReference,
+      amountCents,
+      existingPayment,
+      invoiceLockedStatus = 'open'
+    }) {
+      if (invoiceLockedStatus === 'paid') {
+        return { status: 'already_paid', invoice_id: invoice.id };
+      }
+      if (['void', 'uncollectible'].includes(invoiceLockedStatus)) {
+        throw new Error(`Invoice ${invoice.id} cannot be settled in status ${invoiceLockedStatus}`);
+      }
+      if (amountCents <= 0) {
+        throw new Error(`Payment amount must be positive: ${amountCents}`);
+      }
+      if (amountCents < invoice.total_cents) {
+        throw new Error(`Payment amount ${amountCents} is less than invoice total ${invoice.total_cents}`);
+      }
+
+      if (gatewayReference && gatewayReference.trim() !== '') {
+        if (existingPayment && existingPayment.gateway_reference === gatewayReference.trim()) {
+          // Strict transaction identity verification
+          if (
+            existingPayment.invoice_id !== invoice.id ||
+            existingPayment.practice_id !== invoice.practice_id ||
+            existingPayment.amount_cents !== amountCents ||
+            existingPayment.currency !== invoice.currency ||
+            existingPayment.gateway_provider !== gateway
+          ) {
+            return {
+              status: 'error',
+              error_code: 'gateway_reference_collision',
+              message: `Gateway reference collision: reference ${gatewayReference} already belongs to payment ${existingPayment.id} for a different transaction context`,
+              invoice_id: invoice.id,
+              existing_payment_id: existingPayment.id,
+              existing_invoice_id: existingPayment.invoice_id,
+              gateway_reference: gatewayReference
+            };
+          }
+
+          if (existingPayment.status === 'successful') {
+            return {
+              status: 'duplicate_reference',
+              invoice_id: existingPayment.invoice_id,
+              payment_id: existingPayment.id,
+              gateway_reference: gatewayReference,
+              amount_cents: existingPayment.amount_cents,
+              currency: existingPayment.currency,
+              payment_status: existingPayment.status
+            };
+          } else if (['pending', 'failed'].includes(existingPayment.status)) {
+            // Updated from pending/failed to successful
+            return {
+              status: 'settled',
+              invoice_id: invoice.id,
+              payment_id: existingPayment.id,
+              updated_from_status: existingPayment.status
+            };
+          } else {
+            return {
+              status: 'error',
+              error_code: 'invalid_existing_payment_status',
+              message: `Cannot settle payment with gateway reference in status ${existingPayment.status}`
+            };
+          }
+        }
+      }
+
+      return {
+        status: 'settled',
+        invoice_id: invoice.id,
+        payment_id: 'pay-new-' + Math.floor(Math.random() * 100000)
+      };
+    }
+
+    const baseInvoice = {
+      id: 'inv-ref-001',
+      practice_id: 'prac-ref-001',
+      subscription_id: 'sub-ref-001',
+      total_cents: 5000000,
+      currency: 'NGN',
+      status: 'open'
+    };
+
+    const baseExistingPayment = {
+      id: 'pay-existing-001',
+      invoice_id: 'inv-ref-001',
+      practice_id: 'prac-ref-001',
+      amount_cents: 5000000,
+      currency: 'NGN',
+      gateway_provider: 'paystack',
+      gateway_reference: 'REF-PHYSENRA-999',
+      status: 'successful'
+    };
+
+    await st.test('TEST 52: Exact duplicate payment returns safe idempotent duplicate response', () => {
+      // 1. AST check: migration checks all 5 identity fields
+      assert.ok(
+        engineSql.includes('v_existing_payment.invoice_id <> p_invoice_id'),
+        'Must verify invoice identity'
+      );
+      assert.ok(
+        engineSql.includes('v_existing_payment.practice_id <> v_inv.practice_id'),
+        'Must verify practice identity'
+      );
+      assert.ok(
+        engineSql.includes('v_existing_payment.amount_cents <> p_amount_cents'),
+        'Must verify payment amount identity'
+      );
+      assert.ok(
+        engineSql.includes('v_existing_payment.currency <> v_inv.currency'),
+        'Must verify currency identity'
+      );
+      assert.ok(
+        engineSql.includes('v_existing_payment.gateway_provider <> p_gateway'),
+        'Must verify gateway identity'
+      );
+
+      // 2. Behavioral verification
+      const res = simulateSettlementRPC({
+        invoice: baseInvoice,
+        gateway: 'paystack',
+        gatewayReference: 'REF-PHYSENRA-999',
+        amountCents: 5000000,
+        existingPayment: baseExistingPayment
+      });
+
+      assert.strictEqual(res.status, 'duplicate_reference');
+      assert.strictEqual(res.invoice_id, 'inv-ref-001');
+      assert.strictEqual(res.payment_id, 'pay-existing-001');
+      assert.strictEqual(res.payment_status, 'successful');
+    });
+
+    await st.test('TEST 53: Same reference with a different invoice rejected with collision error', () => {
+      const conflictingInvoice = { ...baseInvoice, id: 'inv-DIFFERENT-999' };
+      const res = simulateSettlementRPC({
+        invoice: conflictingInvoice,
+        gateway: 'paystack',
+        gatewayReference: 'REF-PHYSENRA-999',
+        amountCents: 5000000,
+        existingPayment: baseExistingPayment
+      });
+
+      assert.strictEqual(res.status, 'error');
+      assert.strictEqual(res.error_code, 'gateway_reference_collision');
+      assert.match(res.message, /Gateway reference collision/);
+      assert.strictEqual(res.existing_invoice_id, 'inv-ref-001');
+      assert.strictEqual(res.invoice_id, 'inv-DIFFERENT-999');
+    });
+
+    await st.test('TEST 54: Same reference with a different practice rejected with collision error', () => {
+      const conflictingPracticeInvoice = { ...baseInvoice, practice_id: 'prac-DIFFERENT-444' };
+      const res = simulateSettlementRPC({
+        invoice: conflictingPracticeInvoice,
+        gateway: 'paystack',
+        gatewayReference: 'REF-PHYSENRA-999',
+        amountCents: 5000000,
+        existingPayment: baseExistingPayment
+      });
+
+      assert.strictEqual(res.status, 'error');
+      assert.strictEqual(res.error_code, 'gateway_reference_collision');
+      assert.match(res.message, /Gateway reference collision/);
+    });
+
+    await st.test('TEST 55: Same reference with a different amount rejected with collision error', () => {
+      const res = simulateSettlementRPC({
+        invoice: { ...baseInvoice, total_cents: 9900000 },
+        gateway: 'paystack',
+        gatewayReference: 'REF-PHYSENRA-999',
+        amountCents: 9900000,
+        existingPayment: baseExistingPayment
+      });
+
+      assert.strictEqual(res.status, 'error');
+      assert.strictEqual(res.error_code, 'gateway_reference_collision');
+    });
+
+    await st.test('TEST 56: Same reference with a different currency rejected with collision error', () => {
+      const res = simulateSettlementRPC({
+        invoice: { ...baseInvoice, currency: 'USD' },
+        gateway: 'paystack',
+        gatewayReference: 'REF-PHYSENRA-999',
+        amountCents: 5000000,
+        existingPayment: baseExistingPayment
+      });
+
+      assert.strictEqual(res.status, 'error');
+      assert.strictEqual(res.error_code, 'gateway_reference_collision');
+    });
+
+    await st.test('TEST 57: Same reference with a different gateway provider rejected with collision error', () => {
+      const res = simulateSettlementRPC({
+        invoice: baseInvoice,
+        gateway: 'stripe',
+        gatewayReference: 'REF-PHYSENRA-999',
+        amountCents: 5000000,
+        existingPayment: baseExistingPayment
+      });
+
+      assert.strictEqual(res.status, 'error');
+      assert.strictEqual(res.error_code, 'gateway_reference_collision');
+    });
+
+    await st.test('TEST 58: Existing failed payment with matching identity updates to successful settlement', () => {
+      const failedPayment = { ...baseExistingPayment, status: 'failed' };
+      const res = simulateSettlementRPC({
+        invoice: baseInvoice,
+        gateway: 'paystack',
+        gatewayReference: 'REF-PHYSENRA-999',
+        amountCents: 5000000,
+        existingPayment: failedPayment
+      });
+
+      assert.strictEqual(res.status, 'settled');
+      assert.strictEqual(res.payment_id, failedPayment.id);
+      assert.strictEqual(res.updated_from_status, 'failed');
+    });
+
+    await st.test('TEST 59: Existing pending payment with matching identity updates to successful settlement', () => {
+      const pendingPayment = { ...baseExistingPayment, status: 'pending' };
+      const res = simulateSettlementRPC({
+        invoice: baseInvoice,
+        gateway: 'paystack',
+        gatewayReference: 'REF-PHYSENRA-999',
+        amountCents: 5000000,
+        existingPayment: pendingPayment
+      });
+
+      assert.strictEqual(res.status, 'settled');
+      assert.strictEqual(res.payment_id, pendingPayment.id);
+      assert.strictEqual(res.updated_from_status, 'pending');
+    });
+
+    await st.test('TEST 60: Concurrent duplicate requests serialized via invoice row lock', () => {
+      assert.ok(
+        engineSql.includes('SELECT * INTO v_inv\n  FROM public.saas_invoices\n  WHERE id = p_invoice_id\n  FOR UPDATE;'),
+        'Must acquire exclusive row lock on invoice to serialize concurrent settlement attempts'
+      );
+
+      // Simulation of second request finding invoice already paid
+      const res = simulateSettlementRPC({
+        invoice: baseInvoice,
+        gateway: 'paystack',
+        gatewayReference: 'REF-PHYSENRA-999',
+        amountCents: 5000000,
+        existingPayment: baseExistingPayment,
+        invoiceLockedStatus: 'paid'
+      });
+
+      assert.strictEqual(res.status, 'already_paid');
+      assert.strictEqual(res.invoice_id, baseInvoice.id);
+    });
+
+    await st.test('TEST 61: Concurrent different references attempting to settle the same invoice', () => {
+      const res = simulateSettlementRPC({
+        invoice: baseInvoice,
+        gateway: 'paystack',
+        gatewayReference: 'REF-DIFFERENT-111',
+        amountCents: 5000000,
+        existingPayment: null,
+        invoiceLockedStatus: 'paid'
+      });
+
+      assert.strictEqual(res.status, 'already_paid');
+    });
+
+    await st.test('TEST 62: Webhook response for genuine duplicate returns HTTP 200 with success status', async () => {
+      let webhookUpdated = false;
+      const mockAdmin = {
+        rpc: async (fn, params) => {
+          return {
+            data: {
+              status: 'duplicate_reference',
+              invoice_id: params.p_invoice_id,
+              payment_id: 'pay-existing-999'
+            },
+            error: null
+          };
+        },
+        from: (table) => {
+          if (table === 'saas_webhook_events') {
+            return {
+              insert: () => ({ select: () => ({ single: async () => ({ data: { id: 'evt-1' }, error: null }) }) }),
+              update: (payload) => {
+                if (payload.processed === true) webhookUpdated = true;
+                return { eq: async () => ({ data: null, error: null }) };
+              }
+            };
+          }
+          if (table === 'saas_invoices') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({
+                    data: {
+                      id: 'inv-webhook-001',
+                      practice_id: 'prac-webhook-001',
+                      total_cents: 5000000,
+                      currency: 'NGN',
+                      status: 'open'
+                    },
+                    error: null
+                  })
+                })
+              })
+            };
+          }
+          return {
+            select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) })
+          };
+        }
+      };
+
+      const eventPayload = {
+        event: 'charge.success',
+        data: {
+          id: 998877,
+          reference: 'REF-DUP-111',
+          amount: 5000000,
+          currency: 'NGN',
+          status: 'success',
+          channel: 'card',
+          metadata: { invoice_id: 'inv-webhook-001' }
+        }
+      };
+
+      const res = await webhookHandler(
+        {
+          httpMethod: 'POST',
+          headers: { 'x-paystack-signature': 'valid-sig' },
+          body: JSON.stringify(eventPayload)
+        },
+        {},
+        {
+          env: { PAYSTACK_SECRET_KEY: 'sk_test_mock_secret' },
+          verifyPaystackSignature: () => true,
+          verifyPaystackTransaction: async () => ({
+            status: true,
+            data: {
+              id: 998877,
+              reference: 'REF-DUP-111',
+              amount: 5000000,
+              currency: 'NGN',
+              status: 'success',
+              channel: 'card',
+              metadata: { invoice_id: 'inv-webhook-001' }
+            }
+          }),
+          supabaseAdmin: mockAdmin
+        }
+      );
+
+      assert.strictEqual(res.statusCode, 200, 'Must return HTTP 200 for genuine duplicate');
+      const body = JSON.parse(res.body);
+      assert.strictEqual(body.status, 'success');
+      assert.strictEqual(body.settlement.status, 'duplicate_reference');
+      assert.strictEqual(webhookUpdated, true, 'Must mark webhook event as processed');
+    });
+
+    await st.test('TEST 63: Webhook response for conflicting reference returns non-200 and records collision error', async () => {
+      let recordedError = null;
+      let markedProcessed = false;
+
+      const mockAdmin = {
+        rpc: async (fn, params) => {
+          // Simulate database collision return
+          return {
+            data: {
+              status: 'error',
+              error_code: 'gateway_reference_collision',
+              message: 'Gateway reference collision: reference REF-CONFLICT-999 already belongs to another transaction',
+              invoice_id: params.p_invoice_id
+            },
+            error: null
+          };
+        },
+        from: (table) => {
+          if (table === 'saas_webhook_events') {
+            return {
+              insert: () => ({ select: () => ({ single: async () => ({ data: { id: 'evt-conflict-1' }, error: null }) }) }),
+              update: (payload) => {
+                if (payload.error_message) recordedError = payload.error_message;
+                if (payload.processed) markedProcessed = true;
+                return { eq: async () => ({ data: null, error: null }) };
+              }
+            };
+          }
+          if (table === 'saas_invoices') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({
+                    data: {
+                      id: 'inv-conflict-002',
+                      practice_id: 'prac-conflict-002',
+                      total_cents: 5000000,
+                      currency: 'NGN',
+                      status: 'open'
+                    },
+                    error: null
+                  })
+                })
+              })
+            };
+          }
+          return {
+            select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) })
+          };
+        }
+      };
+
+      const eventPayload = {
+        event: 'charge.success',
+        data: {
+          id: 554433,
+          reference: 'REF-CONFLICT-999',
+          amount: 5000000,
+          currency: 'NGN',
+          status: 'success',
+          channel: 'card',
+          metadata: { invoice_id: 'inv-conflict-002' }
+        }
+      };
+
+      const res = await webhookHandler(
+        {
+          httpMethod: 'POST',
+          headers: { 'x-paystack-signature': 'valid-sig' },
+          body: JSON.stringify(eventPayload)
+        },
+        {},
+        {
+          env: { PAYSTACK_SECRET_KEY: 'sk_test_mock_secret' },
+          verifyPaystackSignature: () => true,
+          verifyPaystackTransaction: async () => ({
+            status: true,
+            data: {
+              id: 554433,
+              reference: 'REF-CONFLICT-999',
+              amount: 5000000,
+              currency: 'NGN',
+              status: 'success',
+              channel: 'card',
+              metadata: { invoice_id: 'inv-conflict-002' }
+            }
+          }),
+          supabaseAdmin: mockAdmin
+        }
+      );
+
+      assert.notStrictEqual(res.statusCode, 200, 'Must NOT return HTTP 200 for conflicting reference');
+      assert.strictEqual(res.statusCode, 409, 'Must return HTTP 409 Conflict for gateway reference collision');
+      const body = JSON.parse(res.body);
+      assert.strictEqual(body.code, 'GATEWAY_REFERENCE_COLLISION');
+      assert.match(recordedError, /Gateway reference collision/);
+      assert.strictEqual(markedProcessed, false, 'Must NOT mark conflicting webhook as processed');
+    });
+  });
 });

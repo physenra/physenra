@@ -387,7 +387,9 @@ async function handler(event, context, deps = {}) {
   let verifyResult;
   try {
     const customFetch = deps.fetch || globalThis.fetch;
-    verifyResult = await verifyPaystackTransaction(reference, paystackSecretKey, customFetch);
+    verifyResult = deps.verifyPaystackTransaction
+      ? await deps.verifyPaystackTransaction(reference, paystackSecretKey, customFetch)
+      : await verifyPaystackTransaction(reference, paystackSecretKey, customFetch);
   } catch (verifyErr) {
     console.error('[Paystack Webhook] Paystack API verification request failed:', verifyErr.message);
     if (webhookRecordId) {
@@ -599,10 +601,18 @@ async function handler(event, context, deps = {}) {
         })
         .eq('id', webhookRecordId);
     }
+
+    const isConflict =
+      settleErr.message?.includes('collision') ||
+      settleErr.message?.includes('Conflicting');
+
     return {
-      statusCode: 500,
+      statusCode: isConflict ? 409 : 500,
       headers: jsonHeaders,
-      body: JSON.stringify({ error: `Settlement execution failed: ${settleErr.message}` }),
+      body: JSON.stringify({
+        error: `Settlement execution failed: ${settleErr.message}`,
+        code: isConflict ? 'GATEWAY_REFERENCE_COLLISION' : 'SETTLEMENT_ERROR',
+      }),
     };
   }
 }
