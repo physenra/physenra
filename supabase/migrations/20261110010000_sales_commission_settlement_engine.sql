@@ -31,6 +31,8 @@ DECLARE
   v_matched_comm record;
   v_prior_payment_count integer;
   v_interval public.saas_billing_interval;
+  v_commissionable_gross bigint;
+  v_existing_outbox record;
   v_tax_cents bigint;
   v_gateway_fee_cents bigint;
   v_net_eligible_cents bigint;
@@ -94,7 +96,11 @@ BEGIN
     );
   END IF;
 
-  -- B. Practice Attribution Row Lock
+  -- B. Practice Attribution Row Lock & Practice-Level Serialization
+  -- Concurrency safety: Serialize settlement evaluations for this practice to guarantee
+  -- two concurrent payments cannot race to claim the first qualifying payment.
+  PERFORM id FROM public.practices WHERE id = p_practice_id FOR UPDATE;
+
   SELECT * INTO v_referral
   FROM public.sales_referrals
   WHERE practice_id = p_practice_id
@@ -134,13 +140,55 @@ BEGIN
       USING ERRCODE = 'data_exception';
   END IF;
 
+  IF v_payment.status <> 'successful' THEN
+    RAISE EXCEPTION 'Payment % is not in successful status (current status: %)', p_payment_id, v_payment.status
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF v_payment.practice_id <> p_practice_id THEN
+    RAISE EXCEPTION 'Payment % practice (%) does not match supplied practice (%)',
+      p_payment_id, v_payment.practice_id, p_practice_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
   SELECT * INTO v_invoice
   FROM public.saas_invoices
   WHERE id = v_payment.invoice_id;
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'Invoice record % not found', v_payment.invoice_id
+    RAISE EXCEPTION 'Invoice record % not found for payment %', v_payment.invoice_id, p_payment_id
       USING ERRCODE = 'data_exception';
+  END IF;
+
+  IF v_invoice.practice_id <> p_practice_id THEN
+    RAISE EXCEPTION 'Invoice % practice (%) does not match supplied practice (%)',
+      v_invoice.id, v_invoice.practice_id, p_practice_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF v_invoice.status <> 'paid' OR v_invoice.paid_at IS NULL THEN
+    RAISE EXCEPTION 'Invoice % is not settled/paid', v_invoice.id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF v_payment.currency <> v_invoice.currency THEN
+    RAISE EXCEPTION 'Currency mismatch between payment % (%) and invoice % (%)',
+      p_payment_id, v_payment.currency, v_invoice.id, v_invoice.currency
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- Verify outbox task identity when present
+  SELECT * INTO v_existing_outbox
+  FROM public.sales_commission_outbox
+  WHERE payment_id = p_payment_id;
+
+  IF FOUND THEN
+    IF v_existing_outbox.practice_id <> p_practice_id OR
+       v_existing_outbox.invoice_id <> v_invoice.id OR
+       (v_existing_outbox.referral_id IS NOT NULL AND v_existing_outbox.referral_id <> v_referral.id) THEN
+      RAISE EXCEPTION 'Outbox task identity conflict for payment %', p_payment_id
+        USING ERRCODE = 'check_violation';
+    END IF;
   END IF;
 
   -- E. Outbox Uniqueness & Deduplication Check
@@ -261,9 +309,11 @@ BEGIN
   END IF;
 
   -- I. Financial Calculation & Pilot Cap (₦25,000 / 2,500,000 Kobo for Annual Plans)
+  -- Enforce non-inflated commissionable gross to prevent overpayment inflation:
+  v_commissionable_gross := LEAST(v_payment.amount_cents, v_invoice.total_cents);
   v_tax_cents := v_invoice.tax_cents;
   v_gateway_fee_cents := COALESCE(v_payment.gateway_fee_cents, 0);
-  v_net_eligible_cents := GREATEST(0::bigint, v_payment.amount_cents - v_tax_cents - v_gateway_fee_cents);
+  v_net_eligible_cents := GREATEST(0::bigint, v_commissionable_gross - v_tax_cents - v_gateway_fee_cents);
   v_rate_bps := v_rep.commission_rate_bps;
   v_raw_comm_cents := ROUND((v_net_eligible_cents * v_rate_bps)::numeric / 10000)::bigint;
 
@@ -476,6 +526,8 @@ DECLARE
   v_sub record;
   v_target_plan record;
   v_payment_id uuid;
+  v_existing_payment_id uuid;
+  v_existing_inv_id uuid;
   v_new_period_start timestamptz;
   v_new_period_end timestamptz;
   v_new_plan_id uuid;
@@ -504,7 +556,34 @@ BEGIN
     RETURN jsonb_build_object('status', 'already_paid', 'invoice_id', p_invoice_id);
   END IF;
 
+  IF v_inv.status IN ('void', 'uncollectible') THEN
+    RAISE EXCEPTION 'Invoice % cannot be settled in status %', p_invoice_id, v_inv.status
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- Verify gateway reference uniqueness and duplicate webhook idempotency
+  IF p_gateway_reference IS NOT NULL AND TRIM(p_gateway_reference) <> '' THEN
+    SELECT id, invoice_id INTO v_existing_payment_id, v_existing_inv_id
+    FROM public.saas_payments
+    WHERE gateway_reference = TRIM(p_gateway_reference)
+    LIMIT 1;
+
+    IF FOUND THEN
+      RETURN jsonb_build_object(
+        'status', 'duplicate_reference',
+        'invoice_id', v_existing_inv_id,
+        'payment_id', v_existing_payment_id,
+        'gateway_reference', p_gateway_reference
+      );
+    END IF;
+  END IF;
+
   -- 2. Verify amount matches invoice total
+  IF p_amount_cents <= 0 THEN
+    RAISE EXCEPTION 'Payment amount must be positive: %', p_amount_cents
+      USING ERRCODE = 'check_violation';
+  END IF;
+
   IF p_amount_cents < v_inv.total_cents THEN
     RAISE EXCEPTION 'Payment amount % is less than invoice total %', p_amount_cents, v_inv.total_cents
       USING ERRCODE = 'check_violation';
@@ -515,6 +594,17 @@ BEGIN
   FROM public.practice_subscriptions
   WHERE id = v_inv.subscription_id
   FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Associated practice subscription % not found for invoice %', v_inv.subscription_id, p_invoice_id
+      USING ERRCODE = 'data_exception';
+  END IF;
+
+  IF v_sub.practice_id <> v_inv.practice_id THEN
+    RAISE EXCEPTION 'Subscription practice mismatch: subscription % (practice %) does not match invoice practice %',
+      v_sub.id, v_sub.practice_id, v_inv.practice_id
+      USING ERRCODE = 'check_violation';
+  END IF;
 
   -- 4. Calculate new billing cycle
   v_new_period_start := GREATEST(v_paid_at, v_sub.current_period_end);
@@ -779,22 +869,6 @@ BEGIN
       END;
     END;
   END;
-          'saas_payments',
-          v_payment_id::text,
-          jsonb_build_object(
-            'practice_id', v_inv.practice_id,
-            'invoice_id', v_inv.id,
-            'payment_id', v_payment_id,
-            'evaluation_error', v_eval_err,
-            'outbox_error', SQLERRM,
-            'requires_reconciliation', true
-          )
-        );
-      EXCEPTION WHEN OTHERS THEN
-        NULL;
-      END;
-    END;
-  END;
 
   RETURN jsonb_build_object(
     'status', 'settled',
@@ -992,8 +1066,9 @@ BEGIN
         ) THEN
           v_attribution_status := 'disqualified';
           v_disqual_reason := 'Registering user previously owned an existing practice';
-        -- Rule 3: Representative pilot active window
-        ELSIF CURRENT_DATE < v_code_rec.pilot_start_date OR CURRENT_DATE > v_code_rec.pilot_end_date THEN
+        -- Rule 3: Representative pilot active window (evaluated in Africa/Lagos business timezone)
+        ELSIF (now() AT TIME ZONE 'Africa/Lagos')::date < v_code_rec.pilot_start_date OR 
+              (now() AT TIME ZONE 'Africa/Lagos')::date > v_code_rec.pilot_end_date THEN
           v_attribution_status := 'disqualified';
           v_disqual_reason := 'Referral occurred outside representative pilot window';
         -- Rule 4: Active/Suspended status (Suspended retains attribution; payout holds applied at settlement)
@@ -1090,12 +1165,35 @@ RETURNS jsonb AS $$
 DECLARE
   v_comm record;
   v_delta bigint;
+  v_raw_delta bigint;
   v_adj_id uuid;
+  v_existing_adjusted_cents bigint;
+  v_remaining_commission_cents bigint;
+  v_actually_paid_cents bigint;
+  v_existing_clawback_cents bigint;
+  v_max_possible_clawback bigint;
+  v_clawback_amount bigint;
 BEGIN
   -- Validate caller authority
   IF NOT (COALESCE(public.is_platform_admin(), false) OR auth.role() = 'service_role') THEN
     RAISE EXCEPTION 'Access Denied: Only Platform Admins or system services can record adjustments'
       USING ERRCODE = 'insufficient_privilege';
+  END IF;
+
+  -- Validate parameter integrity
+  IF p_source_system NOT IN ('paystack_webhook', 'manual_admin', 'banking_reversal') THEN
+    RAISE EXCEPTION 'Unsupported source system for adjustment: %', p_source_system
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+
+  IF p_external_event_id IS NULL OR TRIM(p_external_event_id) = '' THEN
+    RAISE EXCEPTION 'Mandatory external event ID required for adjustment idempotency'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+
+  IF p_refund_amount_cents <= 0 AND p_adjustment_type IN ('full_refund', 'partial_refund') THEN
+    RAISE EXCEPTION 'Refund amount must be positive: %', p_refund_amount_cents
+      USING ERRCODE = 'check_violation';
   END IF;
 
   SELECT * INTO v_comm
@@ -1107,18 +1205,33 @@ BEGIN
     RETURN jsonb_build_object('status', 'no_commission_found', 'payment_id', p_payment_id);
   END IF;
 
+  -- Calculate existing cumulative adjustments for this commission
+  SELECT COALESCE(SUM(ABS(delta_amount_cents)), 0)
+  INTO v_existing_adjusted_cents
+  FROM public.sales_commission_adjustments
+  WHERE commission_id = v_comm.id;
+
+  v_remaining_commission_cents := GREATEST(0::bigint, v_comm.original_commission_cents - v_existing_adjusted_cents);
+
+  IF v_remaining_commission_cents = 0 THEN
+    RETURN jsonb_build_object('status', 'already_fully_adjusted', 'commission_id', v_comm.id);
+  END IF;
+
   -- Calculate delta amount (negative adjustment to commission)
   IF p_adjustment_type IN ('full_refund', 'chargeback', 'payment_reversal') THEN
-    v_delta := -v_comm.original_commission_cents;
+    v_raw_delta := v_remaining_commission_cents;
   ELSIF p_adjustment_type = 'partial_refund' THEN
     IF v_comm.gross_amount_cents > 0 THEN
-      v_delta := -ROUND((p_refund_amount_cents::numeric / v_comm.gross_amount_cents::numeric) * v_comm.original_commission_cents)::bigint;
+      v_raw_delta := ROUND((p_refund_amount_cents::numeric / v_comm.gross_amount_cents::numeric) * v_comm.original_commission_cents)::bigint;
     ELSE
-      v_delta := 0;
+      v_raw_delta := 0;
     END IF;
   ELSE
-    v_delta := -LEAST(p_refund_amount_cents, v_comm.original_commission_cents);
+    v_raw_delta := p_refund_amount_cents;
   END IF;
+
+  -- Strictly cap adjustment delta at remaining commission
+  v_delta := -LEAST(v_raw_delta, v_remaining_commission_cents);
 
   IF v_delta = 0 THEN
     RETURN jsonb_build_object('status', 'zero_delta');
@@ -1152,43 +1265,67 @@ BEGIN
 
   -- Handle Post-Payout Clawback vs Pre-Payout Cancellation
   IF v_comm.current_status IN ('paid', 'partially_paid') THEN
-    -- Representative already received money; record clawback debt in recovery ledger
-    INSERT INTO public.sales_recovery_entries (
-      sales_rep_id,
-      source_system,
-      source_reference_id,
-      entry_type,
-      amount_cents,
-      offset_commission_id,
-      actor_user_id
-    ) VALUES (
-      v_comm.sales_rep_id,
-      'paystack_refund',
-      p_external_event_id,
-      'clawback_debt',
-      ABS(v_delta),
-      v_comm.id,
-      p_actor_id
-    ) ON CONFLICT (sales_rep_id, source_system, source_reference_id, entry_type) DO NOTHING;
+    -- Calculate how much money the representative ACTUALLY received via settled allocations
+    SELECT COALESCE(SUM(allocated_amount_cents), 0)
+    INTO v_actually_paid_cents
+    FROM public.sales_payout_allocations
+    WHERE commission_id = v_comm.id
+      AND allocation_status = 'settled';
 
-    -- Log commission event
-    INSERT INTO public.sales_commission_events (
-      commission_id,
-      from_status,
-      to_status,
-      event_type,
-      reason,
-      actor_user_id,
-      metadata
-    ) VALUES (
-      v_comm.id,
-      v_comm.current_status,
-      v_comm.current_status,
-      'post_payout_reversal',
-      p_reason,
-      p_actor_id,
-      jsonb_build_object('clawback_amount_cents', ABS(v_delta), 'external_event_id', p_external_event_id)
-    );
+    -- Calculate already recorded clawback debt for this commission
+    SELECT COALESCE(SUM(amount_cents), 0)
+    INTO v_existing_clawback_cents
+    FROM public.sales_recovery_entries
+    WHERE offset_commission_id = v_comm.id
+      AND entry_type = 'clawback_debt';
+
+    v_max_possible_clawback := GREATEST(0::bigint, v_actually_paid_cents - v_existing_clawback_cents);
+    v_clawback_amount := LEAST(ABS(v_delta), v_max_possible_clawback);
+
+    -- Only record clawback debt for funds actually received by representative
+    IF v_clawback_amount > 0 THEN
+      INSERT INTO public.sales_recovery_entries (
+        sales_rep_id,
+        source_system,
+        source_reference_id,
+        entry_type,
+        amount_cents,
+        offset_commission_id,
+        actor_user_id
+      ) VALUES (
+        v_comm.sales_rep_id,
+        'paystack_refund',
+        p_external_event_id,
+        'clawback_debt',
+        v_clawback_amount,
+        v_comm.id,
+        p_actor_id
+      ) ON CONFLICT (sales_rep_id, source_system, source_reference_id, entry_type) DO NOTHING;
+    END IF;
+
+    -- Update commission state machine projection:
+    -- If cumulative adjustments cover original commission, transition to reversed.
+    -- If partial, transition from paid to partially_paid.
+    IF (v_existing_adjusted_cents + ABS(v_delta)) >= v_comm.original_commission_cents THEN
+      PERFORM public.transition_commission_status(
+        v_comm.id,
+        'reversed',
+        'post_payout_reversal',
+        p_reason,
+        p_actor_id,
+        jsonb_build_object('clawback_amount_cents', v_clawback_amount, 'external_event_id', p_external_event_id)
+      );
+    ELSIF v_comm.current_status = 'paid' THEN
+      PERFORM public.transition_commission_status(
+        v_comm.id,
+        'partially_paid',
+        'manual_adjustment',
+        p_reason,
+        p_actor_id,
+        jsonb_build_object('clawback_amount_cents', v_clawback_amount, 'external_event_id', p_external_event_id)
+      );
+    END IF;
+
   ELSIF v_comm.current_status IN ('pending', 'approved', 'held_suspended') THEN
     IF p_adjustment_type IN ('full_refund', 'chargeback', 'payment_reversal') THEN
       PERFORM public.transition_commission_status(
@@ -1232,6 +1369,8 @@ RETURNS jsonb AS $$
 DECLARE
   v_payout record;
   v_alloc record;
+  v_alloc_sum bigint;
+  v_alloc_count integer;
 BEGIN
   IF NOT (COALESCE(public.is_platform_admin(), false) OR auth.role() = 'service_role') THEN
     RAISE EXCEPTION 'Access Denied: Only Platform Admins or system services can settle transfer events'
@@ -1282,6 +1421,51 @@ BEGIN
       );
 
       RETURN jsonb_build_object('status', 'quarantined', 'reason', 'contradictory_state');
+    END IF;
+
+    -- Verify all allocations strictly belonging to this payout
+    SELECT COALESCE(SUM(allocated_amount_cents), 0), count(*)
+    INTO v_alloc_sum, v_alloc_count
+    FROM public.sales_payout_allocations
+    WHERE payout_id = v_payout.id
+      AND allocation_status = 'reserved';
+
+    IF v_alloc_count = 0 OR v_alloc_sum <> v_payout.total_amount_cents THEN
+      INSERT INTO public.sales_adjustment_quarantine (
+        event_type,
+        source_reference,
+        payload,
+        reason
+      ) VALUES (
+        p_event_type,
+        p_transfer_reference,
+        p_raw_payload,
+        'Allocation mismatch: reserved allocation sum (' || v_alloc_sum || ') does not match payout total (' || v_payout.total_amount_cents || ')'
+      );
+
+      RETURN jsonb_build_object('status', 'quarantined', 'reason', 'allocation_sum_mismatch');
+    END IF;
+
+    -- Verify allocation representative matches payout representative
+    IF EXISTS (
+      SELECT 1 FROM public.sales_payout_allocations a
+      JOIN public.sales_commissions c ON a.commission_id = c.id
+      WHERE a.payout_id = v_payout.id
+        AND c.sales_rep_id <> v_payout.sales_rep_id
+    ) THEN
+      INSERT INTO public.sales_adjustment_quarantine (
+        event_type,
+        source_reference,
+        payload,
+        reason
+      ) VALUES (
+        p_event_type,
+        p_transfer_reference,
+        p_raw_payload,
+        'Cross-representative allocation detected for payout ' || v_payout.id::text
+      );
+
+      RETURN jsonb_build_object('status', 'quarantined', 'reason', 'rep_mismatch');
     END IF;
 
     -- Mark payout completed
@@ -1358,6 +1542,26 @@ BEGIN
 
   -- 4. Process transfer.reversed
   ELSIF p_event_type = 'transfer.reversed' THEN
+    IF v_payout.status = 'cancelled' THEN
+      RETURN jsonb_build_object('status', 'already_reversed', 'payout_id', v_payout.id);
+    END IF;
+
+    IF v_payout.status <> 'completed' THEN
+      INSERT INTO public.sales_adjustment_quarantine (
+        event_type,
+        source_reference,
+        payload,
+        reason
+      ) VALUES (
+        p_event_type,
+        p_transfer_reference,
+        p_raw_payload,
+        'Contradictory transfer.reversed received for payout in status ' || v_payout.status
+      );
+
+      RETURN jsonb_build_object('status', 'quarantined', 'reason', 'contradictory_reversal_state');
+    END IF;
+
     -- Funds returned to Paystack balance by recipient bank
     INSERT INTO public.sales_recovery_entries (
       sales_rep_id,
@@ -1373,11 +1577,30 @@ BEGIN
       v_payout.total_amount_cents
     ) ON CONFLICT (sales_rep_id, source_system, source_reference_id, entry_type) DO NOTHING;
 
-    -- Update payout notes
+    -- Update payout status to cancelled and log reversal notes
     UPDATE public.sales_commission_payouts
-    SET notes = COALESCE(notes || E'\n', '') || 'Transfer reversed by bank: ' || p_reason,
+    SET status = 'cancelled',
+        notes = COALESCE(notes || E'\n', '') || 'Transfer reversed by bank: ' || p_reason,
         updated_at = now()
     WHERE id = v_payout.id;
+
+    -- Release allocations so commissions can be re-disbursed
+    UPDATE public.sales_payout_allocations
+    SET allocation_status = 'released',
+        released_at = now()
+    WHERE payout_id = v_payout.id;
+
+    -- Transition commissions back to approved
+    FOR v_alloc IN SELECT commission_id FROM public.sales_payout_allocations WHERE payout_id = v_payout.id LOOP
+      PERFORM public.transition_commission_status(
+        v_alloc.commission_id,
+        'approved',
+        'batch_released',
+        'Paystack transfer reversed by bank: ' || p_reason,
+        NULL,
+        jsonb_build_object('transfer_reference', p_transfer_reference, 'external_event_id', p_external_event_id)
+      );
+    END LOOP;
 
     RETURN jsonb_build_object('status', 'reversed', 'payout_id', v_payout.id);
   END IF;
@@ -1411,6 +1634,10 @@ BEGIN
     RAISE EXCEPTION 'Access Denied: Only Platform Admins or system services can run the outbox worker'
       USING ERRCODE = 'insufficient_privilege';
   END IF;
+
+  -- Strictly bound batch size (1..100) and lease seconds (30..1800)
+  p_batch_size := GREATEST(1, LEAST(COALESCE(p_batch_size, 10), 100));
+  p_lease_seconds := GREATEST(30, LEAST(COALESCE(p_lease_seconds, 300), 1800));
 
   FOR v_task IN
     SELECT o.id, o.practice_id, o.invoice_id, o.payment_id, o.retry_count, o.max_retries
@@ -1450,6 +1677,22 @@ BEGIN
         CONTINUE;
       END IF;
 
+      -- Validate identity between payment, invoice, and practice
+      IF v_payment.practice_id <> v_task.practice_id OR v_payment.invoice_id <> v_task.invoice_id THEN
+        UPDATE public.sales_commission_outbox
+        SET status = 'abandoned',
+            last_error = 'Identity mismatch between payment, invoice, or practice in outbox task',
+            updated_at = now()
+        WHERE id = v_task.id;
+
+        outbox_id := v_task.id;
+        payment_id := v_task.payment_id;
+        result_status := 'abandoned';
+        error_message := 'Identity mismatch';
+        RETURN NEXT;
+        CONTINUE;
+      END IF;
+
       -- Execute authoritative evaluation
       v_eval_result := public.evaluate_referral_commission(
         v_task.payment_id,
@@ -1464,7 +1707,7 @@ BEGIN
       RETURN NEXT;
 
     EXCEPTION WHEN OTHERS THEN
-      -- Record failure with exponential backoff or abandon if retries exhausted
+      -- Record failure with bounded exponential backoff or abandon if retries exhausted
       IF v_task.retry_count + 1 >= v_task.max_retries THEN
         UPDATE public.sales_commission_outbox
         SET status = 'abandoned',
@@ -1480,7 +1723,7 @@ BEGIN
       ELSE
         UPDATE public.sales_commission_outbox
         SET status = 'pending_retry',
-            next_retry_at = now() + ((POWER(2, v_task.retry_count + 1) * 30) || ' seconds')::interval,
+            next_retry_at = now() + (LEAST(POWER(2, v_task.retry_count + 1) * 30, 86400) || ' seconds')::interval,
             last_error = SQLERRM,
             updated_at = now()
         WHERE id = v_task.id;

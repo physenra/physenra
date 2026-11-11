@@ -58,6 +58,61 @@ BEFORE UPDATE ON public.saas_invoices
 FOR EACH ROW EXECUTE FUNCTION public.fn_freeze_paid_invoice_financials();
 
 -- ------------------------------------------------------------------------------
+-- 2B. PLATFORM AUDIT LOGS TABLE (IMMUTABLE AUDIT TRAIL)
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.platform_audit_logs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  action text NOT NULL,
+  actor_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  target_resource_type text NOT NULL,
+  target_resource_id text,
+  details jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ip_address inet,
+  user_agent text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_platform_audit_logs_created_at ON public.platform_audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_platform_audit_logs_target ON public.platform_audit_logs(target_resource_type, target_resource_id);
+CREATE INDEX IF NOT EXISTS idx_platform_audit_logs_actor ON public.platform_audit_logs(actor_user_id);
+
+ALTER TABLE public.platform_audit_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS platform_audit_logs_platform_admin_select ON public.platform_audit_logs;
+CREATE POLICY platform_audit_logs_platform_admin_select
+  ON public.platform_audit_logs
+  FOR SELECT
+  TO authenticated, service_role
+  USING (
+    COALESCE(public.is_platform_admin(), false) OR
+    auth.role() = 'service_role'
+  );
+
+DROP POLICY IF EXISTS platform_audit_logs_admin_service_insert ON public.platform_audit_logs;
+CREATE POLICY platform_audit_logs_admin_service_insert
+  ON public.platform_audit_logs
+  FOR INSERT
+  TO authenticated, service_role
+  WITH CHECK (
+    COALESCE(public.is_platform_admin(), false) OR
+    auth.role() = 'service_role'
+  );
+
+-- Immutability for platform_audit_logs: No UPDATE or DELETE allowed
+CREATE OR REPLACE FUNCTION public.fn_freeze_platform_audit_logs()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'Audit logs are strictly append-only; update and delete operations prohibited'
+    USING ERRCODE = 'restrict_violation';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_freeze_platform_audit_logs ON public.platform_audit_logs;
+CREATE TRIGGER trg_freeze_platform_audit_logs
+BEFORE UPDATE OR DELETE ON public.platform_audit_logs
+FOR EACH ROW EXECUTE FUNCTION public.fn_freeze_platform_audit_logs();
+
+-- ------------------------------------------------------------------------------
 -- 3. SALES REPRESENTATIVES TABLE
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.sales_representatives (
@@ -161,7 +216,7 @@ CREATE TABLE IF NOT EXISTS public.sales_commissions (
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT chk_commission_math CHECK (
     net_eligible_cents = GREATEST(0::bigint, gross_amount_cents - tax_cents - gateway_fee_cents) AND
-    original_commission_cents = ROUND((net_eligible_cents * commission_rate_bps)::numeric / 10000)::bigint
+    original_commission_cents <= ROUND((net_eligible_cents * commission_rate_bps)::numeric / 10000)::bigint
   )
 );
 
@@ -352,6 +407,124 @@ CREATE TABLE IF NOT EXISTS public.sales_payout_allocations (
 CREATE INDEX IF NOT EXISTS idx_allocations_payout ON public.sales_payout_allocations(payout_id);
 CREATE INDEX IF NOT EXISTS idx_allocations_comm ON public.sales_payout_allocations(commission_id);
 
+-- Enforce Invariant 1: One commission cannot be allocated to multiple active (reserved/settled) payouts
+CREATE UNIQUE INDEX IF NOT EXISTS uq_commission_active_allocation 
+  ON public.sales_payout_allocations (commission_id) 
+  WHERE allocation_status IN ('reserved', 'settled');
+
+-- Enforce Invariant 2 & 3: Allocation rep matches payout rep, amount does not exceed commission total
+CREATE OR REPLACE FUNCTION public.fn_validate_payout_allocation()
+RETURNS trigger AS $$
+DECLARE
+  v_payout_rep_id uuid;
+  v_comm_rep_id uuid;
+  v_payout_status text;
+  v_comm_amount bigint;
+BEGIN
+  SELECT sales_rep_id, status INTO v_payout_rep_id, v_payout_status
+  FROM public.sales_commission_payouts WHERE id = NEW.payout_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Associated payout % does not exist', NEW.payout_id
+      USING ERRCODE = 'foreign_key_violation';
+  END IF;
+
+  IF TG_OP = 'INSERT' AND v_payout_status IN ('completed', 'failed', 'cancelled') THEN
+    RAISE EXCEPTION 'Cannot add allocation to finalized payout (status: %)', v_payout_status
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  SELECT sales_rep_id, original_commission_cents INTO v_comm_rep_id, v_comm_amount
+  FROM public.sales_commissions WHERE id = NEW.commission_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Associated commission % does not exist', NEW.commission_id
+      USING ERRCODE = 'foreign_key_violation';
+  END IF;
+
+  IF v_payout_rep_id <> v_comm_rep_id THEN
+    RAISE EXCEPTION 'Commission sales_rep_id (%) does not match payout sales_rep_id (%)',
+      v_comm_rep_id, v_payout_rep_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  IF NEW.allocated_amount_cents > v_comm_amount THEN
+    RAISE EXCEPTION 'Allocated amount (%) exceeds commission total (%)',
+      NEW.allocated_amount_cents, v_comm_amount
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+DROP TRIGGER IF EXISTS trg_validate_payout_allocation ON public.sales_payout_allocations;
+CREATE TRIGGER trg_validate_payout_allocation
+BEFORE INSERT OR UPDATE ON public.sales_payout_allocations
+FOR EACH ROW EXECUTE FUNCTION public.fn_validate_payout_allocation();
+
+-- Enforce Invariant 4 & 5: Payout batch sum validation before initiation and completed payout immutability
+CREATE OR REPLACE FUNCTION public.fn_validate_payout_batch()
+RETURNS trigger AS $$
+DECLARE
+  v_allocation_sum bigint;
+BEGIN
+  IF NEW.status IN ('initiated', 'processing') AND (OLD.status IS DISTINCT FROM NEW.status) THEN
+    SELECT COALESCE(SUM(allocated_amount_cents), 0)
+    INTO v_allocation_sum
+    FROM public.sales_payout_allocations
+    WHERE payout_id = NEW.id
+      AND allocation_status IN ('reserved', 'settled');
+
+    IF v_allocation_sum <> NEW.total_amount_cents THEN
+      RAISE EXCEPTION 'Payout allocation sum (%) does not match total payout amount (%)',
+        v_allocation_sum, NEW.total_amount_cents
+        USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+
+  IF OLD.status = 'completed' THEN
+    IF (OLD.total_amount_cents <> NEW.total_amount_cents OR
+        OLD.sales_rep_id <> NEW.sales_rep_id OR
+        OLD.currency <> NEW.currency OR
+        OLD.paid_at IS DISTINCT FROM NEW.paid_at OR
+        OLD.transfer_reference IS DISTINCT FROM NEW.transfer_reference) THEN
+      RAISE EXCEPTION 'Permanent Financial Invariant: Completed payout financial fields cannot be modified'
+        USING ERRCODE = 'restrict_violation';
+    END IF;
+  END IF;
+
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+DROP TRIGGER IF EXISTS trg_validate_payout_batch ON public.sales_commission_payouts;
+CREATE TRIGGER trg_validate_payout_batch
+BEFORE UPDATE ON public.sales_commission_payouts
+FOR EACH ROW EXECUTE FUNCTION public.fn_validate_payout_batch();
+
+-- Enforce Invariant 5 (Allocations): Settled payout allocation financial fields cannot be modified
+CREATE OR REPLACE FUNCTION public.fn_protect_settled_allocation()
+RETURNS trigger AS $$
+BEGIN
+  IF OLD.allocation_status = 'settled' THEN
+    IF (OLD.allocated_amount_cents <> NEW.allocated_amount_cents OR
+        OLD.commission_id <> NEW.commission_id OR
+        OLD.payout_id <> NEW.payout_id) THEN
+      RAISE EXCEPTION 'Permanent Financial Invariant: Settled payout allocation financial fields cannot be modified'
+        USING ERRCODE = 'restrict_violation';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+
+DROP TRIGGER IF EXISTS trg_protect_settled_allocation ON public.sales_payout_allocations;
+CREATE TRIGGER trg_protect_settled_allocation
+BEFORE UPDATE ON public.sales_payout_allocations
+FOR EACH ROW EXECUTE FUNCTION public.fn_protect_settled_allocation();
+
 -- ------------------------------------------------------------------------------
 -- 15. SALES ADJUSTMENT QUARANTINE TABLE
 -- ------------------------------------------------------------------------------
@@ -392,7 +565,13 @@ BEGIN
       USING ERRCODE = 'insufficient_privilege';
   END IF;
 
-  v_actor := COALESCE(p_actor_user_id, auth.uid());
+  -- Derive user identity from trusted context to prevent impersonation
+  IF auth.role() = 'service_role' THEN
+    v_actor := COALESCE(p_actor_user_id, '00000000-0000-0000-0000-000000000000'::uuid);
+  ELSE
+    -- Authenticated platform admin cannot impersonate another user ID
+    v_actor := auth.uid();
+  END IF;
 
   -- Set session guard flag to permit the update through the immutability trigger
   PERFORM set_config('physenra.in_commission_transition', 'true', true);
@@ -406,6 +585,37 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'Commission % not found', p_commission_id
       USING ERRCODE = 'data_exception';
+  END IF;
+
+  -- Reject duplicate transition to same status to prevent repeated side-effects
+  IF v_comm.current_status = p_target_status THEN
+    RAISE EXCEPTION 'Commission % is already in status %', p_commission_id, p_target_status
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  -- Explicit State Transition Matrix Enforcement:
+  -- Allowed transitions:
+  -- pending -> approved, held_suspended, cancelled, disputed
+  -- approved -> in_payout, held_suspended, cancelled, disputed
+  -- in_payout -> paid, approved
+  -- held_suspended -> approved, cancelled, disputed
+  -- paid -> partially_paid, reversed, approved (on bank reversal)
+  -- partially_paid -> reversed
+  -- disputed -> approved, cancelled
+  -- cancelled -> TERMINAL
+  -- reversed -> TERMINAL
+  IF NOT (
+    (v_comm.current_status = 'pending' AND p_target_status IN ('approved', 'held_suspended', 'cancelled', 'disputed')) OR
+    (v_comm.current_status = 'approved' AND p_target_status IN ('in_payout', 'held_suspended', 'cancelled', 'disputed')) OR
+    (v_comm.current_status = 'in_payout' AND p_target_status IN ('paid', 'approved')) OR
+    (v_comm.current_status = 'held_suspended' AND p_target_status IN ('approved', 'cancelled', 'disputed')) OR
+    (v_comm.current_status = 'paid' AND p_target_status IN ('partially_paid', 'reversed', 'approved')) OR
+    (v_comm.current_status = 'partially_paid' AND p_target_status IN ('reversed')) OR
+    (v_comm.current_status = 'disputed' AND p_target_status IN ('approved', 'cancelled'))
+  ) THEN
+    RAISE EXCEPTION 'Illegal state transition for commission % from % to %',
+      p_commission_id, v_comm.current_status, p_target_status
+      USING ERRCODE = 'check_violation';
   END IF;
 
   -- Insert immutable event in same transaction (atomic state transition)
@@ -708,6 +918,37 @@ CREATE POLICY sales_payouts_read_own ON public.sales_commission_payouts FOR SELE
 DROP POLICY IF EXISTS sales_allocations_read_own ON public.sales_payout_allocations;
 CREATE POLICY sales_allocations_read_own ON public.sales_payout_allocations FOR SELECT TO authenticated
   USING (commission_id IN (SELECT c.id FROM public.sales_commissions c JOIN public.sales_representatives r ON c.sales_rep_id = r.id WHERE r.user_id = auth.uid()));
+
+-- ------------------------------------------------------------------------------
+-- 19. EXPLICIT TABLE PRIVILEGES & SECURITY MATRIX
+-- ------------------------------------------------------------------------------
+REVOKE ALL ON public.sales_representatives FROM anon, public;
+REVOKE ALL ON public.sales_rep_bank_accounts FROM anon, public;
+REVOKE ALL ON public.sales_referral_codes FROM anon, public;
+REVOKE ALL ON public.sales_referrals FROM anon, public;
+REVOKE ALL ON public.sales_commissions FROM anon, public;
+REVOKE ALL ON public.sales_commission_events FROM anon, public;
+REVOKE ALL ON public.sales_commission_adjustments FROM anon, public;
+REVOKE ALL ON public.sales_recovery_entries FROM anon, public;
+REVOKE ALL ON public.sales_commission_outbox FROM anon, public;
+REVOKE ALL ON public.sales_commission_payouts FROM anon, public;
+REVOKE ALL ON public.sales_payout_allocations FROM anon, public;
+REVOKE ALL ON public.sales_adjustment_quarantine FROM anon, public;
+REVOKE ALL ON public.platform_audit_logs FROM anon, public;
+
+GRANT SELECT, INSERT, UPDATE ON public.sales_representatives TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.sales_rep_bank_accounts TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE ON public.sales_referral_codes TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE ON public.sales_referrals TO authenticated, service_role;
+GRANT SELECT, INSERT ON public.sales_commissions TO authenticated, service_role;
+GRANT SELECT, INSERT ON public.sales_commission_events TO authenticated, service_role;
+GRANT SELECT, INSERT ON public.sales_commission_adjustments TO authenticated, service_role;
+GRANT SELECT, INSERT ON public.sales_recovery_entries TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE ON public.sales_commission_outbox TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE ON public.sales_commission_payouts TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE ON public.sales_payout_allocations TO authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE ON public.sales_adjustment_quarantine TO authenticated, service_role;
+GRANT SELECT, INSERT ON public.platform_audit_logs TO authenticated, service_role;
 
 -- ------------------------------------------------------------------------------
 -- 20. Schema Migration Tracking & PostgREST Cache Invalidation

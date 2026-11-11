@@ -1285,4 +1285,379 @@ test('PHYSENRA SALES REP & REFERRAL SUITE', async (t) => {
       );
     });
   });
+
+  // ----------------------------------------------------------------------------
+  // SUITE 10: CONSOLIDATED MIGRATION REMEDIATION & SAFEGUARD VERIFICATION
+  // ----------------------------------------------------------------------------
+  await t.test('SUITE 10: Consolidated Migration Remediation & Safeguard Verification', async (st) => {
+    await st.test('TEST 37: platform_audit_logs table definition, RLS, and append-only immutability trigger', () => {
+      assert.ok(
+        foundationSql.includes('CREATE TABLE IF NOT EXISTS public.platform_audit_logs'),
+        'Foundation migration must define public.platform_audit_logs'
+      );
+      assert.ok(
+        foundationSql.includes('ALTER TABLE public.platform_audit_logs ENABLE ROW LEVEL SECURITY'),
+        'platform_audit_logs must enable RLS'
+      );
+      assert.ok(
+        foundationSql.includes('trg_freeze_platform_audit_logs'),
+        'platform_audit_logs must have immutability trigger preventing UPDATE and DELETE'
+      );
+      assert.ok(
+        foundationSql.includes('Audit logs are strictly append-only; update and delete operations prohibited'),
+        'platform_audit_logs trigger must raise append-only violation'
+      );
+    });
+
+    await st.test('TEST 38: Practice row serialization in evaluate_referral_commission', () => {
+      assert.ok(
+        engineSql.includes('PERFORM id FROM public.practices WHERE id = p_practice_id FOR UPDATE;'),
+        'evaluate_referral_commission must lock practice row FOR UPDATE to serialize concurrent first payments'
+      );
+    });
+
+    await st.test('TEST 39: Precondition validation in evaluate_referral_commission', () => {
+      assert.ok(
+        engineSql.includes("v_payment.status <> 'successful'"),
+        'Must verify payment is successful'
+      );
+      assert.ok(
+        engineSql.includes('v_payment.practice_id <> p_practice_id'),
+        'Must verify payment belongs to practice'
+      );
+      assert.ok(
+        engineSql.includes('v_invoice.practice_id <> p_practice_id'),
+        'Must verify invoice belongs to practice'
+      );
+      assert.ok(
+        engineSql.includes("v_invoice.status <> 'paid' OR v_invoice.paid_at IS NULL"),
+        'Must verify invoice is paid with authoritative paid_at'
+      );
+      assert.ok(
+        engineSql.includes('v_payment.currency <> v_invoice.currency'),
+        'Must verify currency agreement'
+      );
+      assert.ok(
+        engineSql.includes('v_existing_outbox.practice_id <> p_practice_id'),
+        'Must verify outbox task identity against payment/practice'
+      );
+    });
+
+    await st.test('TEST 40: Non-inflated commissionable gross prevents overpayment inflation', () => {
+      assert.ok(
+        engineSql.includes('v_commissionable_gross := LEAST(v_payment.amount_cents, v_invoice.total_cents);'),
+        'Must cap commissionable gross to invoice total'
+      );
+
+      // Simulation verification: overpayment of 200,000 on 100,000 invoice does not double commission
+      const overpaymentResult = calculateCommissionWithOverpaymentCap({
+        paymentAmount: 20000000, // ?200,000
+        invoiceTotal: 10000000,  // ?100,000
+        tax: 0,
+        gatewayFee: 150000,      // ?1,500
+        rateBps: 2000,           // 20%
+        isAnnual: false
+      });
+      assert.strictEqual(overpaymentResult.commGross, 10000000, 'Commissionable gross must be capped at invoice total');
+      assert.strictEqual(overpaymentResult.netEligible, 9850000);
+      assert.strictEqual(overpaymentResult.effectiveComm, 1970000, 'Commission must be based on invoice total, not overpayment');
+
+      function calculateCommissionWithOverpaymentCap({ paymentAmount, invoiceTotal, tax, gatewayFee, rateBps, isAnnual }) {
+        const commGross = Math.min(paymentAmount, invoiceTotal);
+        const netEligible = Math.max(0, commGross - tax - gatewayFee);
+        const rawComm = Math.round((netEligible * rateBps) / 10000);
+        const effectiveComm = isAnnual ? Math.min(rawComm, 2500000) : rawComm;
+        return { commGross, netEligible, effectiveComm };
+      }
+    });
+
+    await st.test('TEST 41: Partial unique index uq_commission_active_allocation prevents double-allocation', () => {
+      assert.ok(
+        foundationSql.includes('CREATE UNIQUE INDEX IF NOT EXISTS uq_commission_active_allocation'),
+        'Partial unique index uq_commission_active_allocation must exist'
+      );
+      assert.ok(
+        foundationSql.includes("WHERE allocation_status IN ('reserved', 'settled')"),
+        'Index must be scoped to active allocations (reserved or settled)'
+      );
+    });
+
+    await st.test('TEST 42: Payout allocation trigger validates representative identity and allocation cap', () => {
+      assert.ok(
+        foundationSql.includes('trg_validate_payout_allocation'),
+        'trg_validate_payout_allocation must exist on sales_payout_allocations'
+      );
+      assert.ok(
+        foundationSql.includes('Commission sales_rep_id (%) does not match payout sales_rep_id (%)'),
+        'Trigger must reject cross-representative allocations'
+      );
+      assert.ok(
+        foundationSql.includes('Allocated amount (%) exceeds commission total (%)'),
+        'Trigger must reject allocation exceeding commission total'
+      );
+
+      // Simulation verification
+      function simulateAllocation(payout, commission, amount) {
+        if (payout.sales_rep_id !== commission.sales_rep_id) {
+          throw new Error(`Commission sales_rep_id (${commission.sales_rep_id}) does not match payout sales_rep_id (${payout.sales_rep_id})`);
+        }
+        if (amount > commission.original_commission_cents) {
+          throw new Error(`Allocated amount (${amount}) exceeds commission total (${commission.original_commission_cents})`);
+        }
+        return true;
+      }
+
+      assert.throws(
+        () => simulateAllocation({ sales_rep_id: 'rep-1' }, { sales_rep_id: 'rep-2', original_commission_cents: 50000 }, 50000),
+        /does not match payout sales_rep_id/
+      );
+      assert.throws(
+        () => simulateAllocation({ sales_rep_id: 'rep-1' }, { sales_rep_id: 'rep-1', original_commission_cents: 50000 }, 60000),
+        /exceeds commission total/
+      );
+      assert.strictEqual(
+        simulateAllocation({ sales_rep_id: 'rep-1' }, { sales_rep_id: 'rep-1', original_commission_cents: 50000 }, 50000),
+        true
+      );
+    });
+
+    await st.test('TEST 43: Payout batch trigger validates allocation sum matches total before initiation', () => {
+      assert.ok(
+        foundationSql.includes('trg_validate_payout_batch'),
+        'trg_validate_payout_batch must exist on sales_commission_payouts'
+      );
+      assert.ok(
+        foundationSql.includes('Payout allocation sum (%) does not match total payout amount (%)'),
+        'Trigger must verify allocation sum matches total_amount_cents'
+      );
+    });
+
+    await st.test('TEST 44: Completed payout and settled allocation financial immutability triggers', () => {
+      assert.ok(
+        foundationSql.includes('Permanent Financial Invariant: Completed payout financial fields cannot be modified'),
+        'trg_validate_payout_batch must freeze completed payout financial fields'
+      );
+      assert.ok(
+        foundationSql.includes('trg_protect_settled_allocation'),
+        'trg_protect_settled_allocation must exist on sales_payout_allocations'
+      );
+      assert.ok(
+        foundationSql.includes('Permanent Financial Invariant: Settled payout allocation financial fields cannot be modified'),
+        'Trigger must freeze settled allocation financial fields'
+      );
+    });
+
+    await st.test('TEST 45: record_commission_adjustment cumulative refund cap and actual settled payout clawback', () => {
+      assert.ok(
+        engineSql.includes('v_remaining_commission_cents := GREATEST(0::bigint, v_comm.original_commission_cents - v_existing_adjusted_cents);'),
+        'Must calculate remaining commission after cumulative prior adjustments'
+      );
+      assert.ok(
+        engineSql.includes('v_max_possible_clawback := GREATEST(0::bigint, v_actually_paid_cents - v_existing_clawback_cents);'),
+        'Clawback debt must be capped at actually paid money via settled allocations'
+      );
+      assert.ok(
+        engineSql.includes("Refund amount must be positive"),
+        'Must validate positive refund amount'
+      );
+
+      // Simulation verification
+      function simulateAdjustment({ originalComm, grossAmount, existingAdjustments, settledPayout, existingClawback, refundAmount, type }) {
+        const totalAdjusted = existingAdjustments.reduce((sum, a) => sum + Math.abs(a), 0);
+        const remaining = Math.max(0, originalComm - totalAdjusted);
+        if (remaining === 0) return { status: 'already_fully_adjusted', delta: 0, clawback: 0 };
+        let rawDelta = 0;
+        if (['full_refund', 'chargeback', 'payment_reversal'].includes(type)) {
+          rawDelta = remaining;
+        } else if (type === 'partial_refund') {
+          rawDelta = Math.round((refundAmount / grossAmount) * originalComm);
+        }
+        const delta = -Math.min(rawDelta, remaining);
+        const maxClawback = Math.max(0, settledPayout - existingClawback);
+        const clawback = Math.min(Math.abs(delta), maxClawback);
+        return { status: 'adjusted', delta, clawback, remainingAfter: remaining + delta };
+      }
+
+      // Case 1: Unpaid commission refunded -> 0 clawback debt created
+      const unpaidRefund = simulateAdjustment({
+        originalComm: 100000,
+        grossAmount: 500000,
+        existingAdjustments: [],
+        settledPayout: 0, // Not yet paid out
+        existingClawback: 0,
+        refundAmount: 500000,
+        type: 'full_refund'
+      });
+      assert.strictEqual(unpaidRefund.delta, -100000);
+      assert.strictEqual(unpaidRefund.clawback, 0, 'No clawback debt when representative was never paid');
+
+      // Case 2: Cumulative partial refunds cannot exceed original commission
+      const part1 = simulateAdjustment({
+        originalComm: 100000,
+        grossAmount: 500000,
+        existingAdjustments: [],
+        settledPayout: 100000,
+        existingClawback: 0,
+        refundAmount: 300000, // 60%
+        type: 'partial_refund'
+      });
+      assert.strictEqual(part1.delta, -60000);
+      assert.strictEqual(part1.clawback, 60000);
+
+      const part2 = simulateAdjustment({
+        originalComm: 100000,
+        grossAmount: 500000,
+        existingAdjustments: [-60000],
+        settledPayout: 100000,
+        existingClawback: 60000,
+        refundAmount: 300000, // tries another 60% (would be 120%)
+        type: 'partial_refund'
+      });
+      assert.strictEqual(part2.delta, -40000, 'Cumulative adjustments strictly capped at remaining 40,000');
+      assert.strictEqual(part2.clawback, 40000);
+      assert.strictEqual(part2.remainingAfter, 0);
+
+      const part3 = simulateAdjustment({
+        originalComm: 100000,
+        grossAmount: 500000,
+        existingAdjustments: [-60000, -40000],
+        settledPayout: 100000,
+        existingClawback: 100000,
+        refundAmount: 100000,
+        type: 'partial_refund'
+      });
+      assert.strictEqual(part3.status, 'already_fully_adjusted');
+      assert.strictEqual(part3.delta, 0);
+    });
+
+    await st.test('TEST 46: transition_commission_status state machine matrix & actor anti-spoofing', () => {
+      assert.ok(
+        foundationSql.includes('Illegal state transition for commission % from % to %'),
+        'Must enforce allowed-transition matrix'
+      );
+      assert.ok(
+        foundationSql.includes('Commission % is already in status %'),
+        'Must reject duplicate transition to same status'
+      );
+      assert.ok(
+        foundationSql.includes('v_actor := auth.uid();'),
+        'Authenticated admins cannot forge actor_user_id'
+      );
+
+      // Simulation verification
+      function simulateTransition(fromStatus, toStatus) {
+        const allowed = {
+          pending: ['approved', 'held_suspended', 'cancelled', 'disputed'],
+          approved: ['in_payout', 'held_suspended', 'cancelled', 'disputed'],
+          in_payout: ['paid', 'approved'],
+          held_suspended: ['approved', 'cancelled', 'disputed'],
+          paid: ['partially_paid', 'reversed', 'approved'],
+          partially_paid: ['reversed'],
+          disputed: ['approved', 'cancelled'],
+          cancelled: [],
+          reversed: []
+        };
+        if (fromStatus === toStatus) throw new Error(`Already in status ${toStatus}`);
+        if (!allowed[fromStatus] || !allowed[fromStatus].includes(toStatus)) {
+          throw new Error(`Illegal state transition from ${fromStatus} to ${toStatus}`);
+        }
+        return toStatus;
+      }
+
+      // Valid transitions
+      assert.strictEqual(simulateTransition('pending', 'approved'), 'approved');
+      assert.strictEqual(simulateTransition('approved', 'in_payout'), 'in_payout');
+      assert.strictEqual(simulateTransition('in_payout', 'paid'), 'paid');
+      assert.strictEqual(simulateTransition('paid', 'reversed'), 'reversed');
+
+      // Invalid transitions
+      assert.throws(() => simulateTransition('pending', 'paid'), /Illegal state transition/);
+      assert.throws(() => simulateTransition('cancelled', 'approved'), /Illegal state transition/);
+      assert.throws(() => simulateTransition('reversed', 'approved'), /Illegal state transition/);
+      assert.throws(() => simulateTransition('pending', 'pending'), /Already in status/);
+    });
+
+    await st.test('TEST 47: process_subscription_payment_settlement duplicate gateway reference & subscription guard', () => {
+      assert.ok(
+        engineSql.includes("'status', 'duplicate_reference'"),
+        'Must return duplicate_reference status on existing gateway reference collision'
+      );
+      assert.ok(
+        engineSql.includes('v_sub.practice_id <> v_inv.practice_id'),
+        'Must guard against cross-tenant subscription mismatch'
+      );
+      assert.ok(
+        engineSql.includes('Payment amount must be positive'),
+        'Must validate positive payment amount'
+      );
+    });
+
+    await st.test('TEST 48: settle_payout_transfer_event transfer reversal state reconciliation', () => {
+      assert.ok(
+        engineSql.includes("p_event_type = 'transfer.reversed'"),
+        'Must handle transfer.reversed event'
+      );
+      assert.ok(
+        engineSql.includes("SET status = 'cancelled'"),
+        'Must update payout status to cancelled on reversal'
+      );
+      assert.ok(
+        engineSql.includes("SET allocation_status = 'released'"),
+        'Must release allocations on reversal'
+      );
+      assert.ok(
+        engineSql.includes("PERFORM public.transition_commission_status(\n        v_alloc.commission_id,\n        'approved'"),
+        'Must restore commissions to approved status on reversal'
+      );
+    });
+
+    await st.test('TEST 49: Timezone consistency (Africa/Lagos) in representative pilot window evaluation', () => {
+      assert.ok(
+        engineSql.includes("(now() AT TIME ZONE 'Africa/Lagos')::date < v_code_rec.pilot_start_date"),
+        'Must evaluate pilot start date in Africa/Lagos timezone'
+      );
+      assert.ok(
+        engineSql.includes("(now() AT TIME ZONE 'Africa/Lagos')::date > v_code_rec.pilot_end_date"),
+        'Must evaluate pilot end date in Africa/Lagos timezone'
+      );
+    });
+
+    await st.test('TEST 50: process_commission_outbox_batch bounded parameters & identity mismatch handling', () => {
+      assert.ok(
+        engineSql.includes('p_batch_size := GREATEST(1, LEAST(COALESCE(p_batch_size, 10), 100));'),
+        'Batch size must be bounded [1..100]'
+      );
+      assert.ok(
+        engineSql.includes('p_lease_seconds := GREATEST(30, LEAST(COALESCE(p_lease_seconds, 300), 1800));'),
+        'Lease duration must be bounded [30..1800]'
+      );
+      assert.ok(
+        engineSql.includes('v_payment.practice_id <> v_task.practice_id OR v_payment.invoice_id <> v_task.invoice_id'),
+        'Must detect identity mismatch between payment, invoice, and practice in outbox task'
+      );
+      assert.ok(
+        engineSql.includes('LEAST(POWER(2, v_task.retry_count + 1) * 30, 86400)'),
+        'Retry exponential backoff must be capped at 86,400s (24h)'
+      );
+    });
+
+    await st.test('TEST 51: Explicit table privileges matrix: anon revoked, authenticated least-privilege', () => {
+      assert.ok(
+        foundationSql.includes('REVOKE ALL ON public.sales_representatives FROM anon, public;'),
+        'Anon must have zero table permissions'
+      );
+      assert.ok(
+        foundationSql.includes('REVOKE ALL ON public.sales_rep_bank_accounts FROM anon, public;'),
+        'Bank accounts table must be revoked from anon and public'
+      );
+      assert.ok(
+        foundationSql.includes('REVOKE ALL ON public.platform_audit_logs FROM anon, public;'),
+        'Audit logs table must be revoked from anon and public'
+      );
+      assert.ok(
+        foundationSql.includes('GRANT SELECT, INSERT ON public.platform_audit_logs TO authenticated, service_role;'),
+        'Audit logs table must be append-only'
+      );
+    });
+  });
 });
