@@ -35,6 +35,7 @@ const engineSql = fs.readFileSync(engineMigrationPath, 'utf8');
 const { handler: webhookHandler } = require('../netlify/functions/paystack-webhook.cjs');
 const { handler: outboxWorkerHandler } = require('../netlify/functions/process-commission-outbox.cjs');
 const { handler: scannerHandler } = require('../netlify/functions/reconcile-referral-commissions.cjs');
+const { settleSubscriptionPayment } = require('../netlify/functions/lib/paystack.cjs');
 
 test('PHYSENRA SALES REP & REFERRAL SUITE', async (t) => {
   // ----------------------------------------------------------------------------
@@ -2125,6 +2126,147 @@ test('PHYSENRA SALES REP & REFERRAL SUITE', async (t) => {
       assert.strictEqual(body.code, 'GATEWAY_REFERENCE_COLLISION');
       assert.match(recordedError, /Gateway reference collision/);
       assert.strictEqual(markedProcessed, false, 'Must NOT mark conflicting webhook as processed');
+    });
+
+    await st.test('TEST 64: Fallback settlement updates existing pending/failed payment record in saas_payments', async () => {
+      let updatedStatus = null;
+      let insertedNewPayment = false;
+      let markedInvoicePaid = false;
+
+      const mockInvoice = {
+        id: 'inv-fallback-001',
+        practice_id: 'prac-fallback-001',
+        subscription_id: 'sub-fallback-001',
+        total_cents: 5000000,
+        currency: 'NGN',
+        status: 'open',
+      };
+
+      const mockExistingPending = {
+        id: 'pay-pending-999',
+        invoice_id: 'inv-fallback-001',
+        practice_id: 'prac-fallback-001',
+        amount_cents: 5000000,
+        currency: 'NGN',
+        gateway_provider: 'paystack',
+        status: 'pending',
+      };
+
+      const mockAdmin = {
+        rpc: async () => ({ data: null, error: new Error('RPC unavailable') }),
+        from: (table) => {
+          if (table === 'saas_invoices') {
+            return {
+              select: () => ({ eq: () => ({ single: async () => ({ data: mockInvoice, error: null }) }) }),
+              update: (fields) => ({ eq: async () => { if (fields.status === 'paid') markedInvoicePaid = true; return { data: null, error: null }; } }),
+            };
+          }
+          if (table === 'practice_subscriptions') {
+            return {
+              select: () => ({ eq: () => ({ single: async () => ({ data: { id: 'sub-fallback-001', billing_interval: 'monthly' }, error: null }) }) }),
+              update: () => ({ eq: async () => ({ data: null, error: null }) }),
+            };
+          }
+          if (table === 'practices') {
+            return {
+              update: () => ({ eq: async () => ({ data: null, error: null }) }),
+            };
+          }
+          if (table === 'audit_events') {
+            return { insert: async () => ({ data: null, error: null }) };
+          }
+          if (table === 'sales_commission_outbox') {
+            return { insert: async () => ({ data: null, error: null }) };
+          }
+          if (table === 'saas_payments') {
+            return {
+              select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: mockExistingPending, error: null }) }) }),
+              update: (fields) => ({
+                eq: async (col, val) => {
+                  if (val === 'pay-pending-999') updatedStatus = fields.status;
+                  return { data: null, error: null };
+                }
+              }),
+              insert: () => {
+                insertedNewPayment = true;
+                return { select: () => ({ single: async () => ({ data: { id: 'pay-new' }, error: null }) }) };
+              }
+            };
+          }
+          return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) };
+        }
+      };
+
+      const res = await settleSubscriptionPayment({
+        supabaseAdmin: mockAdmin,
+        invoice: mockInvoice,
+        reference: 'REF-FALLBACK-PENDING',
+        verifiedAmount: 5000000,
+        paymentMethod: 'card',
+      });
+
+      assert.strictEqual(res.status, 'settled');
+      assert.strictEqual(res.payment_id, 'pay-pending-999');
+      assert.strictEqual(updatedStatus, 'successful', 'Existing pending payment must be updated to successful');
+      assert.strictEqual(insertedNewPayment, false, 'Must NOT attempt duplicate insert on saas_payments');
+      assert.strictEqual(markedInvoicePaid, true, 'Invoice must be marked paid');
+    });
+
+    await st.test('TEST 65: Fallback settlement rejects conflicting reference for mismatched invoice', async () => {
+      const mockInvoice = {
+        id: 'inv-target-123',
+        practice_id: 'prac-target-123',
+        subscription_id: 'sub-target-123',
+        total_cents: 5000000,
+        currency: 'NGN',
+        status: 'open',
+      };
+
+      const mockExistingOther = {
+        id: 'pay-other-456',
+        invoice_id: 'inv-OTHER-DIFFERENT',
+        practice_id: 'prac-target-123',
+        amount_cents: 5000000,
+        currency: 'NGN',
+        gateway_provider: 'paystack',
+        status: 'pending',
+      };
+
+      const mockAdmin = {
+        rpc: async () => ({ data: null, error: new Error('RPC unavailable') }),
+        from: (table) => {
+          if (table === 'saas_invoices') {
+            return {
+              select: () => ({ eq: () => ({ single: async () => ({ data: mockInvoice, error: null }) }) }),
+            };
+          }
+          if (table === 'practice_subscriptions') {
+            return {
+              select: () => ({ eq: () => ({ single: async () => ({ data: { id: 'sub-target-123', billing_interval: 'monthly' }, error: null }) }) }),
+            };
+          }
+          if (table === 'saas_payments') {
+            return {
+              select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: mockExistingOther, error: null }) }) }),
+            };
+          }
+          return { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) };
+        }
+      };
+
+      await assert.rejects(
+        async () => {
+          await settleSubscriptionPayment({
+            supabaseAdmin: mockAdmin,
+            invoice: mockInvoice,
+            reference: 'REF-COLLISION-FALLBACK',
+            verifiedAmount: 5000000,
+            paymentMethod: 'card',
+          });
+        },
+        /Gateway reference collision/,
+        'Fallback must reject reference that belongs to a different invoice'
+      );
     });
   });
 });

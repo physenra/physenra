@@ -545,15 +545,17 @@ async function settleSubscriptionPayment({
   }
 
   // 5B. Strict transaction identity verification for existing reference in fallback
+  let existingRefPayment = null;
   try {
     const paymentTable = supabaseAdmin.from('saas_payments');
     if (paymentTable && typeof paymentTable.select === 'function') {
-      const { data: existingRefPayment } = await paymentTable
+      const { data: refPay } = await paymentTable
         .select('id, invoice_id, practice_id, amount_cents, currency, gateway_provider, status')
         .eq('gateway_reference', reference)
         .maybeSingle();
 
-      if (existingRefPayment) {
+      if (refPay) {
+        existingRefPayment = refPay;
         if (
           existingRefPayment.invoice_id !== currentInv.id ||
           existingRefPayment.practice_id !== currentInv.practice_id ||
@@ -567,44 +569,71 @@ async function settleSubscriptionPayment({
         if (existingRefPayment.status === 'successful') {
           return { status: 'duplicate_reference', invoice_id: existingRefPayment.invoice_id, payment_id: existingRefPayment.id };
         }
+        if (!['pending', 'failed'].includes(existingRefPayment.status)) {
+          throw new Error(
+            `Cannot settle payment with gateway reference ${reference} in unexpected status ${existingRefPayment.status}`
+          );
+        }
       }
     }
   } catch (refCheckErr) {
-    if (refCheckErr.message?.includes('Gateway reference collision')) {
+    if (
+      refCheckErr.message?.includes('Gateway reference collision') ||
+      refCheckErr.message?.includes('unexpected status')
+    ) {
       throw refCheckErr;
     }
   }
 
-  // 6. Record Payment in ledger
-  const paymentNumber = `PHY-PAY-${now.getFullYear()}-${String(
-    Math.floor(Math.random() * 1000000)
-  ).padStart(6, '0')}`;
+  // 6. Record or update Payment in ledger
   const effectivePaidAt = paidAt || now.toISOString();
+  let paymentId;
 
-  const { data: paymentRecord, error: payInsertErr } = await supabaseAdmin
-    .from('saas_payments')
-    .insert({
-      payment_number: paymentNumber,
-      invoice_id: currentInv.id,
-      practice_id: currentInv.practice_id,
-      amount_cents: numericAmount,
-      currency: currentInv.currency,
-      payment_method: paymentMethod || 'card',
-      gateway_provider: 'paystack',
-      gateway_reference: reference,
-      gateway_fee_cents: gatewayFeeCents || 0,
-      status: 'successful',
-      settled_at: now.toISOString(),
-      paid_at: effectivePaidAt,
-    })
-    .select('id')
-    .single();
+  if (existingRefPayment) {
+    const { error: payUpdateErr } = await supabaseAdmin
+      .from('saas_payments')
+      .update({
+        status: 'successful',
+        settled_at: now.toISOString(),
+        paid_at: effectivePaidAt,
+        gateway_fee_cents: gatewayFeeCents || 0,
+        payment_method: paymentMethod || 'card',
+      })
+      .eq('id', existingRefPayment.id);
 
-  if (payInsertErr) {
-    throw new Error(`Failed to insert payment record: ${payInsertErr.message}`);
+    if (payUpdateErr) {
+      throw new Error(`Failed to update existing payment record: ${payUpdateErr.message}`);
+    }
+    paymentId = existingRefPayment.id;
+  } else {
+    const paymentNumber = `PHY-PAY-${now.getFullYear()}-${String(
+      Math.floor(Math.random() * 1000000)
+    ).padStart(6, '0')}`;
+
+    const { data: paymentRecord, error: payInsertErr } = await supabaseAdmin
+      .from('saas_payments')
+      .insert({
+        payment_number: paymentNumber,
+        invoice_id: currentInv.id,
+        practice_id: currentInv.practice_id,
+        amount_cents: numericAmount,
+        currency: currentInv.currency,
+        payment_method: paymentMethod || 'card',
+        gateway_provider: 'paystack',
+        gateway_reference: reference,
+        gateway_fee_cents: gatewayFeeCents || 0,
+        status: 'successful',
+        settled_at: now.toISOString(),
+        paid_at: effectivePaidAt,
+      })
+      .select('id')
+      .single();
+
+    if (payInsertErr) {
+      throw new Error(`Failed to insert payment record: ${payInsertErr.message}`);
+    }
+    paymentId = paymentRecord.id;
   }
-
-  const paymentId = paymentRecord.id;
 
   // 7. Mark Invoice Paid
   const { error: invUpdateErr } = await supabaseAdmin
