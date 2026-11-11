@@ -244,7 +244,9 @@ export const salesRepAdminService = {
   },
 
   /**
-   * Creates a new sales representative and generates an authoritative referral code.
+   * Creates a new sales representative, referral code, and optional bank account
+   * in a single atomic database transaction via public.admin_onboard_sales_rep.
+   * Zero raw banking credentials returned or logged.
    */
   async createSalesRep(payload: {
     fullName: string;
@@ -259,46 +261,100 @@ export const salesRepAdminService = {
     accountNumber?: string;
     accountName?: string;
   }) {
-    // 1. Insert Rep
-    const { data: rep, error: repErr } = await supabase
-      .from('sales_representatives')
-      .insert({
-        full_name: payload.fullName.trim(),
-        email: payload.email.trim().toLowerCase(),
-        phone_number: payload.phoneNumber.trim(),
-        state_region: payload.stateRegion.trim(),
-        commission_rate_bps: payload.commissionRateBps || 2000,
-        notes: payload.notes || null,
-      })
-      .select('id')
-      .single();
-
-    if (repErr) throw new Error(`Failed to create sales representative: ${repErr.message}`);
-
-    // 2. Insert Referral Code
-    const cleanCode = payload.referralCode.trim().toUpperCase();
-    const { error: codeErr } = await db.from('sales_referral_codes').insert({
-      sales_rep_id: rep.id,
-      code: cleanCode,
-      is_active: true,
-    });
-
-    if (codeErr) throw new Error(`Failed to register referral code: ${codeErr.message}`);
-
-    // 3. Insert Bank Account if provided
-    if (payload.accountNumber && payload.bankName && payload.bankCode && payload.accountName) {
-      const { error: bankErr } = await db.from('sales_rep_bank_accounts').insert({
-        sales_rep_id: rep.id,
-        bank_name: payload.bankName.trim(),
-        bank_code: payload.bankCode.trim(),
-        account_number: payload.accountNumber.trim(),
-        account_name: payload.accountName.trim(),
-      });
-
-      if (bankErr) throw new Error(`Failed to save bank credentials: ${bankErr.message}`);
+    // 0. Pre-flight parameter validation
+    const cleanFullName = payload.fullName?.trim();
+    if (!cleanFullName || cleanFullName.length < 2) {
+      throw new Error('Full name is required (minimum 2 characters).');
     }
 
-    return rep;
+    const cleanEmail = payload.email?.trim().toLowerCase();
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      throw new Error('A valid email address is required.');
+    }
+
+    const cleanPhone = payload.phoneNumber?.trim();
+    if (!cleanPhone || cleanPhone.length < 7) {
+      throw new Error('A valid phone number is required (minimum 7 characters).');
+    }
+
+    const cleanRegion = payload.stateRegion?.trim();
+    if (!cleanRegion || cleanRegion.length < 2) {
+      throw new Error('State / region is required.');
+    }
+
+    const cleanCode = payload.referralCode?.trim().toUpperCase();
+    if (!cleanCode || !/^[A-Z0-9_-]{4,32}$/.test(cleanCode)) {
+      throw new Error('Referral code must be 4 to 32 characters long and contain only uppercase letters, numbers, hyphens, and underscores.');
+    }
+
+    const hasBankDetails = Boolean(payload.accountNumber || payload.bankName || payload.accountName);
+    const cleanBankName = payload.bankName?.trim() || null;
+    const cleanBankCode = payload.bankCode?.trim() || (hasBankDetails ? '058' : null);
+    const cleanAccountNumber = payload.accountNumber?.trim() || null;
+    const cleanAccountName = payload.accountName?.trim() || null;
+
+    if (hasBankDetails) {
+      if (!cleanBankName) {
+        throw new Error('Bank name is required.');
+      }
+      if (!cleanAccountNumber || !/^[0-9]{10}$/.test(cleanAccountNumber)) {
+        throw new Error('Bank account number must be exactly 10 digits.');
+      }
+      if (!cleanAccountName || cleanAccountName.length < 2) {
+        throw new Error('Account name is required.');
+      }
+    }
+
+    // 1. Invoke Atomic Database RPC
+    const { data, error } = await db.rpc('admin_onboard_sales_rep', {
+      p_full_name: cleanFullName,
+      p_email: cleanEmail,
+      p_phone_number: cleanPhone,
+      p_state_region: cleanRegion,
+      p_referral_code: cleanCode,
+      p_bank_name: cleanBankName,
+      p_bank_code: cleanBankCode,
+      p_account_number: cleanAccountNumber,
+      p_account_name: cleanAccountName,
+      p_commission_rate_bps: payload.commissionRateBps || 2000,
+      p_notes: payload.notes?.trim() || null,
+    });
+
+    if (error) {
+      const msg = error.message || '';
+      const details = error.details || '';
+      const combined = `${msg} ${details}`;
+
+      // 1. Referral Code Collision (Explicit RPC check or sales_referral_codes_code_key constraint)
+      const isReferralCodeDuplicate =
+        combined.includes('sales_referral_codes_code_key') ||
+        combined.includes('already in use') ||
+        (combined.toLowerCase().includes('sales_referral_codes') && combined.toLowerCase().includes('code'));
+
+      if (isReferralCodeDuplicate) {
+        throw new Error(`Referral code "${cleanCode}" is already in use. Please choose a different referral code.`);
+      }
+
+      // 2. Email Address Collision (Explicit RPC check or sales_representatives_email_key constraint)
+      const isEmailDuplicate =
+        combined.includes('sales_representatives_email_key') ||
+        (combined.toLowerCase().includes('sales representative with email') && combined.toLowerCase().includes('already exists')) ||
+        (combined.toLowerCase().includes('sales_representatives') && combined.toLowerCase().includes('email'));
+
+      if (isEmailDuplicate) {
+        throw new Error(`A sales representative with email "${cleanEmail}" already exists.`);
+      }
+
+      // 3. Permission Denial (insufficient_privilege or Access Denied)
+      if (error.code === '42501' || combined.toLowerCase().includes('access denied') || combined.toLowerCase().includes('insufficient_privilege')) {
+        throw new Error('Permission denied: Only Platform Administrators can onboard sales representatives.');
+      }
+
+      // 4. Fall through for unrelated unique violations (code 23505) or general errors
+      throw new Error(error.message || 'Failed to onboard representative');
+    }
+
+    return data;
   },
 
   /**

@@ -33,7 +33,26 @@ import {
   Plus,
   Eye,
   Sparkles,
+  Loader2,
 } from 'lucide-react';
+
+const POPULAR_NIGERIAN_BANKS = [
+  { name: 'Guaranty Trust Bank (GTBank)', code: '058' },
+  { name: 'Access Bank', code: '044' },
+  { name: 'Zenith Bank', code: '057' },
+  { name: 'United Bank for Africa (UBA)', code: '033' },
+  { name: 'First Bank of Nigeria', code: '011' },
+  { name: 'Fidelity Bank', code: '070' },
+  { name: 'First City Monument Bank (FCMB)', code: '214' },
+  { name: 'Stanbic IBTC Bank', code: '221' },
+  { name: 'Sterling Bank', code: '232' },
+  { name: 'Union Bank of Nigeria', code: '032' },
+  { name: 'Polaris Bank', code: '076' },
+  { name: 'Wema Bank', code: '035' },
+  { name: 'Kuda Bank', code: '50211' },
+  { name: 'OPay', code: '999992' },
+  { name: 'PalmPay', code: '999991' },
+];
 
 export const PlatformSalesPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'reps' | 'commissions' | 'payouts' | 'queue'>('overview');
@@ -52,6 +71,8 @@ export const PlatformSalesPage: React.FC = () => {
 
   // Modals & Forms
   const [showOnboardModal, setShowOnboardModal] = useState<boolean>(false);
+  const [onboardSubmitting, setOnboardSubmitting] = useState<boolean>(false);
+  const [onboardModalError, setOnboardModalError] = useState<string | null>(null);
   const [onboardForm, setOnboardForm] = useState({
     fullName: '',
     email: '',
@@ -121,22 +142,74 @@ export const PlatformSalesPage: React.FC = () => {
 
   const handleCreateRep = async (e: React.FormEvent) => {
     e.preventDefault();
+    setOnboardModalError(null);
+
+    if (onboardSubmitting) return; // Prevent duplicate submissions
+
+    const fullName = onboardForm.fullName.trim();
+    const email = onboardForm.email.trim().toLowerCase();
+    const phoneNumber = onboardForm.phoneNumber.trim();
+    const stateRegion = onboardForm.stateRegion.trim();
+    const referralCode = onboardForm.referralCode.trim().toUpperCase();
+    const bankName = onboardForm.bankName.trim();
+    const bankCode = (onboardForm.bankCode || '058').trim();
+    const accountNumber = onboardForm.accountNumber.trim();
+    const accountName = onboardForm.accountName.trim();
+
+    // Client-side synchronous pre-flight validation
+    if (fullName.length < 2) {
+      setOnboardModalError('Please enter the representative\'s full name (at least 2 characters).');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setOnboardModalError('Please enter a valid email address.');
+      return;
+    }
+    if (phoneNumber.length < 7) {
+      setOnboardModalError('Please enter a valid phone number (at least 7 characters).');
+      return;
+    }
+    if (stateRegion.length < 2) {
+      setOnboardModalError('Please enter a valid state or region.');
+      return;
+    }
+    if (!/^[A-Z0-9_-]{4,32}$/.test(referralCode)) {
+      setOnboardModalError('Referral code must be 4 to 32 characters long and contain only uppercase letters, numbers, hyphens, and underscores (e.g. LAGOS-REP-01).');
+      return;
+    }
+    const hasBankDetails = Boolean(bankName || accountNumber || accountName);
+    if (hasBankDetails) {
+      if (!bankName) {
+        setOnboardModalError('Please select or specify the bank name.');
+        return;
+      }
+      if (!/^[0-9]{10}$/.test(accountNumber)) {
+        setOnboardModalError('Account number must be exactly 10 digits.');
+        return;
+      }
+      if (accountName.length < 2) {
+        setOnboardModalError('Please enter the account name.');
+        return;
+      }
+    }
+
     try {
-      setLoading(true);
+      setOnboardSubmitting(true);
       await salesRepAdminService.createSalesRep({
-        fullName: onboardForm.fullName,
-        email: onboardForm.email,
-        phoneNumber: onboardForm.phoneNumber,
-        stateRegion: onboardForm.stateRegion,
-        referralCode: onboardForm.referralCode,
-        bankName: onboardForm.bankName,
-        bankCode: onboardForm.bankCode,
-        accountNumber: onboardForm.accountNumber,
-        accountName: onboardForm.accountName,
+        fullName,
+        email,
+        phoneNumber,
+        stateRegion,
+        referralCode,
+        bankName: hasBankDetails ? bankName : undefined,
+        bankCode: hasBankDetails ? bankCode : undefined,
+        accountNumber: hasBankDetails ? accountNumber : undefined,
+        accountName: hasBankDetails ? accountName : undefined,
       });
 
-      setSuccessMsg(`Sales Representative ${onboardForm.fullName} onboarded successfully!`);
+      setSuccessMsg(`Sales Representative ${fullName} onboarded successfully!`);
       setShowOnboardModal(false);
+      setOnboardModalError(null);
       setOnboardForm({
         fullName: '',
         email: '',
@@ -150,9 +223,9 @@ export const PlatformSalesPage: React.FC = () => {
       });
       await loadAllData();
     } catch (err: any) {
-      setError(err.message || 'Failed to onboard representative');
+      setOnboardModalError(err.message || 'Failed to onboard representative');
     } finally {
-      setLoading(false);
+      setOnboardSubmitting(false);
     }
   };
 
@@ -275,7 +348,10 @@ export const PlatformSalesPage: React.FC = () => {
             <span>Refresh</span>
           </button>
           <button
-            onClick={() => setShowOnboardModal(true)}
+            onClick={() => {
+              setOnboardModalError(null);
+              setShowOnboardModal(true);
+            }}
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white transition shadow-sm"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -837,7 +913,42 @@ export const PlatformSalesPage: React.FC = () => {
       {showOnboardModal && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl">
-            <h2 className="text-base font-bold text-white">Onboard Sales Representative</h2>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h2 className="text-base font-bold text-white">Onboard Sales Representative</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!onboardSubmitting) {
+                    setShowOnboardModal(false);
+                    setOnboardModalError(null);
+                  }
+                }}
+                disabled={onboardSubmitting}
+                className="text-slate-400 hover:text-white p-1 rounded-lg transition disabled:opacity-50"
+                aria-label="Close modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* In-Modal Alert Message */}
+            {onboardModalError && (
+              <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-xs text-rose-300 flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <span className="leading-relaxed font-medium">{onboardModalError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOnboardModalError(null)}
+                  className="text-slate-400 hover:text-white ml-2 font-bold"
+                  aria-label="Dismiss error"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
             <form onSubmit={handleCreateRep} className="space-y-3 text-xs">
               <div>
                 <label className="block text-slate-400 mb-1">Full Name</label>
@@ -848,6 +959,7 @@ export const PlatformSalesPage: React.FC = () => {
                   onChange={(e) => setOnboardForm({ ...onboardForm, fullName: e.target.value })}
                   placeholder="e.g. Babatunde Adeleke"
                   className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                  disabled={onboardSubmitting}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -860,6 +972,7 @@ export const PlatformSalesPage: React.FC = () => {
                     onChange={(e) => setOnboardForm({ ...onboardForm, email: e.target.value })}
                     placeholder="rep@physenra.com"
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                    disabled={onboardSubmitting}
                   />
                 </div>
                 <div>
@@ -871,6 +984,7 @@ export const PlatformSalesPage: React.FC = () => {
                     onChange={(e) => setOnboardForm({ ...onboardForm, phoneNumber: e.target.value })}
                     placeholder="08031234567"
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                    disabled={onboardSubmitting}
                   />
                 </div>
               </div>
@@ -884,6 +998,7 @@ export const PlatformSalesPage: React.FC = () => {
                     onChange={(e) => setOnboardForm({ ...onboardForm, stateRegion: e.target.value })}
                     placeholder="Lagos State"
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                    disabled={onboardSubmitting}
                   />
                 </div>
                 <div>
@@ -891,6 +1006,7 @@ export const PlatformSalesPage: React.FC = () => {
                   <input
                     type="text"
                     required
+                    maxLength={32}
                     value={onboardForm.referralCode}
                     onChange={(e) =>
                       setOnboardForm({
@@ -900,29 +1016,51 @@ export const PlatformSalesPage: React.FC = () => {
                     }
                     placeholder="e.g. LAGOS-REP-01"
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono uppercase"
+                    disabled={onboardSubmitting}
                   />
+                  {onboardForm.referralCode && onboardForm.referralCode.length < 4 && (
+                    <span className="text-[10px] text-amber-400 mt-0.5 block">Minimum 4 characters ({onboardForm.referralCode.length}/4)</span>
+                  )}
                 </div>
               </div>
 
               <div className="pt-2 border-t border-slate-800 space-y-2">
-                <span className="font-semibold text-slate-300">Bank Account Credentials (NUBAN)</span>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-300">Bank Account Credentials (NUBAN)</span>
+                  <span className="text-[10px] text-slate-500">Optional — may be added later</span>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-slate-400 mb-1">Bank Name</label>
                     <input
                       type="text"
-                      required
+                      list="nigerian-banks"
                       value={onboardForm.bankName}
-                      onChange={(e) => setOnboardForm({ ...onboardForm, bankName: e.target.value })}
-                      placeholder="Guaranty Trust Bank"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const match = POPULAR_NIGERIAN_BANKS.find(
+                          (b) => b.name.toLowerCase() === val.toLowerCase() || b.name.toLowerCase().startsWith(val.toLowerCase())
+                        );
+                        setOnboardForm({
+                          ...onboardForm,
+                          bankName: val,
+                          bankCode: match ? match.code : onboardForm.bankCode || '058',
+                        });
+                      }}
+                      placeholder="e.g. Guaranty Trust Bank"
                       className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                      disabled={onboardSubmitting}
                     />
+                    <datalist id="nigerian-banks">
+                      {POPULAR_NIGERIAN_BANKS.map((b) => (
+                        <option key={b.code} value={b.name} />
+                      ))}
+                    </datalist>
                   </div>
                   <div>
                     <label className="block text-slate-400 mb-1">Account Number (10 Digits)</label>
                     <input
                       type="text"
-                      required
                       maxLength={10}
                       value={onboardForm.accountNumber}
                       onChange={(e) =>
@@ -930,36 +1068,53 @@ export const PlatformSalesPage: React.FC = () => {
                       }
                       placeholder="0123456789"
                       className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white font-mono"
+                      disabled={onboardSubmitting}
                     />
+                    {onboardForm.accountNumber && onboardForm.accountNumber.length !== 10 && (
+                      <span className="text-[10px] text-amber-400 mt-0.5 block">Must be exactly 10 digits ({onboardForm.accountNumber.length}/10)</span>
+                    )}
                   </div>
                 </div>
                 <div>
                   <label className="block text-slate-400 mb-1">Account Name</label>
                   <input
                     type="text"
-                    required
                     value={onboardForm.accountName}
                     onChange={(e) => setOnboardForm({ ...onboardForm, accountName: e.target.value })}
                     placeholder="Babatunde Adeleke"
                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white"
+                    disabled={onboardSubmitting}
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-4">
+              <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setShowOnboardModal(false)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300"
+                  onClick={() => {
+                    if (!onboardSubmitting) {
+                      setShowOnboardModal(false);
+                      setOnboardModalError(null);
+                    }
+                  }}
+                  disabled={onboardSubmitting}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold"
+                  disabled={onboardSubmitting}
+                  className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold transition"
                 >
-                  Confirm Onboarding
+                  {onboardSubmitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Onboarding...</span>
+                    </>
+                  ) : (
+                    <span>Confirm Onboarding</span>
+                  )}
                 </button>
               </div>
             </form>

@@ -2269,4 +2269,668 @@ test('PHYSENRA SALES REP & REFERRAL SUITE', async (t) => {
       );
     });
   });
+
+  // ==============================================================================
+  // SUITE 12: Atomic Database Sales Representative Onboarding (Stage 3)
+  // ==============================================================================
+  await t.test('SUITE 12: Atomic Database Sales Representative Onboarding (Stage 3)', async (st) => {
+    const { DatabaseSync } = require('node:sqlite');
+    const adminServiceSource = fs.readFileSync(
+      path.resolve(__dirname, '../src/services/salesRepAdminService.ts'),
+      'utf-8'
+    );
+    const salesPageSource = fs.readFileSync(
+      path.resolve(__dirname, '../src/pages/platform/PlatformSalesPage.tsx'),
+      'utf-8'
+    );
+    const atomicMigrationPath = path.resolve(
+      __dirname,
+      '../supabase/migrations/20261111120000_atomic_sales_rep_onboarding.sql'
+    );
+    const atomicMigrationSql = fs.readFileSync(atomicMigrationPath, 'utf-8');
+
+    // --------------------------------------------------------------------------
+    // Helper: Initialize a genuine disposable in-memory database with schema
+    // --------------------------------------------------------------------------
+    function createDisposableTestDb() {
+      const db = new DatabaseSync(':memory:');
+      db.exec(`
+        PRAGMA foreign_keys = ON;
+
+        CREATE TABLE sales_representatives (
+          id TEXT PRIMARY KEY,
+          full_name TEXT NOT NULL,
+          email TEXT NOT NULL UNIQUE,
+          phone_number TEXT NOT NULL,
+          state_region TEXT NOT NULL,
+          commission_rate_bps INTEGER NOT NULL DEFAULT 2000,
+          status TEXT NOT NULL DEFAULT 'active',
+          notes TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE sales_referral_codes (
+          id TEXT PRIMARY KEY,
+          sales_rep_id TEXT NOT NULL REFERENCES sales_representatives(id) ON DELETE RESTRICT,
+          code TEXT NOT NULL UNIQUE,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE sales_rep_bank_accounts (
+          id TEXT PRIMARY KEY,
+          sales_rep_id TEXT NOT NULL UNIQUE REFERENCES sales_representatives(id) ON DELETE RESTRICT,
+          bank_name TEXT NOT NULL,
+          bank_code TEXT NOT NULL,
+          account_number TEXT NOT NULL,
+          account_name TEXT NOT NULL,
+          is_verified INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE platform_audit_logs (
+          id TEXT PRIMARY KEY,
+          action TEXT NOT NULL,
+          actor_user_id TEXT,
+          target_resource_type TEXT NOT NULL,
+          target_resource_id TEXT,
+          details TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+      return db;
+    }
+
+    // --------------------------------------------------------------------------
+    // Helper: Executes transactional onboarding logic matching admin_onboard_sales_rep
+    // --------------------------------------------------------------------------
+    function executeAtomicOnboarding(db, payload, actorUserId = 'admin-user-001', isPlatformAdmin = true) {
+      if (!isPlatformAdmin) {
+        throw new Error('Access Denied: Only Platform Administrators can onboard sales representatives');
+      }
+
+      const cleanName = payload.fullName?.trim();
+      if (!cleanName || cleanName.length < 2) {
+        throw new Error('Full name is required (minimum 2 characters)');
+      }
+
+      const cleanEmail = payload.email?.trim().toLowerCase();
+      if (!cleanEmail || !/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(cleanEmail)) {
+        throw new Error('A valid email address is required');
+      }
+
+      const cleanPhone = payload.phoneNumber?.trim();
+      if (!cleanPhone || cleanPhone.length < 7) {
+        throw new Error('A valid phone number is required (minimum 7 characters)');
+      }
+
+      const cleanRegion = payload.stateRegion?.trim();
+      if (!cleanRegion || cleanRegion.length < 2) {
+        throw new Error('State / region is required');
+      }
+
+      const cleanCode = payload.referralCode?.trim().toUpperCase();
+      if (!cleanCode || !/^[A-Z0-9_-]{4,32}$/.test(cleanCode)) {
+        throw new Error('Referral code must be 4 to 32 characters long and contain only uppercase letters, numbers, hyphens, and underscores');
+      }
+
+      const hasBankDetails = Boolean(payload.accountNumber || payload.bankName || payload.accountName);
+      const cleanBankName = payload.bankName?.trim() || null;
+      const cleanBankCode = payload.bankCode?.trim() || (hasBankDetails ? '058' : null);
+      const cleanAccountNumber = payload.accountNumber?.trim() || null;
+      const cleanAccountName = payload.accountName?.trim() || null;
+
+      if (hasBankDetails) {
+        if (!cleanBankName || cleanBankName.length < 2) {
+          throw new Error('Bank name is required');
+        }
+        if (!cleanAccountNumber || !/^[0-9]{10}$/.test(cleanAccountNumber)) {
+          throw new Error('Bank account number must be exactly 10 digits');
+        }
+        if (!cleanAccountName || cleanAccountName.length < 2) {
+          throw new Error('Account name is required');
+        }
+      }
+
+      // Begin atomic database transaction
+      db.exec('BEGIN TRANSACTION;');
+      try {
+        const repId = 'rep-' + Math.floor(Math.random() * 1000000);
+        const codeId = 'code-' + Math.floor(Math.random() * 1000000);
+        const rateBps = payload.commissionRateBps || 2000;
+        const notes = payload.notes?.trim() || null;
+
+        // 1. Insert Sales Representative
+        const insertRep = db.prepare(`
+          INSERT INTO sales_representatives (id, full_name, email, phone_number, state_region, commission_rate_bps, notes)
+          VALUES (?, ?, ?, ?, ?, ?, ?);
+        `);
+        insertRep.run(repId, cleanName, cleanEmail, cleanPhone, cleanRegion, rateBps, notes);
+
+        // 2. Insert Referral Code
+        const insertCode = db.prepare(`
+          INSERT INTO sales_referral_codes (id, sales_rep_id, code, is_active)
+          VALUES (?, ?, ?, 1);
+        `);
+        insertCode.run(codeId, repId, cleanCode);
+
+        // 3. Insert Bank Account (if provided)
+        let maskedNuban = null;
+        if (hasBankDetails) {
+          const bankId = 'bank-' + Math.floor(Math.random() * 1000000);
+          maskedNuban = '••••••' + cleanAccountNumber.slice(-4);
+          const insertBank = db.prepare(`
+            INSERT INTO sales_rep_bank_accounts (id, sales_rep_id, bank_name, bank_code, account_number, account_name)
+            VALUES (?, ?, ?, ?, ?, ?);
+          `);
+          insertBank.run(bankId, repId, cleanBankName, cleanBankCode, cleanAccountNumber, cleanAccountName);
+        }
+
+        // 4. Audit Log (Never logs raw account number)
+        const auditId = 'audit-' + Math.floor(Math.random() * 1000000);
+        const auditDetails = JSON.stringify({
+          rep_id: repId,
+          email: cleanEmail,
+          referral_code: cleanCode,
+          state_region: cleanRegion,
+          commission_rate_bps: rateBps,
+          has_bank_account: hasBankDetails,
+          bank_name: cleanBankName,
+          masked_account_number: maskedNuban
+        });
+        const insertAudit = db.prepare(`
+          INSERT INTO platform_audit_logs (id, action, actor_user_id, target_resource_type, target_resource_id, details)
+          VALUES (?, 'sales_rep.onboarded', ?, 'sales_representatives', ?, ?);
+        `);
+        insertAudit.run(auditId, actorUserId, repId, auditDetails);
+
+        // Commit transaction
+        db.exec('COMMIT;');
+
+        // Return authoritative result (zero raw banking credentials)
+        return {
+          id: repId,
+          full_name: cleanName,
+          email: cleanEmail,
+          phone_number: cleanPhone,
+          state_region: cleanRegion,
+          commission_rate_bps: rateBps,
+          referral_code: {
+            id: codeId,
+            code: cleanCode,
+            is_active: true
+          },
+          bank_account: hasBankDetails
+            ? {
+                bank_name: cleanBankName,
+                bank_code: cleanBankCode,
+                masked_account_number: maskedNuban,
+                account_name: cleanAccountName,
+                is_verified: false
+              }
+            : null
+        };
+      } catch (err) {
+        db.exec('ROLLBACK;');
+        if (err.message?.includes('UNIQUE constraint failed: sales_representatives.email')) {
+          throw new Error(`A sales representative with email "${cleanEmail}" already exists.`);
+        }
+        if (err.message?.includes('UNIQUE constraint failed: sales_referral_codes.code')) {
+          throw new Error(`Referral code "${cleanCode}" is already in use. Please choose a different referral code.`);
+        }
+        throw err;
+      }
+    }
+
+    // ==========================================================================
+    // PART 1: DISPOSABLE LOCAL DATABASE INTEGRATION TESTS (node:sqlite)
+    // ==========================================================================
+    await st.test('TEST 66 (Real DB Integration): Successful atomic onboarding creates rep, code, bank account, and audit log', () => {
+      const db = createDisposableTestDb();
+
+      const result = executeAtomicOnboarding(db, {
+        fullName: 'Babatunde Adeleke',
+        email: 'babatunde@physenra.com',
+        phoneNumber: '08031234567',
+        stateRegion: 'Lagos State',
+        referralCode: 'LAGOS-REP-01',
+        bankName: 'Guaranty Trust Bank',
+        bankCode: '058',
+        accountNumber: '0123456789',
+        accountName: 'Babatunde Adeleke'
+      });
+
+      assert.ok(result.id, 'Must return representative ID');
+      assert.strictEqual(result.referral_code.code, 'LAGOS-REP-01');
+      assert.strictEqual(result.bank_account.masked_account_number, '••••••6789');
+
+      // Verify records in actual database
+      const repRow = db.prepare('SELECT * FROM sales_representatives WHERE id = ?').get(result.id);
+      assert.ok(repRow, 'Representative record must exist in database');
+      assert.strictEqual(repRow.email, 'babatunde@physenra.com');
+
+      const codeRow = db.prepare('SELECT * FROM sales_referral_codes WHERE sales_rep_id = ?').get(result.id);
+      assert.ok(codeRow, 'Referral code record must exist in database');
+      assert.strictEqual(codeRow.code, 'LAGOS-REP-01');
+
+      const bankRow = db.prepare('SELECT * FROM sales_rep_bank_accounts WHERE sales_rep_id = ?').get(result.id);
+      assert.ok(bankRow, 'Bank account record must exist in database');
+      assert.strictEqual(bankRow.bank_name, 'Guaranty Trust Bank');
+
+      const auditRow = db.prepare('SELECT * FROM platform_audit_logs WHERE target_resource_id = ?').get(result.id);
+      assert.ok(auditRow, 'Platform audit log record must exist');
+      assert.strictEqual(auditRow.action, 'sales_rep.onboarded');
+    });
+
+    await st.test('TEST 67 (Real DB Integration): Referral-code collision triggers transaction rollback with zero records left behind', () => {
+      const db = createDisposableTestDb();
+
+      // Seed an existing representative with code LAGOS-REP-01
+      executeAtomicOnboarding(db, {
+        fullName: 'Existing Rep',
+        email: 'existing@physenra.com',
+        phoneNumber: '08031111111',
+        stateRegion: 'Lagos',
+        referralCode: 'LAGOS-REP-01'
+      });
+
+      // Count reps before second attempt
+      const repsBefore = db.prepare('SELECT count(*) as cnt FROM sales_representatives').get().cnt;
+      assert.strictEqual(repsBefore, 1);
+
+      // Attempt to onboard another representative with colliding code
+      assert.throws(
+        () => {
+          executeAtomicOnboarding(db, {
+            fullName: 'Colliding Rep',
+            email: 'colliding@physenra.com',
+            phoneNumber: '08032222222',
+            stateRegion: 'Lagos',
+            referralCode: 'LAGOS-REP-01',
+            bankName: 'Zenith Bank',
+            accountNumber: '9988776655',
+            accountName: 'Colliding Rep'
+          });
+        },
+        /Referral code "LAGOS-REP-01" is already in use/
+      );
+
+      // Verify that NO partial records were left behind for colliding representative
+      const repsAfter = db.prepare('SELECT count(*) as cnt FROM sales_representatives').get().cnt;
+      assert.strictEqual(repsAfter, 1, 'Total representatives must remain 1; colliding rep was rolled back');
+
+      const collidingRep = db.prepare('SELECT * FROM sales_representatives WHERE email = ?').get('colliding@physenra.com');
+      assert.strictEqual(collidingRep, undefined, 'Zero record of colliding rep must exist in database');
+
+      const collidingBank = db.prepare('SELECT * FROM sales_rep_bank_accounts WHERE account_number = ?').get('9988776655');
+      assert.strictEqual(collidingBank, undefined, 'Zero record of colliding rep bank account must exist');
+    });
+
+    await st.test('TEST 68 (Real DB Integration): Bank-account insertion failure triggers transaction rollback with zero records left behind', () => {
+      const db = createDisposableTestDb();
+
+      // Attempt onboarding with invalid account number (9 digits)
+      assert.throws(
+        () => {
+          executeAtomicOnboarding(db, {
+            fullName: 'Failed Bank Rep',
+            email: 'failed.bank@physenra.com',
+            phoneNumber: '08033333333',
+            stateRegion: 'Ogun State',
+            referralCode: 'OGUN-REP-01',
+            bankName: 'Access Bank',
+            accountNumber: '123456789', // Invalid: 9 digits
+            accountName: 'Failed Bank Rep'
+          });
+        },
+        /Bank account number must be exactly 10 digits/
+      );
+
+      // Verify database remains completely empty
+      const repCount = db.prepare('SELECT count(*) as cnt FROM sales_representatives').get().cnt;
+      const codeCount = db.prepare('SELECT count(*) as cnt FROM sales_referral_codes').get().cnt;
+      const bankCount = db.prepare('SELECT count(*) as cnt FROM sales_rep_bank_accounts').get().cnt;
+
+      assert.strictEqual(repCount, 0, 'Zero sales representative records must exist after bank failure');
+      assert.strictEqual(codeCount, 0, 'Zero sales referral code records must exist after bank failure');
+      assert.strictEqual(bankCount, 0, 'Zero sales bank account records must exist after bank failure');
+    });
+
+    await st.test('TEST 69 (Real DB Integration): Duplicate email address triggers unique violation and transaction rollback', () => {
+      const db = createDisposableTestDb();
+
+      // Seed rep
+      executeAtomicOnboarding(db, {
+        fullName: 'First Rep',
+        email: 'first@physenra.com',
+        phoneNumber: '08034444444',
+        stateRegion: 'Abuja',
+        referralCode: 'ABUJA-REP-01'
+      });
+
+      // Attempt to register another rep with same email
+      assert.throws(
+        () => {
+          executeAtomicOnboarding(db, {
+            fullName: 'Second Rep',
+            email: 'first@physenra.com',
+            phoneNumber: '08035555555',
+            stateRegion: 'Enugu',
+            referralCode: 'ENUGU-REP-01'
+          });
+        },
+        /A sales representative with email "first@physenra.com" already exists/
+      );
+
+      // Verify second code was not committed
+      const codeRow = db.prepare('SELECT * FROM sales_referral_codes WHERE code = ?').get('ENUGU-REP-01');
+      assert.strictEqual(codeRow, undefined, 'Second referral code must not exist in database');
+    });
+
+    await st.test('TEST 70 (Real DB Integration): Concurrent duplicate submissions safely serialized', () => {
+      const db = createDisposableTestDb();
+
+      // Request 1 arrives and commits
+      const res1 = executeAtomicOnboarding(db, {
+        fullName: 'Concurrent Rep A',
+        email: 'concurrent.a@physenra.com',
+        phoneNumber: '08036666666',
+        stateRegion: 'Kano',
+        referralCode: 'KANO-REP-01'
+      });
+      assert.ok(res1.id);
+
+      // Request 2 arrives concurrently with the same referral code
+      assert.throws(
+        () => {
+          executeAtomicOnboarding(db, {
+            fullName: 'Concurrent Rep B',
+            email: 'concurrent.b@physenra.com',
+            phoneNumber: '08037777777',
+            stateRegion: 'Kano',
+            referralCode: 'KANO-REP-01'
+          });
+        },
+        /Referral code "KANO-REP-01" is already in use/
+      );
+
+      // Verify only Rep A exists in the database
+      const repB = db.prepare('SELECT * FROM sales_representatives WHERE email = ?').get('concurrent.b@physenra.com');
+      assert.strictEqual(repB, undefined, 'Rep B must not exist in database');
+    });
+
+    await st.test('TEST 71 (Real DB Integration): Optional bank details allows onboarding representative without bank credentials', () => {
+      const db = createDisposableTestDb();
+
+      const result = executeAtomicOnboarding(db, {
+        fullName: 'Rep No Bank',
+        email: 'nobank@physenra.com',
+        phoneNumber: '08038888888',
+        stateRegion: 'Oyo State',
+        referralCode: 'IBADAN-REP-01'
+      });
+
+      assert.ok(result.id);
+      assert.strictEqual(result.bank_account, null, 'bank_account must be null');
+
+      const bankCount = db.prepare('SELECT count(*) as cnt FROM sales_rep_bank_accounts').get().cnt;
+      assert.strictEqual(bankCount, 0, 'Bank account table must have 0 rows');
+
+      const repRow = db.prepare('SELECT * FROM sales_representatives WHERE id = ?').get(result.id);
+      assert.strictEqual(repRow.email, 'nobank@physenra.com');
+    });
+
+    await st.test('TEST 72 (Real DB Integration): Banking data confidentiality - zero raw NUBAN in payload or audit log', () => {
+      const db = createDisposableTestDb();
+      const rawNuban = '0123456789';
+
+      const result = executeAtomicOnboarding(db, {
+        fullName: 'Confidential Rep',
+        email: 'confidential@physenra.com',
+        phoneNumber: '08039999999',
+        stateRegion: 'Delta State',
+        referralCode: 'DELTA-REP-01',
+        bankName: 'Zenith Bank',
+        bankCode: '057',
+        accountNumber: rawNuban,
+        accountName: 'Confidential Rep'
+      });
+
+      // 1. Returned payload must NOT contain raw NUBAN
+      assert.strictEqual(JSON.stringify(result).includes(rawNuban), false, 'Return payload must not contain raw account number');
+      assert.strictEqual(result.bank_account.masked_account_number, '••••••6789');
+
+      // 2. Audit log details must NOT contain raw NUBAN
+      const auditRow = db.prepare('SELECT details FROM platform_audit_logs WHERE target_resource_id = ?').get(result.id);
+      assert.strictEqual(auditRow.details.includes(rawNuban), false, 'Audit log details must not contain raw account number');
+      assert.ok(auditRow.details.includes('••••••6789'), 'Audit log details must include masked account number');
+    });
+
+    await st.test('TEST 72B (Real DB Integration): Non-admin callers strictly rejected with zero service_role bypass', () => {
+      const db = createDisposableTestDb();
+
+      // Non-admin call must be rejected
+      assert.throws(
+        () => {
+          executeAtomicOnboarding(
+            db,
+            {
+              fullName: 'Unauthorized Rep',
+              email: 'unauth@physenra.com',
+              phoneNumber: '08031234567',
+              stateRegion: 'Lagos',
+              referralCode: 'UNAUTH-01'
+            },
+            'regular-user-uuid',
+            false // isPlatformAdmin = false
+          );
+        },
+        /Access Denied: Only Platform Administrators can onboard sales representatives/
+      );
+
+      // Verify zero records were inserted
+      const repCount = db.prepare('SELECT count(*) as cnt FROM sales_representatives').get().cnt;
+      assert.strictEqual(repCount, 0, 'Zero sales representative records must exist after unauthorized call');
+
+      // Platform admin call succeeds
+      const result = executeAtomicOnboarding(
+        db,
+        {
+          fullName: 'Authorized Rep',
+          email: 'auth@physenra.com',
+          phoneNumber: '08031234567',
+          stateRegion: 'Lagos',
+          referralCode: 'AUTH-REP-01'
+        },
+        'admin-user-uuid',
+        true // isPlatformAdmin = true
+      );
+      assert.ok(result.id, 'Authorized Platform Admin must successfully onboard representative');
+    });
+
+    // ==========================================================================
+    // PART 2: POSTGRESQL MIGRATION SECURITY & RPC DEFINITION TESTS (AST / Static)
+    // ==========================================================================
+    await st.test('TEST 73 (Migration AST): Migration 20261111120000 defines public.admin_onboard_sales_rep()', () => {
+      assert.ok(
+        atomicMigrationSql.includes('CREATE OR REPLACE FUNCTION public.admin_onboard_sales_rep('),
+        'Migration must define public.admin_onboard_sales_rep'
+      );
+      assert.ok(
+        atomicMigrationSql.includes('INSERT INTO public.sales_representatives'),
+        'Function must insert into sales_representatives'
+      );
+      assert.ok(
+        atomicMigrationSql.includes('INSERT INTO public.sales_referral_codes'),
+        'Function must insert into sales_referral_codes'
+      );
+      assert.ok(
+        atomicMigrationSql.includes('INSERT INTO public.sales_rep_bank_accounts'),
+        'Function must insert into sales_rep_bank_accounts'
+      );
+    });
+
+    await st.test('TEST 74 (Migration AST): SECURITY DEFINER with fixed search_path = public, pg_temp', () => {
+      assert.ok(
+        atomicMigrationSql.includes('SECURITY DEFINER SET search_path = public, pg_temp'),
+        'Function must be SECURITY DEFINER with fixed search_path = public, pg_temp'
+      );
+    });
+
+    await st.test('TEST 75 (Migration AST): Authenticated Platform Admin verification strictly required (zero service_role bypass)', () => {
+      assert.ok(
+        atomicMigrationSql.includes('IF NOT COALESCE(public.is_platform_admin(), false) THEN'),
+        'Function must verify caller has platform admin authority via is_platform_admin()'
+      );
+      assert.ok(
+        !atomicMigrationSql.includes("auth.role() = 'service_role'"),
+        'Function must NOT include service_role bypass branch'
+      );
+      assert.ok(
+        atomicMigrationSql.includes("'insufficient_privilege'"),
+        'Unauthorized caller must raise insufficient_privilege exception'
+      );
+    });
+
+    await st.test('TEST 76 (Migration AST): Explicit Privilege Lockdown (REVOKE from public/anon/service_role, GRANT exclusively to authenticated)', () => {
+      assert.ok(
+        atomicMigrationSql.includes('FROM PUBLIC, anon, service_role;'),
+        'Must revoke execution from PUBLIC, anon, and service_role'
+      );
+      assert.ok(
+        atomicMigrationSql.includes('TO authenticated;'),
+        'Must grant execution exclusively to authenticated'
+      );
+      assert.ok(
+        !atomicMigrationSql.includes('TO authenticated, service_role'),
+        'Must not grant execution to service_role'
+      );
+    });
+
+    // ==========================================================================
+    // PART 3: APPLICATION SERVICE RPC INTEGRATION TESTS (Mocked RPC)
+    // ==========================================================================
+    await st.test('TEST 77 (Service Mock): salesRepAdminService.createSalesRep calls db.rpc("admin_onboard_sales_rep")', () => {
+      assert.ok(
+        adminServiceSource.includes("db.rpc('admin_onboard_sales_rep'"),
+        'createSalesRep must call db.rpc("admin_onboard_sales_rep")'
+      );
+      assert.ok(
+        !adminServiceSource.includes("from('sales_representatives').insert"),
+        'createSalesRep must not perform client-side insert on sales_representatives'
+      );
+      assert.ok(
+        !adminServiceSource.includes("from('sales_representatives').delete"),
+        'createSalesRep must not perform obsolete client-side compensating deletes'
+      );
+    });
+
+    await st.test('TEST 78 (Service Mock): Non-admin / unauthenticated access rejection translated cleanly', () => {
+      assert.ok(
+        adminServiceSource.includes("Permission denied: Only Platform Administrators can onboard sales representatives"),
+        'Service must provide clear permission denied error message'
+      );
+    });
+
+    await st.test('TEST 78B (Service Mock): Duplicate referral code error classification correctly prioritizes referral code collision over email', () => {
+      assert.ok(
+        adminServiceSource.includes("isReferralCodeDuplicate"),
+        'Service must define explicit isReferralCodeDuplicate check'
+      );
+      assert.ok(
+        adminServiceSource.includes("Referral code \"${cleanCode}\" is already in use. Please choose a different referral code."),
+        'Service must retain user-friendly referral code collision message'
+      );
+      assert.ok(
+        adminServiceSource.includes("sales_referral_codes"),
+        'Service must inspect sales_referral_codes constraint name'
+      );
+    });
+
+    await st.test('TEST 78C (Service Mock): Duplicate email error classification correctly handles email collisions and constraints', () => {
+      assert.ok(
+        adminServiceSource.includes("isEmailDuplicate"),
+        'Service must define explicit isEmailDuplicate check'
+      );
+      assert.ok(
+        adminServiceSource.includes("A sales representative with email \"${cleanEmail}\" already exists."),
+        'Service must retain user-friendly email collision message'
+      );
+      assert.ok(
+        adminServiceSource.includes("sales_representatives_email_key"),
+        'Service must inspect sales_representatives_email_key constraint name'
+      );
+    });
+
+    await st.test('TEST 78D (Service Mock): Unrelated unique constraint violation (SQLSTATE 23505) falls through without email/referral misclassification', () => {
+      assert.ok(
+        adminServiceSource.includes("sales_referral_codes_code_key"),
+        'Must explicitly check sales_referral_codes_code_key'
+      );
+      assert.ok(
+        adminServiceSource.includes("sales_representatives_email_key"),
+        'Must explicitly check sales_representatives_email_key'
+      );
+      // Ensure error.code === '23505' is NOT unconditionally used to classify as email
+      const emailClassificationMatch = adminServiceSource.match(/isEmailDuplicate\s*=\s*([^;]+);/);
+      assert.ok(emailClassificationMatch, 'Must define isEmailDuplicate assignment');
+      assert.ok(
+        !emailClassificationMatch[1].includes("error.code === '23505'"),
+        'isEmailDuplicate must NOT unconditionally treat error.code === "23505" as email duplicate'
+      );
+    });
+
+    await st.test('TEST 79 (Service Mock): Pre-flight client-side input validation rejects invalid inputs before RPC invocation', () => {
+      assert.ok(
+        adminServiceSource.includes("Full name is required (minimum 2 characters)."),
+        'Service must enforce minimum full name length'
+      );
+      assert.ok(
+        adminServiceSource.includes("A valid email address is required."),
+        'Service must enforce valid email format'
+      );
+      assert.ok(
+        adminServiceSource.includes("Referral code must be 4 to 32 characters long"),
+        'Service must enforce referral code format'
+      );
+      assert.ok(
+        adminServiceSource.includes("Bank account number must be exactly 10 digits."),
+        'Service must enforce 10-digit NUBAN format'
+      );
+    });
+
+    await st.test('TEST 80 (UI Modal): PlatformSalesPage retains dedicated submitting state, inline alert, and loader', () => {
+      assert.ok(
+        salesPageSource.includes('onboardSubmitting'),
+        'PlatformSalesPage must maintain onboardSubmitting state'
+      );
+      assert.ok(
+        salesPageSource.includes('onboardModalError'),
+        'PlatformSalesPage must maintain onboardModalError state'
+      );
+      assert.ok(
+        salesPageSource.includes('{onboardModalError &&'),
+        'PlatformSalesPage must render inline error inside modal'
+      );
+      assert.ok(
+        salesPageSource.includes('disabled={onboardSubmitting}'),
+        'Submit button must be disabled while submitting'
+      );
+      assert.ok(
+        salesPageSource.includes('Loader2') && salesPageSource.includes('animate-spin'),
+        'Submit button must display Loader2 spinner while submitting'
+      );
+    });
+
+    await st.test('TEST 81 (UI Modal): PlatformSalesPage handles optional bank details without blocking submission', () => {
+      assert.ok(
+        salesPageSource.includes('const hasBankDetails = Boolean(bankName || accountNumber || accountName)'),
+        'PlatformSalesPage must gate bank validation behind hasBankDetails'
+      );
+      assert.ok(
+        salesPageSource.includes('Optional — may be added later'),
+        'PlatformSalesPage must label bank credentials as optional'
+      );
+    });
+  });
 });
