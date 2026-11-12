@@ -35,6 +35,12 @@ import {
   Sparkles,
   Loader2,
   Mail,
+  Copy,
+  Check,
+  UserX,
+  UserCheck,
+  Archive,
+  Trash2,
 } from 'lucide-react';
 
 const POPULAR_NIGERIAN_BANKS = [
@@ -98,6 +104,30 @@ export const PlatformSalesPage: React.FC = () => {
   const [selectedCommsForPayout, setSelectedCommsForPayout] = useState<string[]>([]);
   const [payoutRepId, setPayoutRepId] = useState<string>('');
   const [transferRefInput, setTransferRefInput] = useState<{ payoutId: string; ref: string } | null>(null);
+
+  // Modals for Phase 7.1 Lifecycle
+  const [directLinkModal, setDirectLinkModal] = useState<{ repName: string; link: string } | null>(null);
+  const [linkCopied, setLinkCopied] = useState<boolean>(false);
+
+  const [deactivateModal, setDeactivateModal] = useState<SalesRepSummary | null>(null);
+  const [deactivateReason, setDeactivateReason] = useState<string>('');
+  const [deactivating, setDeactivating] = useState<boolean>(false);
+
+  const [reactivateModal, setReactivateModal] = useState<SalesRepSummary | null>(null);
+  const [reactivateReason, setReactivateReason] = useState<string>('');
+  const [reactivating, setReactivating] = useState<boolean>(false);
+
+  const [archiveDeleteModal, setArchiveDeleteModal] = useState<SalesRepSummary | null>(null);
+  const [deletionEligibility, setDeletionEligibility] = useState<{
+    can_delete: boolean;
+    referral_count: number;
+    commission_count: number;
+    payout_count: number;
+    suggested_action: 'delete' | 'archive';
+  } | null>(null);
+  const [eligibilityLoading, setEligibilityLoading] = useState<boolean>(false);
+  const [archiveDeleteReason, setArchiveDeleteReason] = useState<string>('');
+  const [actionInProgress, setActionInProgress] = useState<boolean>(false);
 
   const loadAllData = async () => {
     try {
@@ -214,6 +244,9 @@ export const PlatformSalesPage: React.FC = () => {
         try {
           const inviteResult = await salesRepAdminService.inviteSalesRepToPortal(onboarded.id);
           inviteNote = inviteResult?.message ? ` (${inviteResult.message})` : ' (Portal invitation email sent)';
+          if (inviteResult?.action_link) {
+            setDirectLinkModal({ repName: fullName, link: inviteResult.action_link });
+          }
         } catch (invErr: any) {
           inviteNote = ` — Portal invite pending: ${invErr?.message || 'Send manually from Representatives table.'}`;
         }
@@ -241,17 +274,119 @@ export const PlatformSalesPage: React.FC = () => {
     }
   };
 
+  const handleCopyDirectLink = async () => {
+    if (!directLinkModal?.link) return;
+    try {
+      await navigator.clipboard.writeText(directLinkModal.link);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2500);
+    } catch {
+      // fallback handled by select-all
+    }
+  };
+
   const handleInviteRep = async (rep: SalesRepSummary) => {
     try {
       setError(null);
       setInvitingRepId(rep.id);
-      const res = await salesRepAdminService.inviteSalesRepToPortal(rep.id);
+      const res = await salesRepAdminService.inviteSalesRepToPortal(rep.id, {
+        action: rep.user_id ? 'resend_setup' : 'invite',
+      });
       setSuccessMsg(`${rep.full_name}: ${res.message || 'Portal invitation processed.'}`);
+      if (res.action_link) {
+        setDirectLinkModal({ repName: rep.full_name, link: res.action_link });
+      }
       await loadAllData();
     } catch (err: any) {
       setError(err.message || 'Failed to invite representative to portal');
     } finally {
       setInvitingRepId(null);
+    }
+  };
+
+  const handleDeactivateRep = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!deactivateModal) return;
+    try {
+      setDeactivating(true);
+      const res = await salesRepAdminService.deactivateSalesRep(deactivateModal.id, deactivateReason);
+      setSuccessMsg(res.message);
+      setDeactivateModal(null);
+      setDeactivateReason('');
+      await loadAllData();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to deactivate representative');
+    } finally {
+      setDeactivating(false);
+    }
+  };
+
+  const handleReactivateRep = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reactivateModal) return;
+    try {
+      setReactivating(true);
+      const res = await salesRepAdminService.reactivateSalesRep(reactivateModal.id, reactivateReason);
+      setSuccessMsg(res.message);
+      setReactivateModal(null);
+      setReactivateReason('');
+      await loadAllData();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to reactivate representative');
+    } finally {
+      setReactivating(false);
+    }
+  };
+
+  const openArchiveDeleteModal = async (rep: SalesRepSummary) => {
+    setArchiveDeleteModal(rep);
+    setArchiveDeleteReason('');
+    setDeletionEligibility(null);
+    setEligibilityLoading(true);
+    try {
+      const eligibility = await salesRepAdminService.checkDeletionEligibility(rep.id);
+      setDeletionEligibility(eligibility);
+    } catch (err: any) {
+      console.warn('Failed to check deletion eligibility:', err);
+      setDeletionEligibility({
+        can_delete: false,
+        referral_count: 0,
+        commission_count: 0,
+        payout_count: 0,
+        suggested_action: 'archive',
+      });
+    } finally {
+      setEligibilityLoading(false);
+    }
+  };
+
+  const handleArchiveRep = async () => {
+    if (!archiveDeleteModal) return;
+    try {
+      setActionInProgress(true);
+      const res = await salesRepAdminService.archiveSalesRep(archiveDeleteModal.id, archiveDeleteReason);
+      setSuccessMsg(res.message);
+      setArchiveDeleteModal(null);
+      await loadAllData();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to archive representative');
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
+  const handleDeleteRep = async () => {
+    if (!archiveDeleteModal) return;
+    try {
+      setActionInProgress(true);
+      const res = await salesRepAdminService.deleteSalesRep(archiveDeleteModal.id, archiveDeleteReason);
+      setSuccessMsg(res.message);
+      setArchiveDeleteModal(null);
+      await loadAllData();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to delete representative');
+    } finally {
+      setActionInProgress(false);
     }
   };
 
@@ -559,10 +694,14 @@ export const PlatformSalesPage: React.FC = () => {
                                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                                 : rep.status === 'suspended'
                                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                                : 'bg-slate-700/50 text-slate-400 border border-slate-600'
                             }`}
                           >
-                            {rep.status}
+                            {rep.status === 'active'
+                              ? 'Active'
+                              : rep.status === 'suspended'
+                              ? 'Inactive (Suspended)'
+                              : 'Archived (Terminated)'}
                           </span>
                           <div className="text-[10px]">
                             {rep.user_id ? (
@@ -589,18 +728,58 @@ export const PlatformSalesPage: React.FC = () => {
                       </td>
                       <td className="p-4 text-right space-x-2 whitespace-nowrap">
                         {rep.status === 'active' && (
+                          <>
+                            <button
+                              onClick={() => handleInviteRep(rep)}
+                              disabled={invitingRepId === rep.id}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-teal-600/20 hover:bg-teal-600/30 text-[11px] font-semibold text-teal-300 border border-teal-500/30 disabled:opacity-50"
+                              title="Send or resend portal setup link"
+                            >
+                              {invitingRepId === rep.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Mail className="w-3 h-3 text-teal-300" />
+                              )}
+                              <span>{rep.user_id ? 'Resend Setup' : 'Send Portal Invite'}</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDeactivateModal(rep);
+                                setDeactivateReason('');
+                              }}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-500/10 hover:bg-amber-500/20 text-[11px] font-semibold text-amber-400 border border-amber-500/30"
+                              title="Deactivate representative portal access"
+                            >
+                              <UserX className="w-3 h-3" />
+                              <span>Deactivate</span>
+                            </button>
+                          </>
+                        )}
+                        {rep.status === 'suspended' && (
                           <button
-                            onClick={() => handleInviteRep(rep)}
-                            disabled={invitingRepId === rep.id}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-teal-600/20 hover:bg-teal-600/30 text-[11px] font-semibold text-teal-300 border border-teal-500/30 disabled:opacity-50"
+                            onClick={() => {
+                              setReactivateModal(rep);
+                              setReactivateReason('');
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-[11px] font-semibold text-emerald-400 border border-emerald-500/30"
+                            title="Restore representative portal access"
                           >
-                            {invitingRepId === rep.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <Mail className="w-3 h-3 text-teal-300" />
-                            )}
-                            <span>{rep.user_id ? 'Resend Setup' : 'Send Portal Invite'}</span>
+                            <UserCheck className="w-3 h-3" />
+                            <span>Reactivate</span>
                           </button>
+                        )}
+                        {rep.status !== 'terminated' && (
+                          <button
+                            onClick={() => openArchiveDeleteModal(rep)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-slate-800 hover:bg-rose-900/30 text-[11px] font-semibold text-slate-300 hover:text-rose-300 border border-slate-700 hover:border-rose-700/50"
+                            title="Archive or delete representative"
+                          >
+                            <Archive className="w-3 h-3" />
+                            <span>Archive / Delete</span>
+                          </button>
+                        )}
+                        {rep.status === 'terminated' && (
+                          <span className="text-[11px] text-slate-500 italic">Archived Record</span>
                         )}
                         {rep.bank_account && (
                           <button
@@ -1309,6 +1488,279 @@ export const PlatformSalesPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DIRECT SETUP / ACTIVATION LINK */}
+      {directLinkModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-teal-400" />
+                  <span>Representative Portal Setup Link</span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Generated for <strong className="text-slate-200">{directLinkModal.repName}</strong>
+                </p>
+              </div>
+              <button
+                onClick={() => setDirectLinkModal(null)}
+                className="text-slate-500 hover:text-white text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 bg-teal-500/10 border border-teal-500/20 rounded-xl text-xs text-teal-300 leading-relaxed">
+              If email delivery is delayed by provider queues or recipient mail filters, share this direct secure link with the representative. Valid for one-time password setup.
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-[11px] font-semibold text-slate-400">Direct Activation URL</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={directLinkModal.link}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-slate-300 focus:outline-none select-all"
+                  onClick={(e) => (e.target as HTMLInputElement).select()}
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyDirectLink}
+                  className="px-3 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shrink-0 transition"
+                >
+                  {linkCopied ? (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy Link</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setDirectLinkModal(null)}
+                className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DEACTIVATE REPRESENTATIVE */}
+      {deactivateModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                <UserX className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white">Deactivate Representative</h2>
+                <p className="text-xs text-slate-400">
+                  {deactivateModal.full_name} ({deactivateModal.referral_codes?.[0]?.code || 'No Code'})
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Deactivating will immediately revoke portal access and prevent future referral attributions. All historical commissions, referrals, and banking records will be preserved.
+            </p>
+
+            <form onSubmit={handleDeactivateRep} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Reason for Deactivation <span className="text-amber-400">*</span>
+                </label>
+                <textarea
+                  required
+                  minLength={5}
+                  rows={3}
+                  value={deactivateReason}
+                  onChange={(e) => setDeactivateReason(e.target.value)}
+                  placeholder="e.g. Inactive pilot period completed; temporary partner suspension"
+                  className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeactivateModal(null)}
+                  disabled={deactivating}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={deactivating || deactivateReason.trim().length < 5}
+                  className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-xs font-semibold text-white disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {deactivating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserX className="w-3.5 h-3.5" />}
+                  <span>Deactivate Representative</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: REACTIVATE REPRESENTATIVE */}
+      {reactivateModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                <UserCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white">Reactivate Representative</h2>
+                <p className="text-xs text-slate-400">
+                  {reactivateModal.full_name} ({reactivateModal.referral_codes?.[0]?.code || 'No Code'})
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Reactivating will restore portal access, re-enable referral attribution under code{' '}
+              <strong className="text-emerald-400">{reactivateModal.referral_codes?.[0]?.code}</strong>, and reinstate active pilot status without altering their existing account.
+            </p>
+
+            <form onSubmit={handleReactivateRep} className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Reason / Notes (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={reactivateReason}
+                  onChange={(e) => setReactivateReason(e.target.value)}
+                  placeholder="e.g. Pilot extension approved by management"
+                  className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setReactivateModal(null)}
+                  disabled={reactivating}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={reactivating}
+                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  {reactivating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserCheck className="w-3.5 h-3.5" />}
+                  <span>Reactivate Representative</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ARCHIVE OR DELETE REPRESENTATIVE */}
+      {archiveDeleteModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 shrink-0">
+                <Archive className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-white">Archive or Delete Representative</h2>
+                <p className="text-xs text-slate-400">
+                  {archiveDeleteModal.full_name} ({archiveDeleteModal.referral_codes?.[0]?.code || 'No Code'})
+                </p>
+              </div>
+            </div>
+
+            {eligibilityLoading ? (
+              <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400">
+                <Loader2 className="w-5 h-5 animate-spin text-teal-400" />
+                <span className="text-xs">Inspecting financial and referral dependencies...</span>
+              </div>
+            ) : deletionEligibility ? (
+              <div className="space-y-4">
+                {deletionEligibility.can_delete ? (
+                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-xs text-emerald-300 leading-relaxed">
+                    This representative has <strong>zero referrals and zero commissions</strong> on record. They can be permanently deleted, or archived as a historical record.
+                  </div>
+                ) : (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 leading-relaxed">
+                    Under financial and audit integrity rules, this representative has{' '}
+                    <strong>{deletionEligibility.referral_count} referrals</strong> and{' '}
+                    <strong>{deletionEligibility.commission_count} commissions</strong> on record.
+                    Hard deletion is blocked to protect the ledger. You can <strong>Archive</strong> this representative instead.
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Justification / Reason <span className="text-rose-400">*</span>
+                  </label>
+                  <textarea
+                    required
+                    minLength={5}
+                    rows={3}
+                    value={archiveDeleteReason}
+                    onChange={(e) => setArchiveDeleteReason(e.target.value)}
+                    placeholder="e.g. Representative concluded participation; requested account removal"
+                    className="w-full p-2.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setArchiveDeleteModal(null)}
+                    disabled={actionInProgress}
+                    className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleArchiveRep}
+                    disabled={actionInProgress || archiveDeleteReason.trim().length < 5}
+                    className="px-4 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-semibold text-white disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    {actionInProgress ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Archive className="w-3.5 h-3.5" />}
+                    <span>Archive Representative</span>
+                  </button>
+                  {deletionEligibility.can_delete && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteRep}
+                      disabled={actionInProgress || archiveDeleteReason.trim().length < 5}
+                      className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-xs font-semibold text-white disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      {actionInProgress ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                      <span>Delete Representative</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}

@@ -361,12 +361,19 @@ export const salesRepAdminService = {
    * Provisions or associates an independent Supabase Auth account and dispatches
    * a secure email invitation / password setup link via /api/invite-sales-rep.
    */
-  async inviteSalesRepToPortal(salesRepId: string): Promise<{
+  async inviteSalesRepToPortal(
+    salesRepId: string,
+    options?: { action?: 'invite' | 'resend_setup' | 'send_password_recovery'; reason?: string }
+  ): Promise<{
     status: string;
+    account_state?: string;
     linked: boolean;
     invited?: boolean;
     email_sent?: boolean;
+    rate_limited?: boolean;
+    action_link?: string | null;
     message?: string;
+    cooldown_seconds?: number;
   }> {
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token;
@@ -382,6 +389,8 @@ export const salesRepAdminService = {
       },
       body: JSON.stringify({
         sales_rep_id: salesRepId,
+        action: options?.action || 'invite',
+        reason: options?.reason,
         origin: typeof window !== 'undefined' ? window.location.origin : undefined,
       }),
     });
@@ -394,9 +403,140 @@ export const salesRepAdminService = {
     }
 
     if (!res.ok) {
-      throw new Error(body?.error || `Failed to send portal invitation (HTTP ${res.status})`);
+      throw new Error(body?.error || `Failed to process representative invitation (HTTP ${res.status})`);
     }
 
+    return body;
+  },
+
+  /**
+   * Checks detailed authentication state for a representative.
+   */
+  async checkSalesRepStatus(salesRepId: string): Promise<{
+    sales_rep_id: string;
+    account_state: 'unlinked' | 'activation_pending' | 'password_setup_pending' | 'fully_activated';
+    status: string;
+    has_auth_user: boolean;
+    email_confirmed: boolean;
+    last_sign_in_at: string | null;
+  }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Authentication session required.');
+
+    const res = await fetch('/api/invite-sales-rep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ sales_rep_id: salesRepId, action: 'check_status' }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body?.error || 'Failed to inspect representative auth status.');
+    return body;
+  },
+
+  /**
+   * Deactivates a sales representative (sets status = suspended), immediately revoking portal access.
+   */
+  async deactivateSalesRep(salesRepId: string, reason: string): Promise<{ success: boolean; message: string }> {
+    if (!reason || reason.trim().length < 5) {
+      throw new Error('A detailed written justification (minimum 5 characters) is required to deactivate a representative.');
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Authentication session required.');
+
+    const res = await fetch('/api/invite-sales-rep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ sales_rep_id: salesRepId, action: 'deactivate', reason: reason.trim() }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body?.error || 'Failed to deactivate representative.');
+    return body;
+  },
+
+  /**
+   * Reactivates a suspended representative, restoring portal access and original referral code.
+   */
+  async reactivateSalesRep(salesRepId: string, reason?: string): Promise<{ success: boolean; message: string }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Authentication session required.');
+
+    const res = await fetch('/api/invite-sales-rep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ sales_rep_id: salesRepId, action: 'reactivate', reason: reason?.trim() }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body?.error || 'Failed to reactivate representative.');
+    return body;
+  },
+
+  /**
+   * Checks whether a representative is eligible for permanent hard deletion or must be archived.
+   */
+  async checkDeletionEligibility(salesRepId: string): Promise<{
+    can_delete: boolean;
+    referral_count: number;
+    commission_count: number;
+    payout_count: number;
+    suggested_action: 'delete' | 'archive';
+  }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Authentication session required.');
+
+    const res = await fetch('/api/invite-sales-rep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ sales_rep_id: salesRepId, action: 'check_deletion_eligibility' }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body?.error || 'Failed to check deletion eligibility.');
+    return body;
+  },
+
+  /**
+   * Archives a sales representative (sets status = terminated, deactivates referral code),
+   * preserving 100% of the financial and referral ledger.
+   */
+  async archiveSalesRep(salesRepId: string, reason: string): Promise<{ success: boolean; message: string }> {
+    if (!reason || reason.trim().length < 5) {
+      throw new Error('A detailed written justification (minimum 5 characters) is required to archive a representative.');
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Authentication session required.');
+
+    const res = await fetch('/api/invite-sales-rep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ sales_rep_id: salesRepId, action: 'archive', reason: reason.trim() }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body?.error || 'Failed to archive representative.');
+    return body;
+  },
+
+  /**
+   * Permanently deletes a representative who has zero referral, commission, or payout history.
+   */
+  async deleteSalesRep(salesRepId: string, reason: string): Promise<{ success: boolean; message: string }> {
+    if (!reason || reason.trim().length < 5) {
+      throw new Error('A detailed written justification (minimum 5 characters) is required to delete a representative.');
+    }
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) throw new Error('Authentication session required.');
+
+    const res = await fetch('/api/invite-sales-rep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ sales_rep_id: salesRepId, action: 'delete', reason: reason.trim() }),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body?.error || 'Failed to delete representative.');
     return body;
   },
 
