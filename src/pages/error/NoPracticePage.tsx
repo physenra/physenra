@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { usePractice } from '../../hooks/usePractice';
-import { Building2, LogOut, RefreshCw, AlertCircle, ShieldCheck } from 'lucide-react';
+import { salesRepPortalService } from '../../services/salesRepPortalService';
+import { Building2, LogOut, RefreshCw, AlertCircle, ShieldCheck, Sparkles } from 'lucide-react';
 
 export const NoPracticePage: React.FC = () => {
   const { user, profile, signOut } = useAuth();
   const { memberships, refreshPractices } = usePractice();
   const [refreshing, setRefreshing] = useState(false);
+  const [isSalesRep, setIsSalesRep] = useState(false);
   const navigate = useNavigate();
 
   // If user acquires active practice memberships (e.g. practice registration completed, invitation accepted),
@@ -17,6 +19,18 @@ export const NoPracticePage: React.FC = () => {
       navigate('/app/dashboard', { replace: true });
     }
   }, [memberships, navigate]);
+
+  useEffect(() => {
+    if (!user) return;
+    salesRepPortalService
+      .getMyPortalContext()
+      .then((ctx) => {
+        if (ctx.is_sales_rep) {
+          setIsSalesRep(true);
+        }
+      })
+      .catch(() => null);
+  }, [user]);
 
   const handleRefresh = async () => {
     try {
@@ -66,6 +80,17 @@ export const NoPracticePage: React.FC = () => {
         </div>
 
         <div className="action-buttons-group">
+          {isSalesRep && (
+            <Link
+              to="/sales-portal"
+              className="btn-primary"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', textDecoration: 'none', background: '#0d9488' }}
+            >
+              <Sparkles size={16} />
+              <span>Open Sales Partner Portal</span>
+            </Link>
+          )}
+
           {Boolean(profile?.is_platform_admin) && (
             <Link
               to="/platform"

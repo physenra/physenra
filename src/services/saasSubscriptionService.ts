@@ -64,6 +64,25 @@ export interface PracticeDossier {
   practitionerCount: number;
 }
 
+/**
+ * Non-blocking best-effort referral attribution after practice creation.
+ * Failures never abort clinic onboarding.
+ */
+async function attributePracticeReferralNonBlocking(
+  practiceId: string,
+  referralCode: string
+): Promise<void> {
+  try {
+    await (supabase as any).rpc('attribute_practice_referral', {
+      p_practice_id: practiceId,
+      p_referral_code: referralCode,
+      p_attribution_type: 'code_link',
+    });
+  } catch {
+    // Non-blocking: attribution failure never aborts clinic onboarding
+  }
+}
+
 export const saasSubscriptionService = {
   // ----------------------------------------------------------------------------
   // 1. PUBLIC & ONBOARDING OPERATIONS
@@ -105,7 +124,29 @@ export const saasSubscriptionService = {
   },
 
   /**
+   * Validates whether a sales referral code belongs to an active representative
+   * without disclosing representative PII or blocking registration on failure.
+   */
+  async validateReferralCode(code: string): Promise<{ valid: boolean; code?: string | null }> {
+    const clean = (code || '').trim().toUpperCase();
+    if (!clean || !/^[A-Z0-9_-]{4,32}$/.test(clean)) {
+      return { valid: false };
+    }
+
+    const { data, error } = await (supabase as any).rpc('validate_referral_code', {
+      p_code: clean,
+    });
+
+    if (error || !data) {
+      return { valid: false };
+    }
+    return data as { valid: boolean; code?: string | null };
+  },
+
+  /**
    * Atomically registers a new practice, assigns owner role, and sets up 14-day trial subscription.
+   * Backward-compatible with both 6-param and 7-param RPC signatures so missing/unmigrated
+   * referral parameters never block ordinary practice registration.
    */
   async registerPracticeAndSubscribe(
     payload: RegisterPracticeAndSubscribePayload
@@ -116,21 +157,50 @@ export const saasSubscriptionService = {
       throw new Error('Authentication required. Please sign in to complete practice registration.');
     }
 
-    const { data, error } = await supabase.rpc('register_practice_and_subscribe', {
+    const baseArgs = {
       p_practice_name: payload.practice_name,
       p_slug: payload.slug,
       p_plan_code: payload.plan_code,
       p_billing_interval: payload.billing_interval || 'monthly',
       p_country: payload.country || 'NG',
       p_timezone: payload.timezone || 'Africa/Lagos',
-      p_referral_code: payload.referral_code || null,
-    });
+    };
+
+    const cleanReferral = payload.referral_code ? payload.referral_code.trim().toUpperCase() : '';
+
+    if (cleanReferral) {
+      const { data, error } = await supabase.rpc('register_practice_and_subscribe', {
+        ...baseArgs,
+        p_referral_code: cleanReferral,
+      } as any);
+
+      if (!error) {
+        return data as unknown as RegisterPracticeAndSubscribeResponse;
+      }
+
+      // If production DB still holds 6-parameter signature (PGRST202), fall back cleanly
+      const isMissing7thParam =
+        error.code === 'PGRST202' ||
+        String(error.message || '').toLowerCase().includes('schema cache');
+
+      if (!isMissing7thParam) {
+        throw new Error(`Registration failed: ${error.message}`);
+      }
+    }
+
+    const { data, error } = await supabase.rpc('register_practice_and_subscribe', baseArgs);
 
     if (error) {
       throw new Error(`Registration failed: ${error.message}`);
     }
 
-    return data as unknown as RegisterPracticeAndSubscribeResponse;
+    const registered = data as unknown as RegisterPracticeAndSubscribeResponse;
+
+    if (cleanReferral && registered?.practice_id) {
+      await attributePracticeReferralNonBlocking(registered.practice_id, cleanReferral);
+    }
+
+    return registered;
   },
 
   // ----------------------------------------------------------------------------

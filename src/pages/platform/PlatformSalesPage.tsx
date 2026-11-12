@@ -34,6 +34,7 @@ import {
   Eye,
   Sparkles,
   Loader2,
+  Mail,
 } from 'lucide-react';
 
 const POPULAR_NIGERIAN_BANKS = [
@@ -73,6 +74,7 @@ export const PlatformSalesPage: React.FC = () => {
   const [showOnboardModal, setShowOnboardModal] = useState<boolean>(false);
   const [onboardSubmitting, setOnboardSubmitting] = useState<boolean>(false);
   const [onboardModalError, setOnboardModalError] = useState<string | null>(null);
+  const [invitingRepId, setInvitingRepId] = useState<string | null>(null);
   const [onboardForm, setOnboardForm] = useState({
     fullName: '',
     email: '',
@@ -195,7 +197,7 @@ export const PlatformSalesPage: React.FC = () => {
 
     try {
       setOnboardSubmitting(true);
-      await salesRepAdminService.createSalesRep({
+      const onboarded = await salesRepAdminService.createSalesRep({
         fullName,
         email,
         phoneNumber,
@@ -207,7 +209,17 @@ export const PlatformSalesPage: React.FC = () => {
         accountName: hasBankDetails ? accountName : undefined,
       });
 
-      setSuccessMsg(`Sales Representative ${fullName} onboarded successfully!`);
+      let inviteNote = '';
+      if (onboarded?.id) {
+        try {
+          const inviteResult = await salesRepAdminService.inviteSalesRepToPortal(onboarded.id);
+          inviteNote = inviteResult?.message ? ` (${inviteResult.message})` : ' (Portal invitation email sent)';
+        } catch (invErr: any) {
+          inviteNote = ` — Portal invite pending: ${invErr?.message || 'Send manually from Representatives table.'}`;
+        }
+      }
+
+      setSuccessMsg(`Sales Representative ${fullName} onboarded successfully!${inviteNote}`);
       setShowOnboardModal(false);
       setOnboardModalError(null);
       setOnboardForm({
@@ -226,6 +238,20 @@ export const PlatformSalesPage: React.FC = () => {
       setOnboardModalError(err.message || 'Failed to onboard representative');
     } finally {
       setOnboardSubmitting(false);
+    }
+  };
+
+  const handleInviteRep = async (rep: SalesRepSummary) => {
+    try {
+      setError(null);
+      setInvitingRepId(rep.id);
+      const res = await salesRepAdminService.inviteSalesRepToPortal(rep.id);
+      setSuccessMsg(`${rep.full_name}: ${res.message || 'Portal invitation processed.'}`);
+      await loadAllData();
+    } catch (err: any) {
+      setError(err.message || 'Failed to invite representative to portal');
+    } finally {
+      setInvitingRepId(null);
     }
   };
 
@@ -526,17 +552,26 @@ export const PlatformSalesPage: React.FC = () => {
                       </td>
                       <td className="p-4 text-slate-300">{rep.state_region}</td>
                       <td className="p-4">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                            rep.status === 'active'
-                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                              : rep.status === 'suspended'
-                              ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
-                              : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                          }`}
-                        >
-                          {rep.status}
-                        </span>
+                        <div className="space-y-1">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              rep.status === 'active'
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                : rep.status === 'suspended'
+                                ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                                : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                            }`}
+                          >
+                            {rep.status}
+                          </span>
+                          <div className="text-[10px]">
+                            {rep.user_id ? (
+                              <span className="text-teal-400 font-semibold">Portal Account Linked</span>
+                            ) : (
+                              <span className="text-amber-400 font-semibold">Portal Invite Pending</span>
+                            )}
+                          </div>
+                        </div>
                       </td>
                       <td className="p-4">
                         {rep.bank_account ? (
@@ -552,7 +587,21 @@ export const PlatformSalesPage: React.FC = () => {
                         <div>Start: {rep.pilot_start_date}</div>
                         <div>End: {rep.pilot_end_date}</div>
                       </td>
-                      <td className="p-4 text-right">
+                      <td className="p-4 text-right space-x-2 whitespace-nowrap">
+                        {rep.status === 'active' && (
+                          <button
+                            onClick={() => handleInviteRep(rep)}
+                            disabled={invitingRepId === rep.id}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-teal-600/20 hover:bg-teal-600/30 text-[11px] font-semibold text-teal-300 border border-teal-500/30 disabled:opacity-50"
+                          >
+                            {invitingRepId === rep.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Mail className="w-3 h-3 text-teal-300" />
+                            )}
+                            <span>{rep.user_id ? 'Resend Setup' : 'Send Portal Invite'}</span>
+                          </button>
+                        )}
                         {rep.bank_account && (
                           <button
                             onClick={() => {

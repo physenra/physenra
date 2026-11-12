@@ -7,6 +7,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { supabase } from '../../lib/supabase';
+import { salesRepPortalService } from '../../services/salesRepPortalService';
 import { BrandLogo } from '../../components/ui/BrandLogo';
 import { Lock, Mail, AlertCircle, ArrowRight, Building2, ShieldCheck, Loader2 } from 'lucide-react';
 
@@ -17,6 +19,7 @@ export const LoginPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const { signIn, user, loading } = useAuth();
+  const { pendingAuthFlow } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -28,16 +31,59 @@ export const LoginPage: React.FC = () => {
   const isValidInternalPath = (path?: string | null) =>
     Boolean(path && path.startsWith('/') && !path.startsWith('//'));
 
-  const from =
+  const explicitFrom =
     (isValidInternalPath(stateFrom) ? stateFrom : null) ||
-    (isValidInternalPath(queryFrom) ? queryFrom : null) ||
-    '/app/dashboard';
+    (isValidInternalPath(queryFrom) ? queryFrom : null);
 
   useEffect(() => {
-    if (!loading && user) {
-      navigate(from, { replace: true });
+    if (loading || !user) return;
+
+    if (pendingAuthFlow === 'invite') {
+      navigate('/sales-portal/accept-invite', { replace: true });
+      return;
     }
-  }, [user, loading, navigate, from]);
+    if (pendingAuthFlow === 'recovery') {
+      navigate('/reset-password', { replace: true });
+      return;
+    }
+
+    if (explicitFrom) {
+      navigate(explicitFrom, { replace: true });
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        await salesRepPortalService.claimVerifiedAccount().catch(() => null);
+        const [{ data: memberships }, portalCtx] = await Promise.all([
+          supabase
+            .from('practice_memberships')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .limit(1),
+          salesRepPortalService.getMyPortalContext().catch(() => null),
+        ]);
+
+        if (cancelled) return;
+        const hasPractice = Array.isArray(memberships) && memberships.length > 0;
+        if (!hasPractice && portalCtx?.is_sales_rep) {
+          navigate('/sales-portal', { replace: true });
+          return;
+        }
+      } catch {
+        // Default safely to /app/dashboard
+      }
+      if (!cancelled) {
+        navigate('/app/dashboard', { replace: true });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, loading, pendingAuthFlow, navigate, explicitFrom]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,9 +166,17 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-xs font-semibold text-slate-700 mb-1">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label htmlFor="password" className="block text-xs font-semibold text-slate-700">
+                  Password
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-[11px] font-semibold text-teal-600 hover:text-teal-700 hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
@@ -175,6 +229,13 @@ export const LoginPage: React.FC = () => {
               <span>Need an individual staff account? </span>
               <Link to="/signup" className="text-teal-600 font-semibold hover:underline">
                 Create account
+              </Link>
+            </div>
+
+            <div className="pt-1 text-xs text-slate-500">
+              <span>Sales Partner? </span>
+              <Link to="/sales-portal/login" className="text-teal-700 font-semibold hover:underline">
+                Sign in to Sales Portal &rarr;
               </Link>
             </div>
           </div>

@@ -358,6 +358,49 @@ export const salesRepAdminService = {
   },
 
   /**
+   * Provisions or associates an independent Supabase Auth account and dispatches
+   * a secure email invitation / password setup link via /api/invite-sales-rep.
+   */
+  async inviteSalesRepToPortal(salesRepId: string): Promise<{
+    status: string;
+    linked: boolean;
+    invited?: boolean;
+    email_sent?: boolean;
+    message?: string;
+  }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) {
+      throw new Error('Authentication session required to send representative portal invitations.');
+    }
+
+    const res = await fetch('/api/invite-sales-rep', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        sales_rep_id: salesRepId,
+        origin: typeof window !== 'undefined' ? window.location.origin : undefined,
+      }),
+    });
+
+    let body: any = {};
+    try {
+      body = await res.json();
+    } catch {
+      body = {};
+    }
+
+    if (!res.ok) {
+      throw new Error(body?.error || `Failed to send portal invitation (HTTP ${res.status})`);
+    }
+
+    return body;
+  },
+
+  /**
    * Updates sales representative profile or status (e.g. active, suspended, terminated).
    */
   async updateSalesRepStatus(id: string, status: 'active' | 'suspended' | 'terminated', notes?: string) {

@@ -22,12 +22,24 @@ interface AuthContextType {
   profile: Profile | null;
   loading: boolean;
   error: string | null;
+  pendingAuthFlow: 'recovery' | 'invite' | null;
+  clearPendingAuthFlow: () => void;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signUp: (email: string, password: string, metadata?: SignUpMetadata) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
-  resetPasswordForEmail: (email: string) => Promise<{ error: AuthError | null }>;
+  resetPasswordForEmail: (email: string, redirectPath?: string) => Promise<{ error: AuthError | null }>;
   refreshProfile: () => Promise<void>;
   clearError: () => void;
+}
+
+function detectUrlAuthFlowType(): 'recovery' | 'invite' | null {
+  if (typeof window === 'undefined') return null;
+  const hash = window.location.hash || '';
+  const search = window.location.search || '';
+  const combined = `${hash}&${search}`.toLowerCase();
+  if (combined.includes('type=recovery')) return 'recovery';
+  if (combined.includes('type=invite')) return 'invite';
+  return null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,6 +50,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingAuthFlow, setPendingAuthFlow] = useState<'recovery' | 'invite' | null>(() =>
+    detectUrlAuthFlowType()
+  );
 
   const fetchProfile = useCallback(async (userId: string) => {
     try {
@@ -85,8 +100,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!isMounted) return;
+
+      if (event === 'PASSWORD_RECOVERY') {
+        setPendingAuthFlow('recovery');
+      }
 
       setSession(newSession);
       setUser(newSession?.user ?? null);
@@ -196,10 +215,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const resetPasswordForEmail = useCallback(async (email: string): Promise<{ error: AuthError | null }> => {
+  const resetPasswordForEmail = useCallback(async (email: string, redirectPath: string = '/reset-password'): Promise<{ error: AuthError | null }> => {
     setError(null);
     try {
-      const redirectUrl = getAuthRedirectUrl('/login');
+      const redirectUrl = getAuthRedirectUrl(redirectPath);
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: redirectUrl,
       });
@@ -225,19 +244,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
   }, []);
 
+  const clearPendingAuthFlow = useCallback(() => {
+    setPendingAuthFlow(null);
+  }, []);
+
   const value = useMemo<AuthContextType>(() => ({
     user,
     session,
     profile,
     loading,
     error,
+    pendingAuthFlow,
+    clearPendingAuthFlow,
     signIn,
     signUp,
     signOut,
     resetPasswordForEmail,
     refreshProfile,
     clearError,
-  }), [user, session, profile, loading, error, signIn, signUp, signOut, resetPasswordForEmail, refreshProfile, clearError]);
+  }), [user, session, profile, loading, error, pendingAuthFlow, clearPendingAuthFlow, signIn, signUp, signOut, resetPasswordForEmail, refreshProfile, clearError]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

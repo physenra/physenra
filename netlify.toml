@@ -60,6 +60,11 @@
   to = "/.netlify/functions/reconcile-referral-commissions"
   status = 200
 
+[[redirects]]
+  from = "/api/invite-sales-rep"
+  to = "/.netlify/functions/invite-sales-rep"
+  status = 200
+
 # SPA routing fallback: rewrite all non-asset requests to /index.html (HTTP 200)
 [[redirects]]
   from = "/*"

@@ -1,6 +1,8 @@
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { useAuth } from './hooks/useAuth';
+import { referralTrackingService } from './services/referralTrackingService';
 import { AppShell } from './components/layout/AppShell';
 import { LoginPage } from './pages/auth/LoginPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
@@ -90,9 +92,13 @@ import { PlatformAuditPage } from './pages/platform/PlatformAuditPage';
 import { PlatformSettingsPage } from './pages/platform/PlatformSettingsPage';
 import { PlatformSalesPage } from './pages/platform/PlatformSalesPage';
 import { SalesRepGuard } from './components/auth/SalesRepGuard';
-import { RepDashboardPage } from './pages/rep/RepDashboardPage';
+import { SalesPortalPage } from './pages/rep/SalesPortalPage';
+import { SalesPortalLoginPage } from './pages/rep/SalesPortalLoginPage';
+import { AcceptRepInvitePage } from './pages/rep/AcceptRepInvitePage';
 import { PricingPage } from './pages/public/PricingPage';
 import { RegisterPracticePage } from './pages/auth/RegisterPracticePage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
 import { SignUpPage } from './pages/auth/SignUpPage';
 import { PracticeBillingPage } from './pages/billing/PracticeBillingPage';
 import { PracticeInvoiceListPage } from './pages/billing/PracticeInvoiceListPage';
@@ -114,9 +120,38 @@ import {
 } from './public/routes/publicRoutes';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 
+const RegisterRedirect: React.FC = () => {
+  const location = useLocation();
+  return <Navigate to={`/register-practice${location.search || ''}`} replace />;
+};
+
+const GlobalBridgeWatcher: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { pendingAuthFlow, user } = useAuth();
+
+  useEffect(() => {
+    if (location.search) {
+      referralTrackingService.captureReferralFromUrl(new URLSearchParams(location.search));
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    if (!user || !pendingAuthFlow) return;
+    if (pendingAuthFlow === 'invite' && location.pathname !== '/sales-portal/accept-invite') {
+      navigate('/sales-portal/accept-invite', { replace: true });
+    } else if (pendingAuthFlow === 'recovery' && location.pathname !== '/reset-password') {
+      navigate('/reset-password', { replace: true });
+    }
+  }, [user, pendingAuthFlow, location.pathname, navigate]);
+
+  return null;
+};
+
 export const App: React.FC = () => {
   return (
     <ErrorBoundary>
+      <GlobalBridgeWatcher />
       <Routes>
       {/* Public Routes */}
       {/* Public Commercial Website Root (Phase 1A Scaffold) */}
@@ -150,7 +185,10 @@ export const App: React.FC = () => {
 
       {/* Application Bridges */}
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/signup" element={<SignUpPage />} />
+      <Route path="/register" element={<RegisterRedirect />} />
       <Route path="/register-practice" element={<RegisterPracticePage />} />
 
       {/* Physenra Recovery Companion (Patient-facing, low-data, verified access code) */}
@@ -177,23 +215,28 @@ export const App: React.FC = () => {
         <Route path="sales" element={<PlatformSalesPage />} />
       </Route>
 
-      {/* Sales Representative Self-Service Portal */}
+      {/* Sales Representative Self-Service Portal (Free Partner Access) */}
+      <Route path="/sales-portal/login" element={<SalesPortalLoginPage />} />
+      <Route path="/sales-portal/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/sales-portal/accept-invite" element={<AcceptRepInvitePage />} />
       <Route
-        path="/rep"
+        path="/sales-portal"
         element={
           <SalesRepGuard>
-            <RepDashboardPage />
+            <SalesPortalPage />
           </SalesRepGuard>
         }
       />
       <Route
-        path="/rep/dashboard"
+        path="/sales-portal/*"
         element={
           <SalesRepGuard>
-            <RepDashboardPage />
+            <SalesPortalPage />
           </SalesRepGuard>
         }
       />
+      <Route path="/rep" element={<Navigate to="/sales-portal" replace />} />
+      <Route path="/rep/dashboard" element={<Navigate to="/sales-portal" replace />} />
 
       {/* Authenticated user with no practice assigned */}
       <Route path="/no-practice" element={<NoPracticePage />} />

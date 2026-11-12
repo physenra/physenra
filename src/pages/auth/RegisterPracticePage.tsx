@@ -58,6 +58,7 @@ export const RegisterPracticePage: React.FC = () => {
     initialInterval === 'annual' ? 'annual' : 'monthly'
   );
   const [referralCode, setReferralCode] = useState<string>('');
+  const [referralStatus, setReferralStatus] = useState<'idle' | 'valid' | 'unverified'>('idle');
   const [showReferralInput, setShowReferralInput] = useState<boolean>(false);
 
   // Authoritative plan data from backend
@@ -81,6 +82,14 @@ export const RegisterPracticePage: React.FC = () => {
     if (captured) {
       setReferralCode(captured);
       setShowReferralInput(true);
+      saasSubscriptionService
+        .validateReferralCode(captured)
+        .then((res) => {
+          if (isMounted) {
+            setReferralStatus(res.valid ? 'valid' : 'unverified');
+          }
+        })
+        .catch(() => null);
     }
 
     saasSubscriptionService
@@ -702,8 +711,14 @@ export const RegisterPracticePage: React.FC = () => {
                               <span>Sales Partner Referral Code</span>
                             </label>
                             {referralCode && (
-                              <span className="text-[10px] bg-teal-100 text-teal-800 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                                Applied
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                  referralStatus === 'valid'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : 'bg-teal-100 text-teal-800'
+                                }`}
+                              >
+                                {referralStatus === 'valid' ? 'Verified Partner' : 'Applied'}
                               </span>
                             )}
                           </div>
@@ -713,8 +728,17 @@ export const RegisterPracticePage: React.FC = () => {
                             onChange={(e) => {
                               const val = e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
                               setReferralCode(val);
+                              setReferralStatus('idle');
                               if (val && isValidReferralCode(val)) {
                                 referralTrackingService.setReferralCode(val, true);
+                              }
+                            }}
+                            onBlur={() => {
+                              if (referralCode && isValidReferralCode(referralCode)) {
+                                saasSubscriptionService
+                                  .validateReferralCode(referralCode)
+                                  .then((res) => setReferralStatus(res.valid ? 'valid' : 'unverified'))
+                                  .catch(() => null);
                               }
                             }}
                             placeholder="e.g. LAGOS-REP-01"
@@ -722,7 +746,9 @@ export const RegisterPracticePage: React.FC = () => {
                             disabled={submitting}
                           />
                           <p className="text-[11px] text-teal-700 mt-1">
-                            Your practice will be connected with your Physenra representative for priority onboarding.
+                            {referralStatus === 'unverified'
+                              ? 'Note: If a code is inactive or unrecognized, your practice registration still proceeds normally.'
+                              : 'Your practice will be connected with your Physenra representative for priority onboarding.'}
                           </p>
                         </div>
                       )}
