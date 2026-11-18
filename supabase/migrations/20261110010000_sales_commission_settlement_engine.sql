@@ -12,6 +12,19 @@
 -- ==============================================================================
 
 -- ------------------------------------------------------------------------------
+-- 0. SYSTEM SERVICE ACTOR ENSURE
+-- Required for automated daemon/webhook lifecycle transitions (actor_user_id FK)
+-- ------------------------------------------------------------------------------
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = '00000000-0000-0000-0000-000000000000') THEN
+    INSERT INTO auth.users (id, email)
+    VALUES ('00000000-0000-0000-0000-000000000000', 'system@physenra.internal')
+    ON CONFLICT (id) DO NOTHING;
+  END IF;
+END $$;
+
+-- ------------------------------------------------------------------------------
 -- 1. AUTHORITATIVE COMMISSION EVALUATION ENGINE
 -- ------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.evaluate_referral_commission(
